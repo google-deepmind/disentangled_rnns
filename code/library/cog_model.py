@@ -74,7 +74,7 @@ class HkCognitiveModel(hk.RNNCore):
     self.beta_gf = beta_gf
     self.beta_bias = beta_bias
 
-  def __call__(self, inputs: jnp.array, prev_state: jnp.array):
+  def __call__(self, inputs: jnp.ndarray, prev_state: jnp.ndarray):
     prev_values = prev_state
     prev_r = prev_values[:, 0]  # shape: (batch_size, 1)
     prev_h = prev_values[:, 1]  # shape: (batch_size, 1)

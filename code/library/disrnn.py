@@ -102,9 +102,7 @@ class HkCompartmentalizedRNN(hk.RNNCore):
         init=hk.initializers.RandomUniform(minval=-1, maxval=1),
     )
 
-  def __call__(
-      self, observations: jnp.array, prev_latents: jnp.array):
-
+  def __call__(self, observations: jnp.ndarray, prev_latents: jnp.ndarray):
     penalty = 0  # Accumulator for KL costs
 
     ################
