@@ -177,7 +177,7 @@ def train_network(
     # TODO(kevinjmiller): Check that this works correctly. Add a test.
     errors = jnp.multiply((ys - y_hats), mask)
     loss = jnp.mean(jnp.square(errors))
-    return loss
+    return loss  # pytype: disable=bad-return-type  # jnp-type
 
   def mse_loss(params, xs, ys, random_key) -> float:
     y_hats = model.apply(params, random_key, xs)
@@ -201,7 +201,7 @@ def train_network(
     log_liks = one_hot_labels * log_probs
     masked_log_liks = jnp.multiply(log_liks, mask)
     loss = -jnp.nansum(masked_log_liks)
-    return loss
+    return loss  # pytype: disable=bad-return-type  # jnp-type
 
   def categorical_loss(
       params, xs: np.ndarray, labels: np.ndarray, random_key
