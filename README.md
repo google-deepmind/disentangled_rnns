@@ -32,9 +32,9 @@ Datasets are generated or packaged using the functions in `get_datasets.py`. Fiv
 * `get_q_learning_dataset`: Generates a synthetic dataset from a Q-Learning agent with standard parameters performing the drifting two-armed bandit task.
 * `get_actor_critic_dataset`: Generates a synthetic dataset from an Actor-Critic agent with standard parameters performing the drifting two-armed bandit task.
 * `get_bounded_accumulator_dataset`: Generates a synthetic dataset from a Bounded Accumulator agent with standard parameters performing the click accumulation task.
-* `get_rat_bandit_datasets`: Packages laboratory datasets from rats performing the drifting two-armed bandit dataset from [Miller, Botvinick, and Brody, 2018](https://www.biorxiv.org/content/10.1101/461129v3). Requires a path to the file `tab_dataset.json`, which is available on Figshare from the authors at [this link](https://figshare.com/articles/dataset/From_predictive_models_to_cognitive_models_Separable_behavioral_processes_underlying_reward_learning_in_the_rat/20449356
+* `get_rat_bandit_datasets`: Packages laboratory datasets from rats performing the drifting two-armed bandit dataset from [Miller, Botvinick, and Brody, 2018](https://www.biorxiv.org/content/10.1101/461129v3). Requires internet access to download [the dataset](https://figshare.com/articles/dataset/From_predictive_models_to_cognitive_models_Separable_behavioral_processes_underlying_reward_learning_in_the_rat/20449356
 ).
-* `get_pclicks_datasets`: Packages laboratory datasets from rats performing the click accumulation task from [Brunton, Botvinick, and Brody, 2013](https://pubmed.ncbi.nlm.nih.gov/23559254/). Requires a path to the file `brunton-dataset.json`, which is available at [somewhere?](). We generated this file using the open dataset released by the authors at [this link](https://github.com/Brody-Lab/brunton_dataset), converting the precise spiketimes into binned spike counts to facilitate training discrete-time neural networks.
+* `get_pclicks_datasets`: Packages laboratory datasets from rats performing the click accumulation task from [Brunton, Botvinick, and Brody, 2013](https://pubmed.ncbi.nlm.nih.gov/23559254/). Requires internet access to download [the dataset](https://github.com/Brody-Lab/brunton_dataset).
 
 ### Fitting a disRNN
 
