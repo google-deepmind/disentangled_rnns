@@ -15,10 +15,8 @@
 
 """Two armed bandit experiments. Generate synthetic data, plot data."""
 
-from typing import Callable, NamedTuple, Tuple, Union
+from typing import NamedTuple, Union
 
-import haiku as hk
-import jax
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -203,58 +201,7 @@ class AgentLeakyActorCritic:
     self.v = (1 - self._alpha_critic) * self.v + self._alpha_critic * reward
 
 
-class AgentNetwork:
-  """A class that allows running a trained RNN as an agent.
-
-  Attributes:
-    make_network: A Haiku function that returns an RNN architecture
-    params: A set of Haiku parameters suitable for that architecture
-  """
-
-  def __init__(self,
-               make_network: Callable[[], hk.RNNCore],
-               params: hk.Params):
-
-    def step_network(xs: np.ndarray,
-                     state: hk.State) -> Tuple[np.ndarray, hk.State]:
-      core = make_network()
-      y_hat, new_state = core(xs, state)
-      return y_hat, new_state
-
-    def get_initial_state() -> hk.State:
-      core = make_network()
-      rnn_state = core.initial_state(1)
-      return rnn_state
-
-    model = hk.without_apply_rng(hk.transform(step_network))
-    rnn_state = hk.without_apply_rng(hk.transform(get_initial_state))
-
-    self._initial_state = rnn_state.apply(params)
-    self._model_fun = jax.jit(
-        lambda xs, state: model.apply(params, xs, rnn_state)
-    )
-    self._xs = np.zeros((1, 2))
-    self.new_sess()
-
-  def new_sess(self):
-    self._rnn_state = self._initial_state
-
-  def get_choice_probs(self) -> np.ndarray:
-    output_logits, _ = self._model_fun(self._xs, self._rnn_state)
-    choice_probs = np.asarray(jax.nn.softmax(output_logits[0]))
-    return choice_probs
-
-  def get_choice(self) -> Tuple[int, np.ndarray]:
-    choice_probs = self.get_choice_probs()
-    choice = np.random.choice(2, p=choice_probs)
-    return choice
-
-  def update(self, choice: int, reward: int):
-    self._xs = np.array([[choice, reward]])
-    _, self._rnn_state = self._model_fun(self._xs, self._rnn_state)
-
-
-Agent = Union[AgentQ, AgentLeakyActorCritic, AgentNetwork]
+Agent = Union[AgentQ, AgentLeakyActorCritic]
 
 
 class SessData(NamedTuple):
