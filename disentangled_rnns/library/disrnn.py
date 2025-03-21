@@ -43,7 +43,7 @@ def kl_gaussian(mean: jnp.ndarray, var: jnp.ndarray) -> jnp.ndarray:
 
 
 class HkDisRNN(hk.RNNCore):
-  """Compartmentalized RNN."""
+  """Disentangled RNN."""
 
   def __init__(
       self,
