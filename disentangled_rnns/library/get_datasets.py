@@ -1,17 +1,16 @@
-# Copyright 2024 DeepMind Technologies Limited
+# Copyright 2024 The disentangled_rnns Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#    http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ==============================================================================
 
 """Load rat datasets."""
 
@@ -20,12 +19,11 @@ import os
 from typing import List
 import urllib.request
 
-import numpy as np
-import scipy.io
-
 from disentangled_rnns.library import pclicks
 from disentangled_rnns.library import rnn_utils
 from disentangled_rnns.library import two_armed_bandits
+import numpy as np
+import scipy.io
 
 
 def find(s, ch):
