@@ -27,166 +27,79 @@ import numpy as np
 import optax
 
 
-class DatasetRNN:
+class DatasetRNN():
   """Holds a dataset for training an RNN, consisting of inputs and targets.
 
-  Both inputs and targets are stored as [timestep, episode, feature]
-  Serves them up in batches
+     Both inputs and targets are stored as [timestep, episode, feature]
+     Serves them up in batches
   """
 
-  def __init__(
-      self,
-      xs: np.ndarray,
-      ys: np.ndarray,
-      y_type: str,
-      n_classes: Optional[int] = None,
-      x_names: Optional[list[str]] = None,
-      y_names: Optional[list[str]] = None,
-      batch_size: Optional[int] = None,
-  ):
+  def __init__(self,
+               xs: np.ndarray,
+               ys: np.ndarray,
+               batch_size: Optional[int] = None):
     """Do error checking and bin up the dataset into batches.
 
     Args:
-      xs: Values to become inputs to the network. Should have dimensionality
-        [timestep, episode, feature]
-      ys: Values to become output targets for the RNN. Should have
-        dimensionality [timestep, episode, feature]
-      y_type: Either 'categorical','scalar' or 'mixed'. If 'categorical',
-        targets must be integers. If 'mixed', first element is assumed to be
-        categorical.
-      n_classes: The number of classes in the categorical targets. If not
-        specified, will be inferred from the data.
-      x_names: A list of names for the features in xs. If not supplied, will be
-        generated automatically.
-      y_names: A list of names for the features in ys. If not supplied, will be
-        generated automatically.
+      xs: Values to become inputs to the network.
+        Should have dimensionality [timestep, episode, feature]
+      ys: Values to become output targets for the RNN.
+        Should have dimensionality [timestep, episode, feature]
       batch_size: The size of the batch (number of episodes) to serve up each
         time next() is called. If not specified, all episodes in the dataset
         will be served
+
     """
-    ##################
-    # Error checking #
-    ##################
 
-    if y_type not in ['categorical', 'scalar', 'mixed']:
-      raise ValueError(
-          f'y_type {y_type} must be either "categorical","scalar" or "mixed".'
-      )
-
-    if y_type == 'categorical':
-      # Check validity and determine the number of classes
-      if ys.shape[-1] != 1:
-        raise NotImplementedError(
-            'Categorical targets are assumed to have dimensionality'
-            f'(n_timesteps, n_episodes, 1). Got {ys.shape} instead. If you need'
-            'multiple distinct types of categorical targets, feel free to '
-            'implement this and send a CL'
-        )
-
-    if y_type in ['categorical', 'mixed']:
-      # NOTE: By convention, for y_type=='mixed' the first element of the target
-      # is assumed to be categorical.
-      categorical_index = 0
-      categorical_ys = ys[:, :, categorical_index]
-      uniques = np.unique(categorical_ys)
-      if not np.all(np.isclose(uniques, np.round(uniques))):
-        raise ValueError(
-            f'Categorical targets must be integers. Got {uniques} instead'
-        )
-      # Infer or check the number of classes. It should be equal to or greater
-      # than the number of unique nonnegative values
-      n_classes_expected = np.sum(uniques >= 0)
-      if n_classes is None:
-        n_classes = n_classes_expected
-      else:
-        if n_classes < n_classes_expected:
-          raise ValueError(
-              f'Based on unique y values {uniques}, expected n_classes to be at'
-              f' least {n_classes_expected}. Instead it is {n_classes}'
-          )
-    else:
-      # If not categorical, n_classes is not defined
-      n_classes = None
-
-    # Do xs and ys have the same number of timesteps?
-    if xs.shape[0] != ys.shape[0]:
-      raise ValueError(
-          f'Number of timesteps in xs {xs.shape[0]} must be equal to number of'
-          f' timesteps in ys {xs.shape[0]}.'
-      )
-
-    # Do xs and ys have the same number of episodes?
-    if xs.shape[1] != ys.shape[1]:
-      raise ValueError(
-          f'Number of episodes in xs {xs.shape[1]} must be equal to number of'
-          ' episodes in ys {ys.shape[1]}.'
-      )
-
-    # Process feature and target names
-    if x_names is None:
-      x_names = [f'Observation {i}' for i in range(xs.shape[2])]
-    else:
-      if len(x_names) != xs.shape[2]:
-        raise ValueError(
-            f'Number of x_names {len(x_names)} must be equal to number of'
-            f' features in xs {xs.shape[-1]}.'
-        )
-
-    if y_names is None:
-      y_names = [f'Target {i}' for i in range(ys.shape[2])]
-    else:
-      if len(y_names) != ys.shape[2]:
-        raise ValueError(
-            f'Number of y_names {len(y_names)} must be equal to number of'
-            f' features in ys {ys.shape[-1]}.'
-        )
-
-    ####################
-    # Property setting #
-    ####################
-    # If batch size not specified, use all episodes in the dataset
     if batch_size is None:
       batch_size = xs.shape[1]
 
-    self.x_names = x_names
-    self.y_names = y_names
-    self.y_type = y_type
-    self.n_classes = n_classes
-    self.batch_size = batch_size
+    # Error checking
+    # Do xs and ys have the same number of timesteps?
+    if xs.shape[0] != ys.shape[0]:
+      msg = ('number of timesteps in xs {} must be equal to number of timesteps'
+             ' in ys {}.')
+      raise ValueError(msg.format(xs.shape[0], ys.shape[0]))
+
+    # Do xs and ys have the same number of episodes?
+    if xs.shape[1] != ys.shape[1]:
+      msg = ('number of timesteps in xs {} must be equal to number of timesteps'
+             ' in ys {}.')
+      raise ValueError(msg.format(xs.shape[0], ys.shape[0]))
+
+    # Is the number of episodes divisible by the batch size?
+    if xs.shape[1] % batch_size != 0:
+      msg = 'dataset size {} must be divisible by batch_size {}.'
+      raise ValueError(msg.format(xs.shape[1], batch_size))
+
+    # Property setting
     self._xs = xs
     self._ys = ys
-    self._n_episodes = self._xs.shape[1]
-    self._n_timesteps = self._xs.shape[0]
-    self._order_to_get = np.arange(self._n_episodes)
+    self._batch_size = batch_size
+    self._dataset_size = self._xs.shape[1]
+    self._idx = 0
+    self.n_batches = self._dataset_size // self._batch_size
 
   def __iter__(self):
     return self
 
-  def get_all(self):
-    """Returns all the data in the dataset."""
-    return self._xs, self._ys
-
   def __next__(self):
     """Return a batch of data, including both xs and ys."""
 
-    # If batch_size is larger than the number of episodes, raise a warning
-    if self.batch_size > self._n_episodes:
-      logging.warning(
-          'Batch size %d is larger than the number of episodes %d. Only %d'
-          ' episodes will be used.',
-          self.batch_size,
-          self._n_episodes,
-          self._n_episodes,
-      )
-      self.batch_size = self._n_episodes
+    # Define the chunk we want: from idx to idx + batch_size
+    start = self._idx
+    end = start + self._batch_size
+    # Check that we're not trying to overshoot the size of the dataset
+    assert end <= self._dataset_size
 
-    # Define the chunk we want: first batch_size episodes from the order_to_get
-    batch_inds = self._order_to_get[: self.batch_size]
+    # Update the index for next time
+    if end == self._dataset_size:
+      self._idx = 0
+    else:
+      self._idx = end
+
     # Get the chunks of data
-    x, y = self._xs[:, batch_inds], self._ys[:, batch_inds]
-
-    # Update the order for next time
-    self._order_to_get = np.roll(self._order_to_get, self.batch_size)
+    x, y = self._xs[:, start:end], self._ys[:, start:end]
 
     return x, y
 
@@ -416,7 +329,7 @@ def eval_network(
     make_network: Callable[[], hk.RNNCore],
     params: hk.Params,
     xs: np.ndarray,
-) -> tuple[np.ndarray, Any]:
+) ->  Tuple[np.ndarray, Any]:
   """Run an RNN with specified params and inputs. Track internal state.
 
   Args:
@@ -429,129 +342,100 @@ def eval_network(
     states: Network states at each timestep
   """
 
+  n_steps = jnp.shape(xs)[0]
+
   def unroll_network(xs):
     core = make_network()
     batch_size = jnp.shape(xs)[1]
     state = core.initial_state(batch_size)
-    ys, states = hk.dynamic_unroll(core, xs, state, return_all_states=True)
-    return ys, states
+
+    y_hats = []
+    states = []
+
+    for t in range(n_steps):
+      states.append(state)
+      y_hat, new_state = core(xs[t, :], state)
+      state = new_state
+
+      y_hats.append(y_hat)
+
+    return np.asarray(y_hats), np.asarray(states)
 
   model = hk.transform(unroll_network)
   key = jax.random.PRNGKey(np.random.randint(2**32))
-  apply = jax.jit(model.apply)
-  y_hats, states = apply(params, key, xs)
-
-  states = np.squeeze(np.array(states))
-  # States should now be (n_timesteps, n_episodes, n_hidden)
-  assert states.shape[0] == xs.shape[0], (
-      'States and inputs should have the same number of timesteps.')
-  assert states.shape[1] == xs.shape[1], (
-      'States and inputs should have the same number of episodes.')
+  y_hats, states = model.apply(params, key, xs)
 
   return np.asarray(y_hats), states
-
-
-def get_apply(
-    make_network: Callable[[], hk.RNNCore],
-    verbose: bool = False,
-) -> tuple[np.ndarray, Any]:
-  """Get a jitted apply function for a network.
-
-  Args:
-    make_network: Network constructor
-    verbose: if True, print a statement when calling step_sub
-
-  Returns:
-    apply: a jitted apply function for the network
-  """
-
-  def step_sub(x, state):
-    core = make_network()
-    y_hat, new_state = core(x, state)
-    if verbose:
-      print('[step_sub] this should only print once per jit.')
-    return y_hat, new_state
-
-  model = hk.transform(step_sub)
-  apply = jax.jit(model.apply)
-
-  return apply
 
 
 def step_network(
     make_network: Callable[[], hk.RNNCore],
     params: hk.Params,
     state: Any,
-    xs: Any,
-    apply: Any = None,
-) -> tuple[Any, Any, Any]:
-  """Run an RNN for just a single step on a single input, with batching.
+    xs: np.ndarray,
+) -> Tuple[np.ndarray, Any]:
+  """Run an RNN for just a single step on a single input (no batching).
 
   Args:
     make_network: A Haiku function that defines a network architecture
     params: A set of params suitable for that network
     state: An RNN state suitable for that network
-    xs: An input for a single timestep from a single episode, with shape
-      [n_features]
-    apply: A jitted function that applies the network to a single input. If not
-      supplied, will be generated from the network architecture
+    xs: An input for a single timestep from a single episode, with
+      shape [n_features]
 
   Returns:
     y_hat: The output given by the network, with dimensionality [n_features]
     new_state: The new RNN state of the network
   """
 
-  if apply is None:
-    apply = get_apply(make_network)
+  def step_sub(xs):
+    core = make_network()
+    y_hat, new_state = core(xs, state)
+    return y_hat, new_state
+
+  model = hk.transform(step_sub)
   key = jax.random.PRNGKey(np.random.randint(2**32))
-  y_hat, new_state = apply(params, key, xs, state)
+  y_hat, new_state = model.apply(params, key, np.expand_dims(xs, axis=0))
 
-  return y_hat, new_state, apply
+  return y_hat, new_state
 
 
-def get_initial_state(
-    make_network: Callable[[], hk.RNNCore],
-    params: Optional[Any] = None,
-    batch_size: int = 1,
-    seed: int = 0,
-) -> Any:
+def get_initial_state(make_network: Callable[[], hk.RNNCore],
+                      params: Optional[Any] = None) -> Any:
   """Get the default initial state for a network architecture.
 
   Args:
     make_network: A Haiku function that defines a network architecture
     params: Optional parameters for the Hk function. If not passed, will init
       new parameters. For many models this will not affect initial state
-    batch_size: The batch size to use when generating the initial state
-    seed: A seed for the random number generator that makes params (for most
-      networks this will not affect initial state)
 
   Returns:
     initial_state: An initial state from that network
   """
 
+  # The logic below needs a jax randomy key and a sample input in order to work.
+  # But neither of these will affect the initial network state, so its ok to
+  # generate throwaways
+  random_key = jax.random.PRNGKey(np.random.randint(2**32))
+
   def unroll_network():
     core = make_network()
-    state = core.initial_state(batch_size=batch_size)
+    state = core.initial_state(batch_size=1)
 
     return state
 
   model = hk.transform(unroll_network)
 
-  # If no params were supplied, generate random params.
-  random_key = jax.random.PRNGKey(seed)
   if params is None:
     params = model.init(random_key)
 
-  apply = jax.jit(model.apply)
-  initial_state = apply(params, random_key)
+  initial_state = model.apply(params, random_key)
 
   return initial_state
 
 
-def get_new_params(
-    make_network: Callable[..., hk.RNNCore],
-    random_key: Optional[jax.Array] = None,
-) -> Any:
+def get_new_params(make_network: Callable[[], hk.RNNCore],
+                   random_key: Optional[jax.Array] = None) -> Any:
   """Get a new set of random parameters for a network architecture.
 
   Args:
@@ -573,58 +457,22 @@ def get_new_params(
     return state
 
   model = hk.transform(unroll_network)
-  init = jax.jit(model.init)
-  params = init(random_key)
+
+  params = model.init(random_key)
 
   return params
 
 
-def eval_feedforward_network(
-    make_network: Callable[..., Any], params: hk.Params, xs: np.ndarray
-) -> np.ndarray:
-  """Run a feedforward network with specified params and inputs."""
-
-  def forward(xs):
-    net = make_network()
-    y_hats = net(xs)
-    return y_hats
-
-  model = hk.transform(forward)
-  key = jax.random.PRNGKey(np.random.randint(2**32))
-  apply = jax.jit(model.apply)
-  y_hats = apply(params, key, xs)
-
-  return np.array(y_hats)
-
-
-def to_np(list_dict: dict[str, Any]):
-  """Converts all numerical lists in a dict to np arrays.
-
-  Elements that are convertible to numpy are converted. Elements that are dicts
-  are recursively unpacked in the same way. Other elements are left unchanged.
-  The intended use case is reconstructing a dict from json that was saved with
-  NpEncoder and has had all its np arrays converted to lists.
-
-  Args:
-    list_dict: A dict or hierarchical tree of dicts
-
-  Returns:
-    np_dict: A dict or tree of dicts with the same structure, in which any
-      numerical lists have been converted into np arrays.
+def to_jnp(list_dict):
+  """Recursively convert a dict of lists into one of jnp arrays.
   """
-  np_dict = dict()
-  # Traverse the tree of dicts. If we find anything that can be converted to an
-  # np array, convert it. Otherwise, leave it unchanged.
+  jnp_dict = dict()
   for key, value in list_dict.items():
     if isinstance(value, dict):
-      np_dict[key] = to_np(value)
+      jnp_dict[key] = to_jnp(value)
     else:
-      try:
-        np_dict[key] = np.array(value)
-      except ValueError:
-        print(f'Not converting {key}. Type is {type(value)}')
-        np_dict[key] = value
-  return np_dict
+      jnp_dict[key] = jnp.array(value)
+  return jnp_dict
 
 
 class NpEncoder(json.JSONEncoder):
@@ -634,13 +482,9 @@ class NpEncoder(json.JSONEncoder):
   """
 
   def default(self, o: Any):
-    if o is None:
-      return None
-    if isinstance(
-        o, (np.int_, np.intc, np.intp, np.int8, np.int16, np.int32, np.int64)
-    ):
+    if isinstance(o, np.integer):
       return int(o)
-    if isinstance(o, (np.float16, np.float32, np.float64)):
+    if isinstance(o, np.floating):
       return float(o)
     if isinstance(o, np.ndarray):
       return o.tolist()
@@ -651,10 +495,4 @@ class NpEncoder(json.JSONEncoder):
       return float(o)
     if isinstance(o, jnp.ndarray):
       return o.tolist()
-
-    if isinstance(o, list):
-      return [self.default(x) for x in o]
-    if isinstance(o, dict):
-      return {k: self.default(v) for k, v in o.items()}
-
     return super().default(o)
