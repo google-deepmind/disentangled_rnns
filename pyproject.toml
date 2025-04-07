@@ -6,7 +6,7 @@ description = ""
 readme = "README.md"
 requires-python = ">=3.8"
 license = {file = "LICENSE"}
-authors = [{name = "disentangled_rnns authors", email="kevinjmiller@google.com"}]
+authors = [{name = "GDM NeuroLab", email="no-reply@google.com"}]
 classifiers = [  # List of https://pypi.org/classifiers/
     "License :: OSI Approved :: Apache Software License",
     "Intended Audience :: Science/Research",
