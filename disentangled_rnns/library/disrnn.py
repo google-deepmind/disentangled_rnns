@@ -42,6 +42,21 @@ def kl_gaussian(mean: jnp.ndarray, var: jnp.ndarray) -> jnp.ndarray:
   return 0.5 * jnp.sum(-jnp.log(var) - 1.0 + var + jnp.square(mean), axis=-1)
 
 
+def reparameterize_sigma(
+    hk_param: jnp.ndarray, min_sigma: float = 1e-5
+) -> jnp.ndarray:
+  """Reparameterizes bottleneck sigma for easy fitting.
+
+  Args:
+    hk_param: The haiku parameter corresponding to a bottleneck sigma. Range
+      from -inf to +inf
+    min_sigma: The minimum value of the sigma.
+  Returns:
+    sigma: The bottleneck sigma. Range from min_sigma to inf.
+  """
+  return jnp.abs(hk_param) + min_sigma
+
+
 class HkDisRNN(hk.RNNCore):
   """Disentangled RNN."""
 
@@ -70,15 +85,15 @@ class HkDisRNN(hk.RNNCore):
     # It has a sigma and a multiplier associated with each.
     mlp_input_size = latent_size + obs_size
     # At init the bottlenecks should all be open: sigmas small and multipliers 1
-    update_mlp_sigmas_unsquashed = hk.get_parameter(
-        'update_mlp_sigmas_unsquashed',
+    update_mlp_sigma_params = hk.get_parameter(
+        'update_mlp_sigma_params',
         (mlp_input_size, latent_size),
         init=hk.initializers.RandomUniform(minval=-3, maxval=-2),
     )
-    # Training encourages sigmas to be ~1 or smaller. Bound them between 0 and 2
-    self._update_mlp_sigmas = (
-        2 * jax.nn.sigmoid(update_mlp_sigmas_unsquashed) * (1 - eval_mode)
-    )
+    # Reparameterize the sigmas to be positive definite and have a minimum value
+    self._update_mlp_sigmas = reparameterize_sigma(
+        update_mlp_sigma_params
+    ) * (1 - eval_mode)
     self._update_mlp_multipliers = hk.get_parameter(
         'update_mlp_gates',
         (mlp_input_size, latent_size),
@@ -86,14 +101,14 @@ class HkDisRNN(hk.RNNCore):
     )
 
     # Latents will also go through a bottleneck
-    self.latent_sigmas_unsquashed = hk.get_parameter(
-        'latent_sigmas_unsquashed',
+    self.latent_sigma_params = hk.get_parameter(
+        'latent_sigma_params',
         (latent_size,),
         init=hk.initializers.RandomUniform(minval=-3, maxval=-2),
     )
-    self._latent_sigmas = (
-        2 * jax.nn.sigmoid(self.latent_sigmas_unsquashed) * (1 - eval_mode)
-    )
+    self._latent_sigmas = reparameterize_sigma(
+        self.latent_sigma_params
+    ) * (1 - eval_mode)
 
     # Latent initial values are also free parameters
     self._latent_inits = hk.get_parameter(
@@ -186,8 +201,8 @@ class HkDisRNN(hk.RNNCore):
 def plot_bottlenecks(params, sort_latents=True, obs_names=None):
   """Plot the bottleneck sigmas from an hk.DisRNN."""
   params_disrnn = params['hk_dis_rnn']
-  latent_dim = params_disrnn['latent_sigmas_unsquashed'].shape[0]
-  obs_dim = params_disrnn['update_mlp_sigmas_unsquashed'].shape[0] - latent_dim
+  latent_dim = params_disrnn['latent_sigma_params'].shape[0]
+  obs_dim = params_disrnn['update_mlp_sigma_params'].shape[0] - latent_dim
 
   if obs_names is None:
     if obs_dim == 2:
@@ -197,19 +212,17 @@ def plot_bottlenecks(params, sort_latents=True, obs_names=None):
     else:
       obs_names = np.arange(1, obs_dim+1)
 
-  latent_sigmas = 2 * jax.nn.sigmoid(
-      jnp.array(params_disrnn['latent_sigmas_unsquashed'])
-  )
+  latent_sigmas = reparameterize_sigma(params_disrnn['latent_sigma_params'])
 
-  update_sigmas = 2 * jax.nn.sigmoid(
+  update_sigmas = reparameterize_sigma(
       np.transpose(
-          params_disrnn['update_mlp_sigmas_unsquashed']
+          params_disrnn['update_mlp_sigma_params']
       )
   )
 
   if sort_latents:
     latent_sigma_order = np.argsort(
-        params_disrnn['latent_sigmas_unsquashed']
+        latent_sigmas
     )
     latent_sigmas = latent_sigmas[latent_sigma_order]
 
@@ -344,17 +357,15 @@ def plot_update_rules(params, make_network):
         ax.set_aspect('equal')
     return fig
 
-  latent_sigmas = 2*jax.nn.sigmoid(
-      jnp.array(params['hk_dis_rnn']['latent_sigmas_unsquashed'])
-      )
-  update_sigmas = 2*jax.nn.sigmoid(
+  latent_sigmas = reparameterize_sigma(
+      params['hk_dis_rnn']['latent_sigma_params']
+  )
+  update_sigmas = reparameterize_sigma(
       np.transpose(
-          params['hk_dis_rnn']['update_mlp_sigmas_unsquashed']
+          params['hk_dis_rnn']['update_mlp_sigma_params']
           )
       )
-  latent_order = np.argsort(
-      params['hk_dis_rnn']['latent_sigmas_unsquashed']
-      )
+  latent_order = np.argsort(latent_sigmas)
   figs = []
 
   # Loop over latents. Plot update rules
