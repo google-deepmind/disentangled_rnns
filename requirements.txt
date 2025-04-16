@@ -1,8 +1,13 @@
+# requirements.txt
+# Tested with Python 3.11
+
+# JAX ecosystem
 dm-haiku
 jax
-matplotlib
-numpy
-typing
-absl-py
 chex
 optax
+
+# Libraries and utiliities
+numpy
+matplotlib
+absl-py

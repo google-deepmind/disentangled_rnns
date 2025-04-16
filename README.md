@@ -18,16 +18,24 @@ networks.
 
 ## Installation
 
-To install the necessary requirements (run these commands from the directory
-that you wish to clone `disrnn_paper` into):
+These instruction assume you will be using a virtual environment created with [conda](https://anaconda.org/anaconda/conda).
 
-```shell
-git clone https://github.com/deepmind/disrnn_paper.git
-python3 -m venv disrnn_venv
-source disrnn_venv/bin/activate
-pip install --upgrade pip
-pip install -r ./requirements.txt
-```
+1. **Create and activate the virtual environment**
+  ```shell
+  conda create --name disrnn_venv python=3.11
+  conda activate disrnn_venv
+  ```
+
+2. **Install the version of JAX suitable for your hardware**
+  * **For CPU only:** ```pip install -U "jax[cpu]"```
+  * **For NVIDIA GPU:** ```pip install -U "jax[cuda12]"```
+  * **For other architectures:** Consult the [Official JAX Installation Guide](https://github.com/jax-ml/jax#installation).
+
+3. **Clone the github repo and install remaining requirements**
+  ```shell
+  git clone https://github.com/google-deepmind/disentangled_rnns.git
+  pip install -r disentangled_rnns/requirements.txt
+  ```
 
 ## Usage
 
