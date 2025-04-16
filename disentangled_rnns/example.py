@@ -16,10 +16,25 @@
 """
 
 from absl import app
+from absl import flags
 from disentangled_rnns.library import disrnn
 from disentangled_rnns.library import rnn_utils
 from disentangled_rnns.library import two_armed_bandits
 import optax
+
+
+FLAGS = flags.FLAGS
+
+flags.DEFINE_integer(
+    "n_steps_per_session", 200, "Number of steps per session in the dataset."
+)
+flags.DEFINE_integer("n_sessions", 300, "Number of sessions in the dataset.")
+flags.DEFINE_float("learning_rate", 1e-3, "Optimizer learning rate.")
+flags.DEFINE_float("penalty_scale", 1e-3, "Information penalty scale.")
+flags.DEFINE_integer("n_warmup_steps", 1000, "Number of training warmup steps.")
+flags.DEFINE_integer(
+    "n_training_steps", 3000, "Number of main training steps."
+)
 
 
 def main(_) -> None:
@@ -34,18 +49,18 @@ def main(_) -> None:
   dataset = two_armed_bandits.create_dataset(
       agent,
       environment,
-      n_steps_per_session=200,
-      n_sessions=300,
-      batch_size=300,
+      n_steps_per_session=FLAGS.n_steps_per_session,
+      n_sessions=FLAGS.n_sessions,
+      batch_size=FLAGS.n_sessions,
   )
 
   # Second synthetic dataset for evaluation
   dataset_eval = two_armed_bandits.create_dataset(
       agent,
       environment,
-      n_steps_per_session=200,
-      n_sessions=300,
-      batch_size=300,
+      n_steps_per_session=FLAGS.n_steps_per_session,
+      n_sessions=FLAGS.n_sessions,
+      batch_size=FLAGS.n_sessions,
   )
 
   # Define the disRNN architecture
@@ -62,12 +77,7 @@ def main(_) -> None:
         target_size=2,
     )
 
-  # Define network training configuration
-  learning_rate = 1e-3
-  penalty_scale = 1e-3
-  n_warmup_steps = 1000
-  n_training_steps = 3000
-  opt = optax.adam(learning_rate)
+  opt = optax.adam(learning_rate=FLAGS.learning_rate)
 
   #################################
   # Optimizing network parameters #
@@ -83,7 +93,7 @@ def main(_) -> None:
       opt_state=None,
       opt=opt,
       penalty_scale=0,
-      n_steps=n_warmup_steps,
+      n_steps=FLAGS.n_warmup_steps,
       do_plot=True,
   )
 
@@ -96,8 +106,8 @@ def main(_) -> None:
       params=params,
       opt_state=None,
       opt=opt,
-      penalty_scale=penalty_scale,
-      n_steps=n_training_steps,
+      penalty_scale=FLAGS.penalty_scale,
+      n_steps=FLAGS.n_training_steps,
       do_plot=True,
   )
 

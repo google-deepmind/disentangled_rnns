@@ -251,13 +251,18 @@ def get_pclicks_datasets() -> List[rnn_utils.DatasetRNN]:
   return dataset_list
 
 
-def get_q_learning_dataset():
+def get_q_learning_dataset(
+    alpha: float = 0.3,
+    beta: float = 3.,
+    sigma: float = 0.1,
+    n_trials: int = 500,
+    n_sessions: int = 20000,
+    np_rng_seed: float = 0
+):
   """Generates synthteic dataset from Q-Learning agent, using standard parameters."""
-  np.random.seed(0)
-  agent = two_armed_bandits.AgentQ(alpha=0.3, beta=3)
-  environment = two_armed_bandits.EnvironmentBanditsDrift(sigma=0.1)
-  n_trials = 500
-  n_sessions = 20000
+  np.random.seed(np_rng_seed)
+  agent = two_armed_bandits.AgentQ(alpha=alpha, beta=beta)
+  environment = two_armed_bandits.EnvironmentBanditsDrift(sigma=sigma)
   dataset = two_armed_bandits.create_dataset(
       agent,
       environment,
@@ -268,15 +273,23 @@ def get_q_learning_dataset():
   return dataset
 
 
-def get_actor_critic_dataset():
+def get_actor_critic_dataset(
+    alpha_critic: float = 0.3,
+    alpha_actor_learn: float = 1.,
+    alpha_actor_forget: float = 0.05,
+    sigma: float = 0.1,
+    n_trials: int = 500,
+    n_sessions: int = 20000,
+    np_rng_seed: float = 0,
+):
   """Generates synthetic dataset from Actor-Critic agent, using standard parameters."""
-  np.random.seed(0)
+  np.random.seed(np_rng_seed)
   agent = two_armed_bandits.AgentLeakyActorCritic(
-      alpha_critic=0.3, alpha_actor_learn=1, alpha_actor_forget=0.05
+      alpha_critic=alpha_critic,
+      alpha_actor_learn=alpha_actor_learn,
+      alpha_actor_forget=alpha_actor_forget,
   )
-  environment = two_armed_bandits.EnvironmentBanditsDrift(sigma=0.1)
-  n_trials = 500
-  n_sessions = 20000
+  environment = two_armed_bandits.EnvironmentBanditsDrift(sigma=sigma)
   dataset = two_armed_bandits.create_dataset(
       agent,
       environment,
@@ -287,21 +300,20 @@ def get_actor_critic_dataset():
   return dataset
 
 
-def get_bounded_accumulator_dataset():
-  """Generates synthetic dataset from Bounded Accumulator agent, using standard parameters."""
-  n_trials = 200000
-  stim_duration_max = 50
-  stim_duration_min = 10
-  base_click_rate = 10
-  click_rate_diffs = np.array([-5., -2., 0., 2., 5.,]) / 2.
-
-  noise_per_click = 0.01
-  noise_per_timestep = 0.0
-  click_depression = 1.0
-  depression_tau = 8.0
-  bound = 2.9
-  lapse = 0.0
-
+def get_bounded_accumulator_dataset(
+    n_trials: int = 200000,
+    stim_duration_max: int = 50,
+    stim_duration_min: int = 10,
+    base_click_rate: float = 10,
+    click_rate_diffs: np.ndarray = np.array([-2.5, -1, 0, 1, 2.5]),
+    noise_per_click: float = 0.01,
+    noise_per_timestep: float = 0.0,
+    click_depression: float = 1.0,
+    depression_tau: float = 8.0,
+    bound: float = 2.9,
+    lapse: float = 0.0,
+):
+  """Generates synthetic dataset from Bounded Accumulator."""
   xs, _ = pclicks.generate_clicktrains(
       n_trials=n_trials,
       stim_duration_max=stim_duration_max,
