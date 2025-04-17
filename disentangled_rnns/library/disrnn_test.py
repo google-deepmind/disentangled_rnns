@@ -36,7 +36,7 @@ class DisrnnTest(absltest.TestCase):
         loss="penalized_categorical",
         params=None,
         opt_state=None,
-        penalty_scale=1e-3,
+        loss_param=1e-3,
         do_plot=True,
     )
     loss_init = losses["training_loss"][-1]
@@ -51,7 +51,7 @@ class DisrnnTest(absltest.TestCase):
         loss="penalized_categorical",
         params=params,
         opt_state=opt_state,
-        penalty_scale=1e-3,
+        loss_param=1e-3,
         do_plot=True,
     )
     loss_final = losses["training_loss"][-1]
