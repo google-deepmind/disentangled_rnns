@@ -329,7 +329,7 @@ def eval_network(
     make_network: Callable[[], hk.RNNCore],
     params: hk.Params,
     xs: np.ndarray,
-) ->  Tuple[np.ndarray, Any]:
+) -> tuple[np.ndarray, Any]:
   """Run an RNN with specified params and inputs. Track internal state.
 
   Args:
@@ -342,100 +342,129 @@ def eval_network(
     states: Network states at each timestep
   """
 
-  n_steps = jnp.shape(xs)[0]
-
   def unroll_network(xs):
     core = make_network()
     batch_size = jnp.shape(xs)[1]
     state = core.initial_state(batch_size)
-
-    y_hats = []
-    states = []
-
-    for t in range(n_steps):
-      states.append(state)
-      y_hat, new_state = core(xs[t, :], state)
-      state = new_state
-
-      y_hats.append(y_hat)
-
-    return np.asarray(y_hats), np.asarray(states)
+    ys, states = hk.dynamic_unroll(core, xs, state, return_all_states=True)
+    return ys, states
 
   model = hk.transform(unroll_network)
   key = jax.random.PRNGKey(np.random.randint(2**32))
-  y_hats, states = model.apply(params, key, xs)
+  apply = jax.jit(model.apply)
+  y_hats, states = apply(params, key, xs)
+
+  states = np.squeeze(np.array(states))
+  # States should now be (n_timesteps, n_episodes, n_hidden)
+  assert states.shape[0] == xs.shape[0], (
+      'States and inputs should have the same number of timesteps.')
+  assert states.shape[1] == xs.shape[1], (
+      'States and inputs should have the same number of episodes.')
 
   return np.asarray(y_hats), states
+
+
+def get_apply(
+    make_network: Callable[[], hk.RNNCore],
+    verbose: bool = False,
+) -> tuple[np.ndarray, Any]:
+  """Get a jitted apply function for a network.
+
+  Args:
+    make_network: Network constructor
+    verbose: if True, print a statement when calling step_sub
+
+  Returns:
+    apply: a jitted apply function for the network
+  """
+
+  def step_sub(x, state):
+    core = make_network()
+    y_hat, new_state = core(x, state)
+    if verbose:
+      print('[step_sub] this should only print once per jit.')
+    return y_hat, new_state
+
+  model = hk.transform(step_sub)
+  apply = jax.jit(model.apply)
+
+  return apply
 
 
 def step_network(
     make_network: Callable[[], hk.RNNCore],
     params: hk.Params,
     state: Any,
-    xs: np.ndarray,
-) -> Tuple[np.ndarray, Any]:
-  """Run an RNN for just a single step on a single input (no batching).
+    xs: Any,
+    apply: Any = None,
+) -> tuple[Any, Any, Any]:
+  """Run an RNN for just a single step on a single input, with batching.
 
   Args:
     make_network: A Haiku function that defines a network architecture
     params: A set of params suitable for that network
     state: An RNN state suitable for that network
-    xs: An input for a single timestep from a single episode, with
-      shape [n_features]
+    xs: An input for a single timestep from a single episode, with shape
+      [n_features]
+    apply: A jitted function that applies the network to a single input. If not
+      supplied, will be generated from the network architecture
 
   Returns:
     y_hat: The output given by the network, with dimensionality [n_features]
     new_state: The new RNN state of the network
   """
 
-  def step_sub(xs):
-    core = make_network()
-    y_hat, new_state = core(xs, state)
-    return y_hat, new_state
-
-  model = hk.transform(step_sub)
+  if apply is None:
+    apply = get_apply(make_network)
   key = jax.random.PRNGKey(np.random.randint(2**32))
-  y_hat, new_state = model.apply(params, key, np.expand_dims(xs, axis=0))
+  y_hat, new_state = apply(params, key, xs, state)
 
-  return y_hat, new_state
+  return y_hat, new_state, apply
 
 
-def get_initial_state(make_network: Callable[[], hk.RNNCore],
-                      params: Optional[Any] = None) -> Any:
+def get_initial_state(
+    make_network: Callable[[], hk.RNNCore],
+    params: Optional[Any] = None,
+    batch_size: int = 1,
+    seed: int = 0,
+) -> Any:
   """Get the default initial state for a network architecture.
 
   Args:
     make_network: A Haiku function that defines a network architecture
     params: Optional parameters for the Hk function. If not passed, will init
       new parameters. For many models this will not affect initial state
+    batch_size: The batch size to use when generating the initial state
+    seed: A seed for the random number generator that makes params (for most
+      networks this will not affect initial state)
 
   Returns:
     initial_state: An initial state from that network
   """
 
-  # The logic below needs a jax randomy key and a sample input in order to work.
-  # But neither of these will affect the initial network state, so its ok to
-  # generate throwaways
-  random_key = jax.random.PRNGKey(np.random.randint(2**32))
-
   def unroll_network():
     core = make_network()
-    state = core.initial_state(batch_size=1)
+    state = core.initial_state(batch_size=batch_size)
 
     return state
 
   model = hk.transform(unroll_network)
 
+  # If no params were supplied, generate random params.
+  random_key = jax.random.PRNGKey(seed)
   if params is None:
     params = model.init(random_key)
 
-  initial_state = model.apply(params, random_key)
+  apply = jax.jit(model.apply)
+  initial_state = apply(params, random_key)
 
   return initial_state
 
 
-def get_new_params(make_network: Callable[[], hk.RNNCore],
-                   random_key: Optional[jax.Array] = None) -> Any:
+def get_new_params(
+    make_network: Callable[..., hk.RNNCore],
+    random_key: Optional[jax.Array] = None,
+) -> Any:
   """Get a new set of random parameters for a network architecture.
 
   Args:
@@ -457,22 +486,58 @@ def get_new_params(make_network: Callable[[], hk.RNNCore],
     return state
 
   model = hk.transform(unroll_network)
-
-  params = model.init(random_key)
+  init = jax.jit(model.init)
+  params = init(random_key)
 
   return params
 
 
-def to_jnp(list_dict):
-  """Recursively convert a dict of lists into one of jnp arrays.
+def eval_feedforward_network(
+    make_network: Callable[..., Any], params: hk.Params, xs: np.ndarray
+) -> np.ndarray:
+  """Run a feedforward network with specified params and inputs."""
+
+  def forward(xs):
+    net = make_network()
+    y_hats = net(xs)
+    return y_hats
+
+  model = hk.transform(forward)
+  key = jax.random.PRNGKey(np.random.randint(2**32))
+  apply = jax.jit(model.apply)
+  y_hats = apply(params, key, xs)
+
+  return np.array(y_hats)
+
+
+def to_np(list_dict: dict[str, Any]):
+  """Converts all numerical lists in a dict to np arrays.
+
+  Elements that are convertible to numpy are converted. Elements that are dicts
+  are recursively unpacked in the same way. Other elements are left unchanged.
+  The intended use case is reconstructing a dict from json that was saved with
+  NpEncoder and has had all its np arrays converted to lists.
+
+  Args:
+    list_dict: A dict or hierarchical tree of dicts
+
+  Returns:
+    np_dict: A dict or tree of dicts with the same structure, in which any
+      numerical lists have been converted into np arrays.
   """
-  jnp_dict = dict()
+  np_dict = dict()
+  # Traverse the tree of dicts. If we find anything that can be converted to an
+  # np array, convert it. Otherwise, leave it unchanged.
   for key, value in list_dict.items():
     if isinstance(value, dict):
-      jnp_dict[key] = to_jnp(value)
+      np_dict[key] = to_np(value)
     else:
-      jnp_dict[key] = jnp.array(value)
-  return jnp_dict
+      try:
+        np_dict[key] = np.array(value)
+      except ValueError:
+        print(f'Not converting {key}. Type is {type(value)}')
+        np_dict[key] = value
+  return np_dict
 
 
 class NpEncoder(json.JSONEncoder):
@@ -482,9 +547,13 @@ class NpEncoder(json.JSONEncoder):
   """
 
   def default(self, o: Any):
-    if isinstance(o, np.integer):
+    if o is None:
+      return None
+    if isinstance(
+        o, (np.int_, np.intc, np.intp, np.int8, np.int16, np.int32, np.int64)
+    ):
       return int(o)
-    if isinstance(o, np.floating):
+    if isinstance(o, (np.float16, np.float32, np.float64)):
       return float(o)
     if isinstance(o, np.ndarray):
       return o.tolist()
@@ -495,4 +564,10 @@ class NpEncoder(json.JSONEncoder):
       return float(o)
     if isinstance(o, jnp.ndarray):
       return o.tolist()
+
+    if isinstance(o, list):
+      return [self.default(x) for x in o]
+    if isinstance(o, dict):
+      return {k: self.default(v) for k, v in o.items()}
+
     return super().default(o)
