@@ -92,7 +92,7 @@ def main(_) -> None:
       params=None,
       opt_state=None,
       opt=opt,
-      penalty_scale=0,
+      loss_param=0,
       n_steps=FLAGS.n_warmup_steps,
       do_plot=True,
   )
@@ -106,7 +106,7 @@ def main(_) -> None:
       params=params,
       opt_state=None,
       opt=opt,
-      penalty_scale=FLAGS.penalty_scale,
+      loss_param=FLAGS.penalty_scale,
       n_steps=FLAGS.n_training_steps,
       do_plot=True,
   )
