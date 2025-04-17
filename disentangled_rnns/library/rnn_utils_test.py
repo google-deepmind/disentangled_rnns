@@ -71,6 +71,22 @@ class TestRNNUtils(absltest.TestCase):
     self.assertEqual(np.shape(ys), (n_steps_per_session, batch_size, 1))
     self.assertTrue(np.all(np.logical_or(ys == 1, ys == 0)))
 
+  def test_dataset_rnn_batch_size(self):
+    dataset = rnn_utils.DatasetRNN(
+        xs=np.zeros((n_steps_per_session, n_sessions, 2)),
+        ys=np.zeros((n_steps_per_session, n_sessions, 1)),
+        y_type='categorical',
+        batch_size=None)
+    xs, _ = next(dataset)
+    self.assertEqual(np.shape(xs), (n_steps_per_session, n_sessions, 2))
+
+  def test_split_dataset(self):
+    dataset_train, dataset_eval = rnn_utils.split_dataset(self.dataset, 2)
+    xs_train, _ = next(dataset_train)
+    xs_eval, _ = next(dataset_eval)
+    self.assertEqual(np.shape(xs_train), (n_steps_per_session, 2, 2))
+    self.assertEqual(np.shape(xs_eval), (n_steps_per_session, 1, 2))
+
   def test_train_network(self):
     """Train the network for a few steps, check that the loss goes down.
     """
