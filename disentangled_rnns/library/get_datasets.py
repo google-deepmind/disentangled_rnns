@@ -149,7 +149,7 @@ def get_rat_bandit_datasets() -> List[rnn_utils.DatasetRNN]:
     ys = np.concatenate((free_choices, -1*np.ones((1, n_sess, 1))), axis=0)
 
     # Pack into a DatasetRNN object and append to the list
-    dataset_rat = rnn_utils.DatasetRNN(ys=ys, xs=xs)
+    dataset_rat = rnn_utils.DatasetRNN(ys=ys, xs=xs, y_type='categorical')
     dataset_list.append(dataset_rat)
 
   return dataset_list
@@ -246,7 +246,7 @@ def get_pclicks_datasets() -> List[rnn_utils.DatasetRNN]:
     ys = -1*np.ones((101, n_trials, 1))
     ys[-1,:, 0] = choices
 
-    dataset_list.append(rnn_utils.DatasetRNN(xs, ys))
+    dataset_list.append(rnn_utils.DatasetRNN(xs, ys, y_type='categorical'))
 
   return dataset_list
 
@@ -333,5 +333,5 @@ def get_bounded_accumulator_dataset(
   )
   ys = -1 * np.ones((stim_duration_max + 1, n_trials, 1))
   ys[-1, :, 0] = decisions
-  dataset = rnn_utils.DatasetRNN(xs, ys)
+  dataset = rnn_utils.DatasetRNN(xs, ys, y_type='categorical')
   return dataset

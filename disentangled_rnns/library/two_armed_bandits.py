@@ -20,8 +20,6 @@ from disentangled_rnns.library import rnn_utils
 import matplotlib.pyplot as plt
 import numpy as np
 
-DatasetRNN = rnn_utils.DatasetRNN
-
 
 class EnvironmentBanditsDrift:
   """Environment for a drifting two-armed bandit task.
@@ -252,7 +250,7 @@ def create_dataset(agent: Agent,
                    environment: EnvironmentBanditsDrift,
                    n_steps_per_session: int,
                    n_sessions: int,
-                   batch_size: int) -> DatasetRNN:
+                   batch_size: int) -> rnn_utils.DatasetRNN:
   """Generates a behavioral dataset from a given agent and environment.
 
   Args:
@@ -278,10 +276,13 @@ def create_dataset(agent: Agent,
     prev_choices = np.concatenate(([0], experiment.choices[0:-1]))
     prev_rewards = np.concatenate(([0], experiment.rewards[0:-1]))
     xs[:, sess_i] = np.swapaxes(
-        np.concatenate(([prev_choices], [prev_rewards]), axis=0), 0, 1)
+        np.concatenate(([prev_choices], [prev_rewards]), axis=0), 0, 1
+    )
     ys[:, sess_i] = np.expand_dims(experiment.choices, 1)
 
-  dataset = DatasetRNN(xs, ys, batch_size)
+  dataset = rnn_utils.DatasetRNN(
+      xs, ys, batch_size=batch_size, y_type='categorical'
+  )
   return dataset
 
 
