@@ -27,79 +27,166 @@ import numpy as np
 import optax
 
 
-class DatasetRNN():
+class DatasetRNN:
   """Holds a dataset for training an RNN, consisting of inputs and targets.
 
-     Both inputs and targets are stored as [timestep, episode, feature]
-     Serves them up in batches
+  Both inputs and targets are stored as [timestep, episode, feature]
+  Serves them up in batches
   """
 
-  def __init__(self,
-               xs: np.ndarray,
-               ys: np.ndarray,
-               batch_size: Optional[int] = None):
+  def __init__(
+      self,
+      xs: np.ndarray,
+      ys: np.ndarray,
+      y_type: str,
+      n_classes: Optional[int] = None,
+      x_names: Optional[list[str]] = None,
+      y_names: Optional[list[str]] = None,
+      batch_size: Optional[int] = None,
+  ):
     """Do error checking and bin up the dataset into batches.
 
     Args:
-      xs: Values to become inputs to the network.
-        Should have dimensionality [timestep, episode, feature]
-      ys: Values to become output targets for the RNN.
-        Should have dimensionality [timestep, episode, feature]
+      xs: Values to become inputs to the network. Should have dimensionality
+        [timestep, episode, feature]
+      ys: Values to become output targets for the RNN. Should have
+        dimensionality [timestep, episode, feature]
+      y_type: Either 'categorical','scalar' or 'mixed'. If 'categorical',
+        targets must be integers. If 'mixed', first element is assumed to be
+        categorical.
+      n_classes: The number of classes in the categorical targets. If not
+        specified, will be inferred from the data.
+      x_names: A list of names for the features in xs. If not supplied, will be
+        generated automatically.
+      y_names: A list of names for the features in ys. If not supplied, will be
+        generated automatically.
       batch_size: The size of the batch (number of episodes) to serve up each
         time next() is called. If not specified, all episodes in the dataset
         will be served
-
     """
+    ##################
+    # Error checking #
+    ##################
 
-    if batch_size is None:
-      batch_size = xs.shape[1]
+    if y_type not in ['categorical', 'scalar', 'mixed']:
+      raise ValueError(
+          f'y_type {y_type} must be either "categorical","scalar" or "mixed".'
+      )
 
-    # Error checking
+    if y_type == 'categorical':
+      # Check validity and determine the number of classes
+      if ys.shape[-1] != 1:
+        raise NotImplementedError(
+            'Categorical targets are assumed to have dimensionality'
+            f'(n_timesteps, n_episodes, 1). Got {ys.shape} instead. If you need'
+            'multiple distinct types of categorical targets, feel free to '
+            'implement this and send a CL'
+        )
+
+    if y_type in ['categorical', 'mixed']:
+      # NOTE: By convention, for y_type=='mixed' the first element of the target
+      # is assumed to be categorical.
+      categorical_index = 0
+      categorical_ys = ys[:, :, categorical_index]
+      uniques = np.unique(categorical_ys)
+      if not np.all(np.isclose(uniques, np.round(uniques))):
+        raise ValueError(
+            f'Categorical targets must be integers. Got {uniques} instead'
+        )
+      # Infer or check the number of classes. It should be equal to or greater
+      # than the number of unique nonnegative values
+      n_classes_expected = np.sum(uniques >= 0)
+      if n_classes is None:
+        n_classes = n_classes_expected
+      else:
+        if n_classes < n_classes_expected:
+          raise ValueError(
+              f'Based on unique y values {uniques}, expected n_classes to be at'
+              f' least {n_classes_expected}. Instead it is {n_classes}'
+          )
+    else:
+      # If not categorical, n_classes is not defined
+      n_classes = None
+
     # Do xs and ys have the same number of timesteps?
     if xs.shape[0] != ys.shape[0]:
-      msg = ('number of timesteps in xs {} must be equal to number of timesteps'
-             ' in ys {}.')
-      raise ValueError(msg.format(xs.shape[0], ys.shape[0]))
+      raise ValueError(
+          f'Number of timesteps in xs {xs.shape[0]} must be equal to number of'
+          f' timesteps in ys {xs.shape[0]}.'
+      )
 
     # Do xs and ys have the same number of episodes?
     if xs.shape[1] != ys.shape[1]:
-      msg = ('number of timesteps in xs {} must be equal to number of timesteps'
-             ' in ys {}.')
-      raise ValueError(msg.format(xs.shape[0], ys.shape[0]))
+      raise ValueError(
+          f'Number of episodes in xs {xs.shape[1]} must be equal to number of'
+          ' episodes in ys {ys.shape[1]}.'
+      )
 
-    # Is the number of episodes divisible by the batch size?
-    if xs.shape[1] % batch_size != 0:
-      msg = 'dataset size {} must be divisible by batch_size {}.'
-      raise ValueError(msg.format(xs.shape[1], batch_size))
+    # Process feature and target names
+    if x_names is None:
+      x_names = [f'Observation {i}' for i in range(xs.shape[2])]
+    else:
+      if len(x_names) != xs.shape[2]:
+        raise ValueError(
+            f'Number of x_names {len(x_names)} must be equal to number of'
+            f' features in xs {xs.shape[-1]}.'
+        )
 
-    # Property setting
+    if y_names is None:
+      y_names = [f'Target {i}' for i in range(ys.shape[2])]
+    else:
+      if len(y_names) != ys.shape[2]:
+        raise ValueError(
+            f'Number of y_names {len(y_names)} must be equal to number of'
+            f' features in ys {ys.shape[-1]}.'
+        )
+
+    ####################
+    # Property setting #
+    ####################
+    # If batch size not specified, use all episodes in the dataset
+    if batch_size is None:
+      batch_size = xs.shape[1]
+
+    self.x_names = x_names
+    self.y_names = y_names
+    self.y_type = y_type
+    self.n_classes = n_classes
+    self.batch_size = batch_size
     self._xs = xs
     self._ys = ys
-    self._batch_size = batch_size
-    self._dataset_size = self._xs.shape[1]
-    self._idx = 0
-    self.n_batches = self._dataset_size // self._batch_size
+    self._n_episodes = self._xs.shape[1]
+    self._n_timesteps = self._xs.shape[0]
+    self._order_to_get = np.arange(self._n_episodes)
 
   def __iter__(self):
     return self
 
+  def get_all(self):
+    """Returns all the data in the dataset."""
+    return self._xs, self._ys
+
   def __next__(self):
     """Return a batch of data, including both xs and ys."""
 
-    # Define the chunk we want: from idx to idx + batch_size
-    start = self._idx
-    end = start + self._batch_size
-    # Check that we're not trying to overshoot the size of the dataset
-    assert end <= self._dataset_size
+    # If batch_size is larger than the number of episodes, raise a warning
+    if self.batch_size > self._n_episodes:
+      logging.warning(
+          'Batch size %d is larger than the number of episodes %d. Only %d'
+          ' episodes will be used.',
+          self.batch_size,
+          self._n_episodes,
+          self._n_episodes,
+      )
+      self.batch_size = self._n_episodes
 
-    # Update the index for next time
-    if end == self._dataset_size:
-      self._idx = 0
-    else:
-      self._idx = end
-
+    # Define the chunk we want: first batch_size episodes from the order_to_get
+    batch_inds = self._order_to_get[: self.batch_size]
     # Get the chunks of data
-    x, y = self._xs[:, start:end], self._ys[:, start:end]
+    x, y = self._xs[:, batch_inds], self._ys[:, batch_inds]
+
+    # Update the order for next time
+    self._order_to_get = np.roll(self._order_to_get, self.batch_size)
 
     return x, y
 
