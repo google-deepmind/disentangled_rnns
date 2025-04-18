@@ -12,11 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
+
 from absl.testing import absltest
 from disentangled_rnns.library import rnn_utils
 from disentangled_rnns.library import two_armed_bandits
 import haiku as hk
 import jax
+import jax.numpy as jnp
 import numpy as np
 import optax
 
@@ -156,6 +159,44 @@ class TestRNNUtils(absltest.TestCase):
     self.assertEqual(np.shape(y_hat)[0], 1)
     # Check new_state has the right shape
     self.assertEqual(np.shape(new_state), (1, 1, n_hidden))
+
+  def test_NpJnpJsonEncoder(self):
+    """Test that the NpEncoder works correctly with json.dumps."""
+    encoder = rnn_utils.NpJnpJsonEncoder
+
+    # Test basic types
+    self.assertEqual(json.dumps(1, cls=encoder), '1')
+    self.assertEqual(json.dumps(1.5, cls=encoder), '1.5')
+    self.assertEqual(json.dumps(True, cls=encoder), 'true')
+    self.assertEqual(json.dumps('hello', cls=encoder), '"hello"')
+    self.assertEqual(json.dumps(None, cls=encoder), 'null')
+
+    # Test NumPy types
+    self.assertEqual(json.dumps(np.int32(5), cls=encoder), '5')
+    self.assertEqual(json.dumps(np.float64(3.14), cls=encoder), '3.14')
+    self.assertEqual(json.dumps(np.bool_(False), cls=encoder), 'false')
+    self.assertEqual(json.dumps(np.array([1, 2, 3]), cls=encoder), '[1, 2, 3]')
+    self.assertEqual(
+        json.dumps(np.array([[1.1, 1.2], [2.1, 2.2]]), cls=encoder),
+        '[[1.1, 1.2], [2.1, 2.2]]',
+    )
+
+    # Test JAX types
+    self.assertEqual(json.dumps(jnp.int32(5), cls=encoder), '5')
+    # JAX float64 serializes to a string with 15 decimal places
+    self.assertEqual(
+        json.dumps(jnp.float64(3.14), cls=encoder), '3.140000104904175'
+    )
+    self.assertEqual(json.dumps(jnp.array([1, 2, 3]), cls=encoder), '[1, 2, 3]')
+
+    # Test nested structures
+    data = {'a': np.array([1, 2]), 'b': [True, np.float32(1.0)], 'c': None}
+    expected_json = '{"a": [1, 2], "b": [true, 1.0], "c": null}'
+    self.assertEqual(json.dumps(data, cls=encoder), expected_json)
+
+    # Test unsupported type
+    with self.assertRaises(TypeError):
+      json.dumps(object(), cls=encoder)
 
 
 if __name__ == '__main__':

@@ -259,7 +259,7 @@ def get_q_learning_dataset(
     n_sessions: int = 20000,
     np_rng_seed: float = 0
 ):
-  """Generates synthteic dataset from Q-Learning agent, using standard parameters."""
+  """Generates synthetic dataset from Q-Learning agent, using standard parameters."""
   np.random.seed(np_rng_seed)
   agent = two_armed_bandits.AgentQ(alpha=alpha, beta=beta)
   environment = two_armed_bandits.EnvironmentBanditsDrift(sigma=sigma)
