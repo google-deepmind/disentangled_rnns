@@ -36,7 +36,7 @@ def generate_clicktrains(n_trials=10000,
 
   """
 
-  # Leave a blank timestamp at the end for the response
+  # Leave a blank timestep at the end for the response
   xs = np.zeros((stim_duration_max + 1, n_trials, 2))
   stim_durations = np.zeros(n_trials)
 
