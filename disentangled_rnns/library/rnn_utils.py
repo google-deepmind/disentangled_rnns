@@ -827,24 +827,38 @@ def to_np(list_dict: dict[str, Any]):
   return np_dict
 
 
-class NpEncoder(json.JSONEncoder):
-  """Encode Numpy arrays in a format suitable for json.dump.
-
-  This is useful for saving network params, states, etc.
-  """
+class NpJnpJsonEncoder(json.JSONEncoder):
+  """Encode Numpy and JAX arrays/types in a format suitable for json.dump."""
 
   def default(self, o: Any):
     if o is None:
       return None
-    if isinstance(
-        o, (np.int_, np.intc, np.intp, np.int8, np.int16, np.int32, np.int64)
-    ):
+
+    # Lists and dicts: Handle recursively
+    if isinstance(o, list):
+      return [self.default(x) for x in o]
+    if isinstance(o, dict):
+      return {k: self.default(v) for k, v in o.items()}
+
+    # Basic Python types
+    if isinstance(o, bool):
+      return bool(o)  # Ensure standard Python bool
+    if isinstance(o, (int, float, str)):
+      return o  # Already JSON serializable
+
+    # NumPy types
+    if isinstance(o, (np.bool_)):
+      return bool(o)
+    if isinstance(o, np.integer):
       return int(o)
-    if isinstance(o, (np.float16, np.float32, np.float64)):
+    if isinstance(o, np.floating):
       return float(o)
     if isinstance(o, np.ndarray):
       return o.tolist()
 
+    # JAX types
+    if isinstance(o, (jnp.bool_)):
+      return bool(o)
     if isinstance(o, jnp.integer):
       return int(o)
     if isinstance(o, jnp.floating):
@@ -852,9 +866,10 @@ class NpEncoder(json.JSONEncoder):
     if isinstance(o, jnp.ndarray):
       return o.tolist()
 
-    if isinstance(o, list):
-      return [self.default(x) for x in o]
-    if isinstance(o, dict):
-      return {k: self.default(v) for k, v in o.items()}
-
-    return super().default(o)
+    # Other types: attempt to fallback to base class default method
+    try:
+      return super().default(o)
+    except TypeError as exc:
+      raise TypeError(
+          f"Object of type {type(o).__name__} is not JSON serializable"
+      ) from exc
