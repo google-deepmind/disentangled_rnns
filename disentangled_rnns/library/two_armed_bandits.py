@@ -14,9 +14,12 @@
 
 """Two armed bandit experiments. Generate synthetic data, plot data."""
 
-from typing import NamedTuple, Union
+from collections.abc import Callable
+from typing import NamedTuple, Optional, Union
 
 from disentangled_rnns.library import rnn_utils
+import haiku as hk
+import jax
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -35,6 +38,7 @@ class EnvironmentBanditsDrift:
 
   def __init__(self,
                sigma: float,
+               seed: Optional[int] = None,
                ):
 
     # Check inputs
@@ -43,14 +47,15 @@ class EnvironmentBanditsDrift:
       raise ValueError(msg.format(sigma))
     # Initialize persistent properties
     self._sigma = sigma
+    self._random_state = np.random.RandomState(seed)
 
     # Sample new reward probabilities
-    self._new_sess()
+    self.new_sess()
 
-  def _new_sess(self):
+  def new_sess(self):
     # Pick new reward probabilities.
     # Sample randomly between 0 and 1
-    self.reward_probs = np.random.rand(2)
+    self._reward_probs = self._random_state.rand(2)
 
   def step(self,
            choice: int) -> int:
@@ -69,16 +74,19 @@ class EnvironmentBanditsDrift:
       raise ValueError(msg.format(choice))
 
     # Sample reward with the probability of the chosen side
-    reward = np.random.rand() < self.reward_probs[choice]
+    reward = self._random_state.rand() < self._reward_probs[choice]
     # Add gaussian noise to reward probabilities
-    drift = np.random.normal(loc=0, scale=self._sigma, size=2)
-    self.reward_probs += drift
+    drift = self._random_state.normal(loc=0, scale=self._sigma, size=2)
+    self._reward_probs += drift
 
     # Fix reward probs that've drifted below 0 or above 1
-    self.reward_probs = np.maximum(self.reward_probs, [0, 0])
-    self.reward_probs = np.minimum(self.reward_probs, [1, 1])
+    self._reward_probs = np.clip(self._reward_probs, 0, 1)
 
     return reward
+
+  @property
+  def reward_probs(self) -> np.ndarray:
+    return self._reward_probs.copy()
 
 
 class AgentQ:
@@ -199,7 +207,59 @@ class AgentLeakyActorCritic:
     self.v = (1 - self._alpha_critic) * self.v + self._alpha_critic * reward
 
 
-Agent = Union[AgentQ, AgentLeakyActorCritic]
+class AgentNetwork:
+  """A class that allows running a trained RNN as an agent.
+
+  Attributes:
+    make_network: A Haiku function that returns an RNN architecture
+    params: A set of Haiku parameters suitable for that architecture
+  """
+
+  def __init__(self,
+               make_network: Callable[[], hk.RNNCore],
+               params: hk.Params):
+
+    def step_network(
+        xs: np.ndarray, state: hk.State
+    ) -> tuple[np.ndarray, hk.State]:
+      core = make_network()
+      y_hat, new_state = core(xs, state)
+      return y_hat, new_state
+
+    def get_initial_state() -> hk.State:
+      core = make_network()
+      rnn_state = core.initial_state(1)
+      return rnn_state
+
+    model = hk.without_apply_rng(hk.transform(step_network))
+    rnn_state = hk.without_apply_rng(hk.transform(get_initial_state))
+
+    self._initial_state = rnn_state.apply(params)
+    self._model_fun = jax.jit(
+        lambda xs, state: model.apply(params, xs, rnn_state)
+    )
+    self._xs = np.zeros((1, 2))
+    self.new_sess()
+
+  def new_sess(self):
+    self._rnn_state = self._initial_state
+
+  def get_choice_probs(self) -> np.ndarray:
+    output_logits, _ = self._model_fun(self._xs, self._rnn_state)
+    choice_probs = np.asarray(jax.nn.softmax(output_logits[0]))
+    return choice_probs
+
+  def get_choice(self) -> tuple[int, np.ndarray]:
+    choice_probs = self.get_choice_probs()
+    choice = np.random.choice(2, p=choice_probs)
+    return choice
+
+  def update(self, choice: int, reward: int):
+    self._xs = np.array([[choice, reward]])
+    _, self._rnn_state = self._model_fun(self._xs, self._rnn_state)
+
+
+Agent = Union[AgentQ, AgentLeakyActorCritic, AgentNetwork]
 
 
 class SessData(NamedTuple):
@@ -262,11 +322,7 @@ def create_dataset(agent: Agent,
     batch_size: The size of the batches to serve from the dataset
 
   Returns:
-    A DatasetRNN object containing a synthetic dataset generated using the
-    specified agent and environment. Targets be a binary vector indicating the
-    agent's choice on each trial, and inputs will consist of two binary vectors
-    indicating the choice and reward from the previous trial.
-
+    rnn_utils.DatasetRNN object
   """
   xs = np.zeros((n_steps_per_session, n_sessions, 2))
   ys = np.zeros((n_steps_per_session, n_sessions, 1))
@@ -281,7 +337,13 @@ def create_dataset(agent: Agent,
     ys[:, sess_i] = np.expand_dims(experiment.choices, 1)
 
   dataset = rnn_utils.DatasetRNN(
-      xs, ys, batch_size=batch_size, y_type='categorical'
+      xs=xs,
+      ys=ys,
+      x_names=['prev choice', 'prev reward'],
+      y_names=['choice'],
+      y_type='categorical',
+      n_classes=2,
+      batch_size=batch_size,
   )
   return dataset
 
