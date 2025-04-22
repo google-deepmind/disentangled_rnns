@@ -17,6 +17,7 @@
 from collections.abc import Callable
 import json
 from typing import Any, Optional
+import warnings
 
 from absl import logging
 import chex
@@ -157,9 +158,9 @@ class DatasetRNN:
     self.batch_size = batch_size
     self._xs = xs
     self._ys = ys
-    self._n_episodes = self._xs.shape[1]
+    self.n_episodes = self._xs.shape[1]
     self._n_timesteps = self._xs.shape[0]
-    self._order_to_get = np.arange(self._n_episodes)
+    self._order_to_get = np.arange(self.n_episodes)
 
   def __iter__(self):
     return self
@@ -172,15 +173,15 @@ class DatasetRNN:
     """Return a batch of data, including both xs and ys."""
 
     # If batch_size is larger than the number of episodes, raise a warning
-    if self.batch_size > self._n_episodes:
+    if self.batch_size > self.n_episodes:
       logging.warning(
           'Batch size %d is larger than the number of episodes %d. Only %d'
           ' episodes will be used.',
           self.batch_size,
-          self._n_episodes,
-          self._n_episodes,
+          self.n_episodes,
+          self.n_episodes,
       )
-      self.batch_size = self._n_episodes
+      self.batch_size = self.n_episodes
 
     # Define the chunk we want: first batch_size episodes from the order_to_get
     batch_inds = self._order_to_get[: self.batch_size]
@@ -363,6 +364,7 @@ def train_network(
     max_grad_norm: float = 1e10,
     loss_param: float = 1.0,
     loss: str = 'mse',
+    log_losses_every: int = 10,
     do_plot: bool = False,
     print_or_log: str = 'print',
 ) -> tuple[hk.Params, optax.OptState, dict[str, np.ndarray]]:
@@ -383,6 +385,8 @@ def train_network(
     max_grad_norm:  Gradient clipping. Default to a very high ceiling
     loss_param:
     loss:
+    log_losses_every: How many training steps between each time we check for
+      errors and log the loss
     do_plot: Boolean that controls whether a learning curve is plotted
     print_or_log: Whether to print progress to screen or log it to absl.logging
 
@@ -391,7 +395,6 @@ def train_network(
     opt_state: Optimizer state at the end of training
     losses: Losses on both datasets
   """
-
   sample_xs, _ = next(training_dataset)  # Get a sample input, for shape
 
   # Haiku, step one: Define the batched network
@@ -406,7 +409,9 @@ def train_network(
   # (model.init and model.apply)
   model = hk.transform(unroll_network)
 
-  # PARSE INPUTS
+  ################
+  # PARSE INPUTS #
+  ################
   if random_key is None:
     random_key = jax.random.PRNGKey(0)
   # If params have not been supplied, start training from scratch
@@ -417,6 +422,9 @@ def train_network(
   if opt_state is None:
     opt_state = opt.init(params)
 
+  ############################################
+  # Define possible losses and training step #
+  ###########################################
   def mse_loss(params, xs, ys, random_key) -> float:
     y_hats = model.apply(params, random_key, xs)
     loss = mse(ys, y_hats)
@@ -507,48 +515,62 @@ def train_network(
   }
   compute_loss = jax.jit(losses[loss])
 
-  # Define what it means to train a single step
   @jax.jit
   def train_step(
       params, opt_state, xs, ys, random_key
   ) -> tuple[float, Any, Any]:
+    """One training step."""
     loss, grads = jax.value_and_grad(compute_loss, argnums=0)(
         params, xs, ys, random_key
     )
-
     grads, opt_state = opt.update(grads, opt_state)
-
     clipped_grads = optimizers.clip_grads(grads, max_grad_norm)
     params = optax.apply_updates(params, clipped_grads)
-
     return loss, params, opt_state
 
-  # Train the network!
+  #################
+  # Training Loop #
+  #################
+
   training_loss = []
   validation_loss = []
   l_validation = np.nan
+  xs_train, ys_train = next(training_dataset)
+  if validation_dataset is not None:
+    xs_eval, ys_eval = validation_dataset.get_all()
+  else:
+    xs_eval = None
+    ys_eval = None
+  # Train the network!
   for step in jnp.arange(n_steps):
-    random_key, subkey = jax.random.split(random_key)
-    # Train on training data
-    xs, ys = next(training_dataset)
+    random_key, subkey_train, subkey_validation = jax.random.split(
+        random_key, 3
+    )
+    # If the training dataset is batched, get a new batch of data
+    # TODO(kevinjmiller): Implement prefetching for batched datasets as well
+    if training_dataset.batch_size != training_dataset.n_episodes:
+      warnings.warn(
+          'Training dataset is batched, but prefetching is not implemented.'
+          ' This may slow down training.'
+      )
+      xs_train, ys_train = next(training_dataset)
 
-    loss, params, opt_state = train_step(params, opt_state, xs, ys, subkey)
+    loss, params, opt_state = train_step(
+        params, opt_state, xs_train, ys_train, subkey_train
+    )
 
-    # Check if everything looks as expected
-    if nan_in_dict(params):
-      raise ValueError('NaN in params')
-    if np.isnan(loss):
-      raise ValueError('NaN in loss')
-    if loss > 1e50:
-      raise ValueError('Loss is too large')
+    # Check for errors and report progress
+    if step % log_losses_every == 0:
+      if nan_in_dict(params):
+        raise ValueError('NaN in params')
+      if np.isnan(loss):
+        raise ValueError('NaN in loss')
+      if loss > 1e50:
+        raise ValueError('Loss is too large')
 
-    # Report progress
-    if step % 10 == 9:
       # Test on validation data
       if validation_dataset is not None:
-        random_key, subkey = jax.random.split(random_key)
-        xs, ys = next(validation_dataset)
-        l_validation = compute_loss(params, xs, ys, subkey)
+        l_validation = compute_loss(params, xs_eval, ys_eval, subkey_validation)
 
       validation_loss.append(float(l_validation))
       training_loss.append(float(loss))
