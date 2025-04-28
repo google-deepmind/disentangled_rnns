@@ -641,7 +641,9 @@ def eval_network(
   apply = jax.jit(model.apply)
   y_hats, states = apply(params, key, xs)
 
-  states = np.squeeze(np.array(states))
+  if isinstance(states, tuple) or isinstance(states, list) and len(states) == 1:
+    states = np.array(states[0])
+
   # States should now be (n_timesteps, n_episodes, n_hidden)
   assert states.shape[0] == xs.shape[0], (
       'States and inputs should have the same number of timesteps.')
