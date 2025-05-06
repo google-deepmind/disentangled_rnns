@@ -16,12 +16,14 @@
 
 from collections.abc import Callable
 import json
+import sys
 from typing import Any, Optional
 import warnings
 
 from absl import logging
 import chex
 import haiku as hk
+from IPython import display
 import jax
 from jax.example_libraries import optimizers
 import jax.numpy as jnp
@@ -366,7 +368,7 @@ def train_network(
     loss: str = 'mse',
     log_losses_every: int = 10,
     do_plot: bool = False,
-    print_or_log: str = 'print',
+    report_progress_by: str = 'print',
 ) -> tuple[hk.Params, optax.OptState, dict[str, np.ndarray]]:
   """Trains a network.
 
@@ -388,7 +390,9 @@ def train_network(
     log_losses_every: How many training steps between each time we check for
       errors and log the loss
     do_plot: Boolean that controls whether a learning curve is plotted
-    print_or_log: Whether to print progress to screen or log it to absl.logging
+    report_progress_by: Mode for reporting real-time progress. Options are
+      "display" for displaying to an ipython notebook, "print" for printing to
+      the console, "log" for using absl logging, and "none" for no output.
 
   Returns:
     params: Trained parameters
@@ -560,7 +564,7 @@ def train_network(
     )
 
     # Check for errors and report progress
-    if step % log_losses_every == 0:
+    if step % log_losses_every == 0 or step == n_steps - 1:
       if nan_in_dict(params):
         raise ValueError('NaN in params')
       if np.isnan(loss):
@@ -580,19 +584,26 @@ def train_network(
           f'Training Loss: {loss:.2e}. '
           f'Validation Loss: {l_validation:.2e}'
       )
-      if print_or_log == 'print':
-        print(log_str, end='\r')
-      else:
+
+      if report_progress_by == 'print':
+        # If we're running on colab, use display, otherwise use print
+        on_colab = 'google.colab' in sys.modules
+        if on_colab:
+          display.clear_output(wait=True)
+          display.display(log_str)
+        else:
+          print(log_str)
+      elif report_progress_by == 'log':
         logging.info(log_str)
+      elif report_progress_by == 'none':
+        pass
+      else:
+        warnings.warn(
+            f'Unknown report_progress_by mode: {report_progress_by}'
+        )
 
   # If we actually did any training, print final loss and make a nice plot
   if n_steps > 1 and do_plot:
-    if print_or_log == 'print':
-      print(
-          f'Step {n_steps} of {n_steps}. '
-          f'Training Loss: {loss:.2e}. '
-          f'Validation Loss: {l_validation:.2e}'
-      )
 
     plt.figure()
     plt.semilogy(training_loss, color='black')
