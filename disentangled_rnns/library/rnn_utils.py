@@ -539,7 +539,15 @@ def train_network(
   training_loss = []
   validation_loss = []
   l_validation = np.nan
-  xs_train, ys_train = next(training_dataset)
+
+  train_dataset_batched = (
+      training_dataset.batch_size != training_dataset.n_episodes
+  )
+  if train_dataset_batched:
+    xs_train, ys_train = next(training_dataset)
+  else:
+    xs_train, ys_train = training_dataset.get_all()
+
   if validation_dataset is not None:
     xs_eval, ys_eval = validation_dataset.get_all()
   else:
@@ -550,13 +558,8 @@ def train_network(
     random_key, subkey_train, subkey_validation = jax.random.split(
         random_key, 3
     )
-    # If the training dataset is batched, get a new batch of data
-    # TODO(kevinjmiller): Implement prefetching for batched datasets as well
-    if training_dataset.batch_size != training_dataset.n_episodes:
-      warnings.warn(
-          'Training dataset is batched, but prefetching is not implemented.'
-          ' This may slow down training.'
-      )
+    # If the training dataset is batched, get a new batch of data.
+    if train_dataset_batched:
       xs_train, ys_train = next(training_dataset)
 
     loss, params, opt_state = train_step(
