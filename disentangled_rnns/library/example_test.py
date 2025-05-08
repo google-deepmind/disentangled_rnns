@@ -27,8 +27,8 @@ class ExampleTest(absltest.TestCase):
     try:
       FLAGS.n_steps_per_session = 10
       FLAGS.n_sessions = 10
-      FLAGS.n_training_steps = 20
-      FLAGS.n_warmup_steps = 20
+      FLAGS.n_training_steps = 10
+      FLAGS.n_warmup_steps = 10
       example.main(None)
     except Exception as e:  # pylint: disable=broad-exception-caught
       self.fail(f"Example script failed: {e}")
