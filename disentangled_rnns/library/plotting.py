@@ -26,6 +26,14 @@ import matplotlib as mpl
 from matplotlib import pyplot as plt
 import numpy as np
 
+# Fontsizes and formatting for plots.
+small = 15
+medium = 18
+large = 20
+mpl.rcParams['grid.color'] = 'none'
+mpl.rcParams['axes.facecolor'] = 'white'
+plt.rcParams['svg.fonttype'] = 'none'
+
 
 def plot_bottlenecks(
     params: hk.Params,
@@ -68,36 +76,43 @@ def plot_bottlenecks(
 
   latent_names = np.arange(1, latent_dim + 1)
   fig, axes = plt.subplots(1, 3, figsize=(15, 5))
-
   # Plot Latent Bottlenecks on axes[0]
   im1 = axes[0].imshow(np.swapaxes([1 - latent_sigmas], 0, 1), cmap='Oranges')
   im1.set_clim(vmin=0, vmax=1)
-  axes[0].set_yticks(ticks=range(latent_dim), labels=latent_names)
+  axes[0].set_yticks(
+      ticks=range(latent_dim), labels=latent_names, fontsize=small
+  )
   axes[0].set_xticks(ticks=[])
-  axes[0].set_ylabel('Latent #')
-  axes[0].set_title('Latent Bottlenecks')
+  axes[0].set_ylabel('Latent #', fontsize=medium)
+  axes[0].set_title('Latent Bottlenecks', fontsize=large)
 
   # Plot Choice Bottlenecks on axes[1]
   im2 = axes[1].imshow(np.swapaxes([1 - choice_sigmas], 0, 1), cmap='Oranges')
   im2.set_clim(vmin=0, vmax=1)
-  axes[1].set_yticks(ticks=range(latent_dim), labels=latent_names)
+  axes[1].set_yticks(
+      ticks=range(latent_dim), labels=latent_names, fontsize=small
+  )
   axes[1].set_xticks(ticks=[])
-  axes[1].set_ylabel('Latent #')
-  axes[1].set_title('Choice Network Bottlenecks')
+  axes[1].set_ylabel('Latent #', fontsize=medium)
+  axes[1].set_title('Choice Network Bottlenecks', fontsize=large)
 
   # Plot Update Bottlenecks on axes[2]
   im3 = axes[2].imshow(1 - update_sigmas, cmap='Oranges')
   im3.set_clim(vmin=0, vmax=1)
-  fig.colorbar(im3, ax=axes[2])
-  axes[2].set_yticks(ticks=range(latent_dim), labels=latent_names)
+  cbar = fig.colorbar(im3, ax=axes[2])
+  cbar.ax.tick_params(labelsize=small)
+  axes[2].set_yticks(
+      ticks=range(latent_dim), labels=latent_names, fontsize=small
+  )
   xlabels = np.concatenate((np.array(update_input_names), latent_names))
   axes[2].set_xticks(
       ticks=range(len(xlabels)),
       labels=xlabels,
       rotation='vertical',
+      fontsize=small,
   )
-  axes[2].set_ylabel('Latent #')
-  axes[2].set_title('Update Network Bottlenecks')
+  axes[2].set_ylabel('Latent #', fontsize=medium)
+  axes[2].set_title('Update Network Bottlenecks', fontsize=large)
   fig.tight_layout()  # Adjust layout to prevent overlap
   return fig
 
@@ -159,10 +174,13 @@ def plot_update_rules(
 
       ax.plot((-axis_lim, axis_lim), (0, 0), color='black')
       ax.plot(state_bins, delta_states, color=colors[1])
-      ax.set_title(titles[observation_i])
+      ax.set_title(titles[observation_i], fontsize=large)
       ax.set_xlim(-axis_lim, axis_lim)
-      ax.set_xlabel('Latent ' + str(unit_i + 1) + ' Activity')
+      ax.set_xlabel(
+          'Latent ' + str(unit_i + 1) + ' Activity', fontsize=medium
+      )
       ax.set_aspect('equal')
+      ax.tick_params(axis='both', labelsize=small)
 
     return fig
 
@@ -182,7 +200,7 @@ def plot_update_rules(
     # Ensure axes is always an array for consistent indexing
     if len(observations) == 1:
       axes = [axes]
-    axes[0].set_ylabel('Δ Activity')
+    axes[0].set_ylabel('Δ Activity', fontsize=medium)
 
     for observation_i in range(len(observations)):
       observation = observations[observation_i]
@@ -206,12 +224,15 @@ def plot_update_rules(
 
         if observation_i == 0:
           legend_labels = [f'{num:.1f}' for num in state_bins_input]  # pylint: disable=bad-whitespace
-          ax.legend(legend_elements, legend_labels)
+          ax.legend(legend_elements, legend_labels, fontsize=small)
 
       ax.plot((-axis_lim, axis_lim), (0, 0), color='black')
-      ax.set_title(titles[observation_i])
+      ax.set_title(titles[observation_i], fontsize=large)
       ax.set_xlim(-axis_lim, axis_lim)
-      ax.set_xlabel('Latent ' + str(unit_i + 1) + ' Activity')
+      ax.set_xlabel(
+          'Latent ' + str(unit_i + 1) + ' Activity', fontsize=medium
+      )
+      ax.tick_params(axis='both', labelsize=small)
 
     return fig
 
@@ -354,9 +375,10 @@ def plot_choice_rule(
 
     fig, ax = plt.subplots()
     ax.plot(policy_latent_vals, choice_logits, 'g')
-    ax.set_title('Choice Rule')
-    ax.set_xlabel(f'Latent {policy_latent_ind + 1}')
-    ax.set_ylabel('Choice Logit')
+    ax.set_title('Choice Rule', fontsize=large)
+    ax.set_xlabel(f'Latent {policy_latent_ind + 1}', fontsize=medium)
+    ax.set_ylabel('Choice Logit', fontsize=medium)
+    ax.tick_params(axis='both', labelsize=small)
 
   else:
     # Choice Rule 2D: A colormap
@@ -396,9 +418,11 @@ def plot_choice_rule(
     )
     scatter.set_clim(-cmax, cmax)
     cbar = fig.colorbar(scatter, ax=ax)
-    ax.set_title('Choice Rule')
-    ax.set_xlabel(f'Latent {policy_latent_inds[0]+1}')
-    ax.set_ylabel(f'Latent {policy_latent_inds[1]+1}')
-    cbar.set_label('Choice Logit')
+    cbar.ax.tick_params(labelsize=small)
+    cbar.set_label('Choice Logit', fontsize=medium)
+    ax.set_title('Choice Rule', fontsize=large)
+    ax.set_xlabel(f'Latent {policy_latent_inds[0]+1}', fontsize=medium)
+    ax.set_ylabel(f'Latent {policy_latent_inds[1]+1}', fontsize=medium)
+    ax.tick_params(axis='both', labelsize=small)
 
   return fig
