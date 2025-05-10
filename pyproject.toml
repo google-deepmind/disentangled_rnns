@@ -4,7 +4,7 @@
 name = "disentangled_rnns"
 description = ""
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.11"
 license = {file = "LICENSE"}
 authors = [{name = "GDM NeuroLab", email="no-reply@google.com"}]
 classifiers = [  # List of https://pypi.org/classifiers/
@@ -15,7 +15,17 @@ keywords = []
 
 # pip dependencies of the project
 # Installed locally with `pip install -e .`
-dependencies = []
+dependencies = [
+  # JAX ecosystem
+  dm-haiku
+  jax
+  chex
+  optax
+  # Libraries and utiliities
+  numpy
+  matplotlib
+  absl-py
+]
 
 # `version` is automatically set by flit to use `disentangled_rnns.__version__`
 dynamic = ["version"]

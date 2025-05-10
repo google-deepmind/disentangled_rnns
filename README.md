@@ -34,7 +34,11 @@ These instruction assume you will be using a virtual environment created with [c
 3. **Clone the github repo and install remaining requirements**
   ```shell
   git clone https://github.com/google-deepmind/disentangled_rnns.git
-  pip install -r disentangled_rnns/requirements.txt
+  !git clone https://github.com/google-deepmind/disentangled_rnns
+  %cd disentangled_rnns
+  !pip install .
+  !pip install -r requirements.txt
+  %cd ..
   ```
 
 ## Usage
