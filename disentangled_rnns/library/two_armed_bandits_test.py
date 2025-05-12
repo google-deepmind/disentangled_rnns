@@ -42,10 +42,38 @@ class TwoArmedBanditsTest(parameterized.TestCase):
 
     self.assertGreater(choice_probs_post[0], choice_probs_pre[0])
 
-  def test_generate_dataset(self):
+  @parameterized.named_parameters(named_agents_list)
+  def test_step(self, agent):
+    """Smoke test for stepping environment and agent together."""
+    environment = two_armed_bandits.EnvironmentBanditsDrift(sigma=0.01)
+    agent.new_session()
+    # Get a choice from the agent. Should be an int, 0 or 1
+    attempted_choice = agent.get_choice()
+    self.assertIsInstance(attempted_choice, int)
+    self.assertIn(attempted_choice, [0, 1])
+    # Get choice, reward, instructed from the environment
+    choice, reward, instructed = environment.step(attempted_choice)
+    # Choice is an int, 0 or 1
+    self.assertIsInstance(choice, int)
+    self.assertIn(choice, [0, 1])
+    # Reward is a float between 0 and 1
+    self.assertIsInstance(reward, float)
+    self.assertGreaterEqual(reward, 0)
+    self.assertLessEqual(reward, 1)
+    # Instructed is an int, 0 or 1
+    self.assertIsInstance(instructed, int)
+    self.assertIn(instructed, [0, 1])
+
+    # Update the agent with the choice and reward, get a new choice
+    agent.update(choice=choice, reward=reward)
+    attempted_choice = agent.get_choice()
+    self.assertIsInstance(attempted_choice, int)
+    self.assertIn(attempted_choice, [0, 1])
+
+  @parameterized.named_parameters(named_agents_list)
+  def test_generate_dataset(self, agent):
     """Smoke test generating a dataset the environment."""
     environment = two_armed_bandits.EnvironmentBanditsDrift(sigma=0.01)
-    agent = two_armed_bandits.AgentQ(alpha=0.3, beta=3)
     dataset = two_armed_bandits.create_dataset(
         environment=environment,
         agent=agent,

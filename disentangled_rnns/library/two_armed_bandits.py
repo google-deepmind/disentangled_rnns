@@ -36,7 +36,7 @@ class BaseEnvironment(abc.ABC):
   """Base class for two-armed bandit environments.
 
   Subclasses must implement the following methods:
-    - new_sess()
+    - new_session()
     - step(choice)
 
   Attributes:
@@ -49,7 +49,7 @@ class BaseEnvironment(abc.ABC):
     self._n_arms = n_arms
 
   @abstractmethod
-  def new_sess(self):
+  def new_session(self):
     """Starts a new session (e.g., resets environment parameters).
 
     This method should be implemented by subclasses to initialize or
@@ -108,9 +108,9 @@ class EnvironmentBanditsDrift(BaseEnvironment):
     self._p_instructed = p_instructed
 
     # Sample new reward probabilities
-    self.new_sess()
+    self.new_session()
 
-  def new_sess(self):
+  def new_session(self):
     # Pick new reward probabilities.
     # Sample randomly between 0 and 1
     self._reward_probs = self._random_state.rand(self.n_arms)
@@ -210,7 +210,7 @@ class EnvironmentPayoutMatrix(BaseEnvironment):
     self._current_session = 0
     self._current_trial = 0
 
-  def new_sess(self):
+  def new_session(self):
     self._current_session += 1
     if self._current_session >= self._n_sessions:
       raise NoMoreSessionsInDatasetError(
@@ -289,9 +289,9 @@ class AgentQ:
     """
     self._alpha = alpha
     self._beta = beta
-    self.new_sess()
+    self.new_session()
 
-  def new_sess(self):
+  def new_session(self):
     """Reset the agent for the beginning of a new session."""
     self.q = 0.5 * np.ones(2)
 
@@ -345,9 +345,9 @@ class AgentLeakyActorCritic:
     self._alpha_critic = alpha_critic
     self._alpha_actor_learn = alpha_actor_learn
     self._alpha_actor_forget = alpha_actor_forget
-    self.new_sess()
+    self.new_session()
 
-  def new_sess(self):
+  def new_session(self):
     """Reset the agent for the beginning of a new session."""
     self.theta = 0. * np.ones(2)
     self.v = 0.5
@@ -418,9 +418,9 @@ class AgentNetwork:
         lambda xs, state: model.apply(params, xs, rnn_state)
     )
     self._xs = np.zeros((1, 2))
-    self.new_sess()
+    self.new_session()
 
-  def new_sess(self):
+  def new_session(self):
     self._rnn_state = self._initial_state
 
   def get_choice_probs(self) -> np.ndarray:
@@ -514,7 +514,7 @@ def create_dataset(agent: Agent,
         np.concatenate(([prev_choices], [prev_rewards]), axis=0), 0, 1
     )
     ys[:, sess_i] = np.expand_dims(experiment.choices, 1)
-    environment.new_sess()
+    environment.new_session()
 
   dataset = rnn_utils.DatasetRNN(
       xs=xs,
