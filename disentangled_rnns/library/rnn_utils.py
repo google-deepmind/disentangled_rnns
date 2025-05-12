@@ -307,7 +307,8 @@ def categorical_neg_log_likelihood(
   log_liks = one_hot_labels * log_probs
   masked_log_liks = jnp.multiply(log_liks, mask)
   loss = -jnp.nansum(masked_log_liks)
-  return loss  # pytype: disable=bad-return-type  # jnp-type
+  n_unmasked_samples = jnp.sum(mask)
+  return loss, n_unmasked_samples  # pytype: disable=bad-return-type  # jnp-type
 
 
 def likelihood_and_sse(
@@ -323,7 +324,7 @@ def likelihood_and_sse(
   continuous_y_hats = y_hats[:, :, 2:3]
   continuous_ys = ys[:, :, 1:2]
 
-  log_likelihood = categorical_neg_log_likelihood(
+  log_likelihood, _ = categorical_neg_log_likelihood(
       categorical_ys, categorical_y_hats
   )
   # All trials with an invalid categorical target are masked.
@@ -363,9 +364,10 @@ def normalized_likelihood_and_mse(
 def normalized_likelihood(
     labels: np.ndarray, output_logits: np.ndarray
 ) -> float:
-  total_nll = categorical_neg_log_likelihood(labels, output_logits)
-  n_trials = np.sum(labels != -1)
-  normlik = np.exp((-1 * total_nll) / (n_trials))
+  total_nll, n_unmasked_samples = categorical_neg_log_likelihood(
+      labels, output_logits
+  )
+  normlik = np.exp((-1 * total_nll) / (n_unmasked_samples))
   return normlik
 
 
@@ -382,8 +384,9 @@ def compute_penalty(targets: np.ndarray, outputs: np.ndarray) -> float:
 
   trialwise_penalty = outputs[:, :, -1]
   penalty = jnp.sum(jnp.multiply(trialwise_penalty, mask))
+  n_unmasked_samples = jnp.sum(mask)
 
-  return penalty  # pytype: disable=bad-return-type  # jnp-type
+  return penalty, n_unmasked_samples  # pytype: disable=bad-return-type  # jnp-type
 
 
 ## Training Loop
@@ -474,27 +477,18 @@ def train_network(
     # (n_steps, n_episodes, n_targets+1)
     model_output = model.apply(params, random_key, xs)
     y_hats = model_output[:, :, :-1]
-    penalty = compute_penalty(ys, model_output)
-    loss = mse(ys, y_hats) + penalty_scale * penalty
-    return loss
-
-  def targeted_mse_loss(
-      params, xs, ys, random_key, penalty_target=loss_param
-  ) -> float:
-    """Treats the last element of the model outputs as a penalty."""
-    # (n_steps, n_episodes, n_targets+1)
-    model_output = model.apply(params, random_key, xs)
-    y_hats = model_output[:, :, :-1]
-    penalty = compute_penalty(ys, model_output)
-    loss = mse(ys, y_hats) + (penalty_target - penalty) ** 2
+    penalty, n_unmasked_samples = compute_penalty(ys, model_output)
+    loss = mse(ys, y_hats) + penalty_scale * penalty / n_unmasked_samples
     return loss
 
   def categorical_loss(
       params, xs: np.ndarray, labels: np.ndarray, random_key
   ) -> float:
     output_logits = model.apply(params, random_key, xs)
-    loss = categorical_neg_log_likelihood(labels, output_logits)
-    return loss
+    nll, n_unmasked_samples = categorical_neg_log_likelihood(
+        labels, output_logits
+    )
+    return nll / n_unmasked_samples
 
   def penalized_categorical_loss(
       params, xs, targets, random_key, penalty_scale=loss_param
@@ -503,11 +497,13 @@ def train_network(
     # (n_steps, n_episodes, n_targets)
     model_output = model.apply(params, random_key, xs)
     output_logits = model_output[:, :, :-1]
-    penalty = compute_penalty(targets, model_output)
-    loss = (
-        categorical_neg_log_likelihood(targets, output_logits)
-        + penalty_scale * penalty
+    penalty, _ = compute_penalty(targets, model_output)
+    nll, n_unmasked_samples = categorical_neg_log_likelihood(
+        targets, output_logits
     )
+    avg_nll = nll / n_unmasked_samples
+    avg_penalty = penalty / n_unmasked_samples
+    loss = avg_nll + penalty_scale * avg_penalty
     return loss
 
   def hybrid_loss(
@@ -536,15 +532,19 @@ def train_network(
     # ignoring the penalty, hence we don't need to do anything special here.
     y_hats = model_output
 
-    loss = likelihood_and_sse(
+    supervised_loss = likelihood_and_sse(
         ys, y_hats, likelihood_weight=likelihood_weight
-    ) + penalty_scale * compute_penalty(ys, y_hats)
+    )
+    # Supervised loss here is a sum not an average, so use the raw penalty
+    # without dividing by n_unmasked_samples
+    # TODO(siddhantjain): Evaluate whether we should use averaging here too.
+    penalty, _ = compute_penalty(ys, y_hats)
+    loss = supervised_loss + penalty_scale * penalty
     return loss
 
   losses = {
       'mse': mse_loss,
       'penalized_mse': penalized_mse_loss,
-      'targeted_mse': targeted_mse_loss,
       'categorical': categorical_loss,
       'penalized_categorical': penalized_categorical_loss,
       'hybrid': hybrid_loss,
