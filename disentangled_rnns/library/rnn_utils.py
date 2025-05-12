@@ -581,7 +581,7 @@ def train_network(
     xs_eval = None
     ys_eval = None
   # Train the network!
-  for step in jnp.arange(n_steps):
+  for step in range(n_steps):
     random_key, subkey_train, subkey_validation = jax.random.split(
         random_key, 3
     )
