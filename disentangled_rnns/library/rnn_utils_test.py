@@ -83,6 +83,108 @@ class TestRNNUtils(absltest.TestCase):
     xs, _ = next(dataset)
     self.assertEqual(np.shape(xs), (n_steps_per_session, n_sessions, 2))
 
+  def test_dataset_rnn_rolling_batch_gt_nepisodes(self):
+    """Test rolling batch mode when batch_size > n_episodes."""
+    n_episodes = 3
+    batch_s = 5
+    n_timesteps = 2
+    n_features = 1
+
+    # Create data where xs[0, episode_idx, 0] = episode_idx for easy checking
+    xs_data = np.zeros((n_timesteps, n_episodes, n_features))
+    for i in range(n_episodes):
+      xs_data[:, i, 0] = i
+    ys_data = np.zeros((n_timesteps, n_episodes, n_features))
+
+    dataset = rnn_utils.DatasetRNN(
+        xs=xs_data,
+        ys=ys_data,
+        y_type='scalar',
+        batch_size=batch_s,
+        batch_mode='rolling',
+    )
+
+    # Initial order: [0, 1, 2]
+    # First batch expected indices: tile([0,1,2], 2)[:5] = [0, 1, 2, 0, 1]
+    xs_batch1, _ = next(dataset)
+    self.assertEqual(xs_batch1.shape, (n_timesteps, batch_s, n_features))
+    np.testing.assert_array_equal(xs_batch1[0, :, 0], [0, 1, 2, 0, 1])
+    # Expected start index after 1st batch: (0 + 5) % 3 = 2
+    self.assertEqual(dataset._current_start_index, 2)
+
+    # Second batch expected indices: tile([2,0,1], 2)[:5] = [2, 0, 1, 2, 0]
+    xs_batch2, _ = next(dataset)
+    self.assertEqual(xs_batch2.shape, (n_timesteps, batch_s, n_features))
+    np.testing.assert_array_equal(xs_batch2[0, :, 0], [2, 0, 1, 2, 0])
+    # Expected start index after 2nd batch: (2 + 5) % 3 = 1
+    self.assertEqual(dataset._current_start_index, 1)
+
+  def test_dataset_rnn_rolling_batch_lt_nepisodes(self):
+    """Test rolling batch mode when batch_size < n_episodes."""
+    n_episodes = 3
+    batch_s = 2
+    n_timesteps = 2
+    n_features = 1
+
+    xs_data = np.zeros((n_timesteps, n_episodes, n_features))
+    for i in range(n_episodes):
+      xs_data[:, i, 0] = i
+    ys_data = np.zeros((n_timesteps, n_episodes, n_features))
+
+    dataset = rnn_utils.DatasetRNN(
+        xs=xs_data,
+        ys=ys_data,
+        y_type='scalar',
+        batch_size=batch_s,
+        batch_mode='rolling',
+    )
+    # Initial order: [0, 1, 2]
+    # First batch: [0, 1]
+    xs_batch1, _ = next(dataset)
+    self.assertEqual(xs_batch1.shape, (n_timesteps, batch_s, n_features))
+    np.testing.assert_array_equal(xs_batch1[0, :, 0], [0, 1])
+    # Expected start index after 1st batch: (0 + 2) % 3 = 2
+    self.assertEqual(dataset._current_start_index, 2)
+
+    # Second batch: [2, 0]
+    xs_batch2, _ = next(dataset)
+    np.testing.assert_array_equal(xs_batch2[0, :, 0], [2, 0])
+    # Expected start index after 2nd batch: (2 + 2) % 3 = 1
+    self.assertEqual(dataset._current_start_index, 1)
+
+  def test_dataset_rnn_rolling_batch_eq_nepisodes(self):
+    """Test rolling batch mode when batch_size == n_episodes."""
+    n_episodes = 3
+    batch_s = 3
+    n_timesteps = 2
+    n_features = 1
+
+    xs_data = np.zeros((n_timesteps, n_episodes, n_features))
+    for i in range(n_episodes):
+      xs_data[:, i, 0] = i
+    ys_data = np.zeros((n_timesteps, n_episodes, n_features))
+
+    dataset = rnn_utils.DatasetRNN(
+        xs=xs_data,
+        ys=ys_data,
+        y_type='scalar',
+        batch_size=batch_s,
+        batch_mode='rolling',
+    )
+    # Initial order: [0, 1, 2]
+    # First batch: [0, 1, 2]
+    xs_batch1, _ = next(dataset)
+    self.assertEqual(xs_batch1.shape, (n_timesteps, batch_s, n_features))
+    np.testing.assert_array_equal(xs_batch1[0, :, 0], [0, 1, 2])
+    # Expected start index after 1st batch: (0 + 3) % 3 = 0
+    self.assertEqual(dataset._current_start_index, 0)
+
+    # Second batch: [0, 1, 2]
+    xs_batch2, _ = next(dataset)
+    np.testing.assert_array_equal(xs_batch2[0, :, 0], [0, 1, 2])
+    # Expected start index after 2nd batch: (0 + 3) % 3 = 0
+    self.assertEqual(dataset._current_start_index, 0)
+
   def test_split_dataset(self):
     dataset_train, dataset_eval = rnn_utils.split_dataset(self.dataset, 2)
     xs_train, _ = next(dataset_train)
@@ -197,6 +299,23 @@ class TestRNNUtils(absltest.TestCase):
     # Test unsupported type
     with self.assertRaises(TypeError):
       json.dumps(object(), cls=encoder)
+
+  def test_dataset_rnn_edge_cases(self):
+    n_timesteps = 2
+    n_features = 1
+    xs_empty = np.empty((n_timesteps, 0, n_features))
+    ys_empty = np.empty((n_timesteps, 0, n_features))
+
+    # Empty dataset (n_episodes = 0) should raise ValueError on init
+    for batch_mode in ['single', 'rolling', 'random']:
+      with self.assertRaises(ValueError):
+        _ = rnn_utils.DatasetRNN(
+            xs=xs_empty,
+            ys=ys_empty,
+            y_type='scalar',
+            batch_size=0,
+            batch_mode=batch_mode,
+        )
 
 
 if __name__ == '__main__':

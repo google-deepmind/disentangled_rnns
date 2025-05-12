@@ -17,7 +17,7 @@
 from collections.abc import Callable
 import json
 import sys
-from typing import Any, Optional
+from typing import Any, Optional, Literal
 import warnings
 
 from absl import logging
@@ -48,6 +48,7 @@ class DatasetRNN:
       x_names: Optional[list[str]] = None,
       y_names: Optional[list[str]] = None,
       batch_size: Optional[int] = None,
+      batch_mode: Literal['single', 'rolling', 'random'] = 'single',
   ):
     """Do error checking and bin up the dataset into batches.
 
@@ -68,6 +69,11 @@ class DatasetRNN:
       batch_size: The size of the batch (number of episodes) to serve up each
         time next() is called. If not specified, all episodes in the dataset
         will be served
+      batch_mode: How to batch the dataset. Options are 'single', 'rolling',
+        and 'random'. In 'single' mode, all episodes are served together. In
+        'rolling' mode, a new batch is formed by rolling the episodes forward
+        in time. In 'random' mode, a new batch is formed by randomly sampling
+        episodes. If not specified, will default to 'single'.
     """
     ##################
     # Error checking #
@@ -127,6 +133,13 @@ class DatasetRNN:
           ' episodes in ys {ys.shape[1]}.'
       )
 
+    # Are xs and ys non-empty?
+    if xs.shape[0] == 0 or xs.shape[1] == 0:
+      raise ValueError(
+          'xs and ys must be non-empty. Got xs.shape = {xs.shape} and ys.shape'
+          f' = {ys.shape} instead.'
+      )
+
     # Process feature and target names
     if x_names is None:
       x_names = [f'Observation {i}' for i in range(xs.shape[2])]
@@ -160,9 +173,10 @@ class DatasetRNN:
     self.batch_size = batch_size
     self._xs = xs
     self._ys = ys
-    self.n_episodes = self._xs.shape[1]
+    self._n_episodes = self._xs.shape[1]
     self._n_timesteps = self._xs.shape[0]
-    self._order_to_get = np.arange(self.n_episodes)
+    self.batch_mode = batch_mode
+    self._current_start_index = 0  # For batch_mode='rolling'
 
   def __iter__(self):
     return self
@@ -174,26 +188,45 @@ class DatasetRNN:
   def __next__(self):
     """Return a batch of data, including both xs and ys."""
 
-    # If batch_size is larger than the number of episodes, raise a warning
-    if self.batch_size > self.n_episodes:
-      logging.warning(
-          'Batch size %d is larger than the number of episodes %d. Only %d'
-          ' episodes will be used.',
-          self.batch_size,
-          self.n_episodes,
-          self.n_episodes,
+    if self.batch_size == 0:
+      # Return empty arrays with correct number of dimensions
+      empty_xs = np.empty(
+          (self._n_timesteps, 0, self._xs.shape[2]), dtype=self._xs.dtype
       )
-      self.batch_size = self.n_episodes
+      empty_ys = np.empty(
+          (self._n_timesteps, 0, self._ys.shape[2]), dtype=self._ys.dtype
+      )
+      warnings.warn('DatasetRNN batch_size is 0. Returning an empty batch.')
+      return empty_xs, empty_ys
 
-    # Define the chunk we want: first batch_size episodes from the order_to_get
-    batch_inds = self._order_to_get[: self.batch_size]
-    # Get the chunks of data
-    x, y = self._xs[:, batch_inds], self._ys[:, batch_inds]
+    if self.batch_mode == 'single':
+      return self.get_all()
 
-    # Update the order for next time
-    self._order_to_get = np.roll(self._order_to_get, self.batch_size)
+    elif self.batch_mode == 'rolling':
+      # Generate indices starting from the current index, wrapping using modulo
+      indices = np.arange(
+          self._current_start_index,
+          self._current_start_index + self.batch_size,
+      )
+      batch_inds = indices % self._n_episodes
 
-    return x, y
+      # Get the chunks of data
+      xs_batch, ys_batch = self._xs[:, batch_inds], self._ys[:, batch_inds]
+      # Update the starting index for the next batch, wrapping around
+      self._current_start_index = (
+          self._current_start_index + self.batch_size
+      ) % self._n_episodes
+      return xs_batch, ys_batch
+
+    elif self.batch_mode == 'random':
+      inds_to_get = np.random.choice(self._n_episodes, size=self.batch_size)
+      return self._xs[:, inds_to_get], self._ys[:, inds_to_get]
+
+    else:
+      raise ValueError(
+          f'Batch mode {self.batch_mode} not recognized. Must be one of'
+          ' "single", "rolling", or "random".'
+      )
 
 
 def split_dataset(
@@ -540,13 +573,7 @@ def train_network(
   validation_loss = []
   l_validation = np.nan
 
-  train_dataset_batched = (
-      training_dataset.batch_size != training_dataset.n_episodes
-  )
-  if train_dataset_batched:
-    xs_train, ys_train = next(training_dataset)
-  else:
-    xs_train, ys_train = training_dataset.get_all()
+  xs_train, ys_train = next(training_dataset)
 
   if validation_dataset is not None:
     xs_eval, ys_eval = validation_dataset.get_all()
@@ -558,8 +585,8 @@ def train_network(
     random_key, subkey_train, subkey_validation = jax.random.split(
         random_key, 3
     )
-    # If the training dataset is batched, get a new batch of data.
-    if train_dataset_batched:
+    # If the training dataset uses batching, get a new batch
+    if training_dataset.batch_mode != 'single':
       xs_train, ys_train = next(training_dataset)
 
     loss, params, opt_state = train_step(
