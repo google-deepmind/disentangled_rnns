@@ -25,7 +25,7 @@ import numpy as np
 def information_bottleneck(
     mus: jnp.ndarray, sigmas: jnp.ndarray
 ) -> tuple[jnp.ndarray, jnp.ndarray]:
-  r"""Output from an information bottleneck given a vector of means and vars.
+  r"""Output from an information bottleneck given a vector of means and std devs.
 
   Bottleneck outputs are sampled independently from Gaussian distributions with
   the given means and variances. Bottleneck costs are computed as the KL
@@ -38,21 +38,24 @@ def information_bottleneck(
   Args:
     mus: The means of the sampling distribution. Shape is (batch_size,
       bottleneck_dims)
-    sigmas: The diagonal of the covariance matrix of the sampling distribution.
-      Shape is (bottleneck_dims)
+    sigmas: The standard deviations of the sampling distribution (diagonal of
+      the sqrt of the covariance matrix). Shape is (bottleneck_dims).
   Returns:
     bottleneck_output: The noisy output of the bottleneck. Shape is the same as
       mus.
     bottleneck_penalty: The KL cost of the bottleneck sample. Shape is
       (batch_size,).
   """
+  # Sample using standard deviation (sigmas)
   # Shape is (batch_size, bottleneck_dims)
   bottleneck_output = mus + sigmas * jax.random.normal(
       hk.next_rng_key(), jnp.shape(mus)
   )
 
+  # KL divergence KL( N(mu, var) || N(0, 1) ) uses variances.
+  variances = jnp.square(sigmas)
   # Shape is (batch_size, bottleneck_dims)
-  elementwise_kl = jnp.square(mus) + sigmas - 1.0 - jnp.log(sigmas)
+  elementwise_kl = jnp.square(mus) + variances - 1.0 - jnp.log(variances)
   # Shape is (batch_size,)
   bottleneck_penalty = 0.5 * jnp.sum(
       elementwise_kl, axis=tuple(range(1, elementwise_kl.ndim))
@@ -69,9 +72,9 @@ def reparameterize_sigma(
   Args:
     hk_param: The haiku parameter corresponding to a bottleneck sigma. Range
       from -inf to +inf
-    min_sigma: The minimum value of the sigma.
+    min_sigma: The minimum value of the standard deviation.
   Returns:
-    sigma: The bottleneck sigma. Range from min_sigma to inf.
+    sigma: The bottleneck standard deviation. Range from min_sigma to inf.
   """
   return jnp.abs(hk_param) + min_sigma
 
