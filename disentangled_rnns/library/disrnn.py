@@ -138,8 +138,8 @@ class DisRnnConfig:
       self.x_names = [f'Observation {i}' for i in range(expected_len_xnames)]
     if len(self.x_names) != expected_len_xnames:
       raise ValueError(
-          f'Based on x_names {self.x_names}, expected obs_size to be '
-          f'{expected_len_xnames} but got {self.obs_size}'
+          f'Based on obs_size {self.obs_size}, expected x_names to have '
+          f'length {self.obs_size} but got {self.x_names}'
       )
 
     # Check activation is in jax.nn
@@ -504,10 +504,10 @@ class HkDisentangledRNN(hk.RNNCore):
 
 
 def log_bottlenecks(params,
-                    open_thresh=0.1,
-                    partially_open_thresh=0.25,
-                    closed_thresh=0.9) -> dict[str, int]:
-  """Computes info about bottlenecks."""
+                    open_thresh: float = 0.1,
+                    partially_open_thresh: float = 0.25,
+                    closed_thresh: float = 0.9) -> dict[str, int]:
+  """Computes info about bottlenecks for the base DisRNN."""
 
   params_disrnn = params['hk_disentangled_rnn']
 
@@ -568,3 +568,18 @@ def get_total_sigma(params):
       + jnp.sum(update_bottlenecks)
       + jnp.sum(choice_bottlenecks)
   )
+
+
+def get_auxiliary_metrics(params: hk.Params) -> dict[str, Any]:
+  """Computes auxiliary metrics for the base DisRNN.
+
+  Args:
+    params: Haiku parameters of the model.
+
+  Returns:
+    A dictionary of auxiliary metrics.
+  """
+
+  bottleneck_metrics = log_bottlenecks(params)
+  total_sigma_val = get_total_sigma(params)
+  return {'total_sigma': total_sigma_val, **bottleneck_metrics}
