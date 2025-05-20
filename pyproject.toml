@@ -16,16 +16,18 @@ keywords = []
 # pip dependencies of the project
 # Installed locally with `pip install -e .`
 dependencies = [
-  # JAX ecosystem
-  dm-haiku
-  jax
-  chex
-  optax
-  # Libraries and utiliities
-  numpy
-  matplotlib
-  absl-py
+"dm-haiku==0.0.13",
+"jax==0.5.3",
+"chex==0.1.89",
+"optax==0.2.4",
+"flax==0.10.6",
+"numpy==2.2.4",
+"scipy==1.15.3",
+"matplotlib==3.10.1",
+"absl-py==2.2.2",
+"IPython==9.2.0",
 ]
+
 
 # `version` is automatically set by flit to use `disentangled_rnns.__version__`
 dynamic = ["version"]

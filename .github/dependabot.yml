@@ -1,0 +1,21 @@
+# Config file reference: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-dependabot-version-updates
+version: 2
+updates:
+  # Enable updates for pip (Python) dependencies
+  - package-ecosystem: "pip"
+    # Set the directory where requirements.txt and pyproject.toml are located
+    directory: "/"
+    # Set the schedule for checking for updates
+    schedule:
+      interval: "weekly"
+    # Define which types of updates to allow (major, minor, patch)
+    # https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-dependabot-version-updates#version-update-strategy
+    version-update-strategy: "increase"
+    # Group updates for multiple packages into a single PR
+    open-pull-requests-limit: 1
+    # Set reviewers for the PRs
+    reviewers:
+      - "@kevin-j-miller"
+    # Set a label for the PRs
+    labels:
+      - "dependencies"
