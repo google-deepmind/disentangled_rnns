@@ -18,6 +18,7 @@ import copy
 from typing import Optional
 
 from disentangled_rnns.library import disrnn
+from disentangled_rnns.library import multisubject_disrnn
 from disentangled_rnns.library import rnn_utils
 import haiku as hk
 import jax
@@ -25,6 +26,7 @@ import jax.numpy as jnp
 import matplotlib as mpl
 from matplotlib import pyplot as plt
 import numpy as np
+
 
 # Fontsizes and formatting for plots.
 small = 15
@@ -42,12 +44,23 @@ def plot_bottlenecks(
 ) -> plt.Figure:
   """Plot the bottleneck sigmas from an hk.DisentangledRNN."""
 
-  params_disrnn = params['hk_disentangled_rnn']
+  if isinstance(disrnn_config, multisubject_disrnn.MultisubjectDisRnnConfig):
+    params_disrnn = params['multisubject_dis_rnn']
+    subject_embedding_size = disrnn_config.subject_embedding_size
+  else:
+    params_disrnn = params['hk_disentangled_rnn']
+    subject_embedding_size = 0
 
   latent_dim = params_disrnn['latent_sigma_params'].shape[0]
   obs_dim = params_disrnn['update_net_sigma_params'].shape[0] - latent_dim
 
-  update_input_names = disrnn_config.x_names
+  if isinstance(disrnn_config, multisubject_disrnn.MultisubjectDisRnnConfig):
+    update_input_names = (
+        [f'SubjEmb {i+1}' for i in range(subject_embedding_size)]
+        + disrnn_config.x_names[1:]
+    )
+  else:
+    update_input_names = disrnn_config.x_names
 
   latent_sigmas = np.array(
       disrnn.reparameterize_sigma(params_disrnn['latent_sigma_params'])
@@ -66,7 +79,17 @@ def plot_bottlenecks(
   if sort_latents:
     latent_sigma_order = np.argsort(latent_sigmas)
     latent_sigmas = latent_sigmas[latent_sigma_order]
-    choice_sigmas = choice_sigmas[latent_sigma_order]
+
+    # Sort choice sigmas based on the order of latents, keeping subject
+    # embedding dimensions first if they exist.
+    choice_sigma_order = np.concatenate(
+        (
+            np.arange(0, subject_embedding_size),
+            subject_embedding_size + latent_sigma_order,
+        ),
+        axis=0,
+    )
+    choice_sigmas = choice_sigmas[choice_sigma_order]
 
     update_sigma_order = np.concatenate(
         (np.arange(0, obs_dim, 1), obs_dim + latent_sigma_order), axis=0
@@ -76,6 +99,7 @@ def plot_bottlenecks(
 
   latent_names = np.arange(1, latent_dim + 1)
   fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+
   # Plot Latent Bottlenecks on axes[0]
   im1 = axes[0].imshow(np.swapaxes([1 - latent_sigmas], 0, 1), cmap='Oranges')
   im1.set_clim(vmin=0, vmax=1)
@@ -87,24 +111,34 @@ def plot_bottlenecks(
   axes[0].set_title('Latent Bottlenecks', fontsize=large)
 
   # Plot Choice Bottlenecks on axes[1]
+  # These bottlenecks apply to the inputs of the choice network:
+  # [subject embeddings, latents]
+  choice_input_dim = subject_embedding_size + latent_dim
+  choice_input_names = np.concatenate((
+      [f'SubjEmb {i+1}' for i in range(subject_embedding_size)],
+      [f'Latent {i}' for i in latent_names]
+  ))
   im2 = axes[1].imshow(np.swapaxes([1 - choice_sigmas], 0, 1), cmap='Oranges')
   im2.set_clim(vmin=0, vmax=1)
   axes[1].set_yticks(
-      ticks=range(latent_dim), labels=latent_names, fontsize=small
+      ticks=range(choice_input_dim), labels=choice_input_names, fontsize=small
   )
   axes[1].set_xticks(ticks=[])
-  axes[1].set_ylabel('Latent #', fontsize=medium)
+  axes[1].set_ylabel('Choice Network Input', fontsize=medium)
   axes[1].set_title('Choice Network Bottlenecks', fontsize=large)
 
   # Plot Update Bottlenecks on axes[2]
   im3 = axes[2].imshow(1 - update_sigmas, cmap='Oranges')
   im3.set_clim(vmin=0, vmax=1)
   cbar = fig.colorbar(im3, ax=axes[2])
+  # Y-axis corresponds to the target latent (sorted if sort_latents=True)
   cbar.ax.tick_params(labelsize=small)
   axes[2].set_yticks(
       ticks=range(latent_dim), labels=latent_names, fontsize=small
   )
-  xlabels = np.concatenate((np.array(update_input_names), latent_names))
+  # X-axis corresponds to the inputs to the update network:
+  # [subject embeddings, observations, latents]
+  xlabels = update_input_names + [f'Latent {i}' for i in latent_names]
   axes[2].set_xticks(
       ticks=range(len(xlabels)),
       labels=xlabels,
@@ -112,6 +146,7 @@ def plot_bottlenecks(
       fontsize=small,
   )
   axes[2].set_ylabel('Latent #', fontsize=medium)
+  axes[2].set_xlabel('Update Network Inputs', fontsize=medium)
   axes[2].set_title('Update Network Bottlenecks', fontsize=large)
   fig.tight_layout()  # Adjust layout to prevent overlap
   return fig
@@ -128,9 +163,22 @@ def plot_update_rules(
   disrnn_config = copy.deepcopy(disrnn_config)
   disrnn_config.noiseless_mode = True  # Turn off noise for plotting
 
-  make_network = lambda: disrnn.HkDisentangledRNN(disrnn_config)
-  obs_names = disrnn_config.x_names
-  param_prefix = 'hk_disentangled_rnn'
+  if isinstance(disrnn_config, multisubject_disrnn.MultisubjectDisRnnConfig):
+    if subj_ind is None:
+      print('In multisubject mode, but subj_ind not provided. Defaulting to 0')
+      subj_ind = 0
+  elif subj_ind is not None:
+    print('subj_ind provided, but not in multisubject mode. Ignoring it')
+    subj_ind = None
+
+  if isinstance(disrnn_config, multisubject_disrnn.MultisubjectDisRnnConfig):
+    make_network = lambda: multisubject_disrnn.MultisubjectDisRnn(disrnn_config)
+    obs_names = disrnn_config.x_names[1:]  # First x_name is "Subject ID"
+    param_prefix = 'multisubject_dis_rnn'
+  else:
+    make_network = lambda: disrnn.HkDisentangledRNN(disrnn_config)
+    obs_names = disrnn_config.x_names
+    param_prefix = 'hk_disentangled_rnn'
 
   def step(xs, state):
     core = make_network()
@@ -246,8 +294,12 @@ def plot_update_rules(
           np.transpose(params[param_prefix]['update_net_sigma_params'])
       )
   )
+  if isinstance(disrnn_config, multisubject_disrnn.MultisubjectDisRnnConfig):
+    subj_embedding_size = disrnn_config.subject_embedding_size
+  else:
+    subj_embedding_size = 0
 
-  obs_size = 2
+  obs_size = disrnn_config.obs_size
 
   latent_order = np.argsort(latent_sigmas)
   figs = []
@@ -260,8 +312,8 @@ def plot_update_rules(
       # Which of its input bottlenecks are open?
       update_net_inputs = np.argwhere(update_sigmas[latent_i] < 0.5)
       # TODO(kevinjmiller): Generalize to allow different observation length
-      obs1_sensitive = np.any(update_net_inputs == 0)
-      obs2_sensitive = np.any(update_net_inputs == 1)
+      obs1_sensitive = np.any(update_net_inputs == subj_embedding_size)
+      obs2_sensitive = np.any(update_net_inputs == subj_embedding_size + 1)
       # Choose which observations to use based on input bottlenecks
       if obs1_sensitive and obs2_sensitive:
         observations = ([0, 0], [0, 1], [1, 0], [1, 1])
@@ -283,8 +335,8 @@ def plot_update_rules(
 
       # Choose whether to condition on other latent values
       update_net_input_latents = (
-          update_net_inputs[obs_size:, 0]
-          - (obs_size)
+          update_net_inputs[obs_size + subj_embedding_size :, 0]
+          - (subj_embedding_size + obs_size)
       )
       # Doesn't count if it depends on itself (this'll be shown no matter what)
       latent_sensitive = np.delete(
@@ -314,6 +366,7 @@ def plot_update_rules(
 def plot_choice_rule(
     params: hk.Params,
     disrnn_config: disrnn.DisRnnConfig,
+    subj_embedding: Optional[np.ndarray] = None,
     axis_lim: float = 2.1,
 ) -> Optional[plt.Figure]:
   """Plots the choice rule of a DisRNN.
@@ -321,6 +374,8 @@ def plot_choice_rule(
   Args:
     params: The parameters of the DisRNN
     disrnn_config: A DisRnnConfig object
+    subj_embedding: The subject embedding to use. If None, use a zero vector
+      (loosely: the average subject)
     axis_lim: The axis limit for the plot.
 
   Returns:
@@ -331,13 +386,21 @@ def plot_choice_rule(
   disrnn_config.noiseless_mode = True  # Turn off noise for plotting
   activation_fn = getattr(jax.nn, disrnn_config.activation)
 
-  params_prefix = 'hk_disentangled_rnn'
+  if isinstance(disrnn_config, multisubject_disrnn.MultisubjectDisRnnConfig):
+    subj_embedding_size = disrnn_config.subject_embedding_size
+    params_prefix = 'multisubject_dis_rnn'
+  else:
+    subj_embedding_size = 0
+    params_prefix = 'hk_disentangled_rnn'
+
+  if subj_embedding is None:
+    subj_embedding = np.zeros(shape=(subj_embedding_size,))
 
   n_vals = 100
 
   def forward(xs):
     choice_net_output = disrnn.ResMLP(
-        input_size=disrnn_config.latent_size,
+        input_size=disrnn_config.latent_size + subj_embedding_size,
         output_size=disrnn_config.output_size,
         n_units_per_layer=disrnn_config.choice_net_n_units_per_layer,
         n_layers=disrnn_config.choice_net_n_layers,
@@ -355,74 +418,114 @@ def plot_choice_rule(
   choice_net_sigmas = disrnn.reparameterize_sigma(
       params[params_prefix]['choice_net_sigma_params']
   )
-  n_inputs = np.sum(choice_net_sigmas < 0.5)
-  choice_net_input_order = np.argsort(choice_net_sigmas)
 
-  if n_inputs == 0:
-    print('Choice does not depend on any latents')
+  # Determine which latents to vary based on their choice_net_sigma_params.
+  # choice_net_sigmas has shape (subj_embedding_size + latent_size,).
+  latent_to_choice_net_sigmas = choice_net_sigmas[subj_embedding_size:]
+
+  sorted_latent_indices = np.argsort(
+      latent_to_choice_net_sigmas
+  )
+
+  influential_latents_indices_in_latent_space = [
+      latent_idx  # This is an index in the latent space (0 to latent_size-1)
+      for latent_idx in sorted_latent_indices
+      if latent_to_choice_net_sigmas[latent_idx] < 0.5
+  ]
+  n_latents_to_plot = min(len(influential_latents_indices_in_latent_space), 2)
+
+  if n_latents_to_plot == 0:
+    print(
+        'Choice rule: No latents have a choice_net_input_sigma < 0.5.'
+        ' Plotting not possible.'
+    )
     return None
-  elif n_inputs == 1:
+
+  # Select the actual latents to vary (indices within the latent space)
+  varying_latents_plot_indices = influential_latents_indices_in_latent_space[
+      :n_latents_to_plot
+  ]
+
+  if n_latents_to_plot == 1:
     # Choice Rule 1D: A curve
-    policy_latent_ind = choice_net_input_order[0]
+    policy_latent_idx_in_latent_space = varying_latents_plot_indices[0]
     policy_latent_vals = np.linspace(-axis_lim, axis_lim, n_vals)
     xs = np.zeros((
         n_vals,
-        disrnn_config.latent_size,
+        subj_embedding_size + disrnn_config.latent_size,
     ))
-    xs[:, policy_latent_ind] = policy_latent_vals
-    y_hats, _ = apply(choice_net_params, jax.random.PRNGKey(0), xs)
+    xs[:, :subj_embedding_size] = subj_embedding
+    # Vary the selected latent; other latents remain 0
+    xs[
+        :, subj_embedding_size + policy_latent_idx_in_latent_space
+    ] = policy_latent_vals
+    choice_net_output = apply(choice_net_params, jax.random.PRNGKey(0), xs)
+    y_hats = choice_net_output[0]
     choice_logits = y_hats[:, 0] - y_hats[:, 1]
 
     fig, ax = plt.subplots()
     ax.plot(policy_latent_vals, choice_logits, 'g')
     ax.set_title('Choice Rule', fontsize=large)
-    ax.set_xlabel(f'Latent {policy_latent_ind + 1}', fontsize=medium)
+    ax.set_xlabel(
+        f'Latent {policy_latent_idx_in_latent_space + 1}', fontsize=medium
+    )
     ax.set_ylabel('Choice Logit', fontsize=medium)
     ax.tick_params(axis='both', labelsize=small)
 
   else:
     # Choice Rule 2D: A colormap
-    if n_inputs > 2:
+    if len(influential_latents_indices_in_latent_space) > 2:
       print(
-          'WARNING: More than two latents contribute to choice. Plotting only',
-          ' the first two.'
+          'WARNING: More than two latents have choice_net_input_sigma < 0.5.'
+          ' Plotting only the two with the smallest choice_net_input_sigmas.'
       )
 
-    policy_latent_inds = choice_net_input_order[:2]
+    policy_latent_idx1_in_latent_space = varying_latents_plot_indices[0]
+    policy_latent_idx2_in_latent_space = varying_latents_plot_indices[1]
 
     latent_vals = np.linspace(-axis_lim, axis_lim, n_vals)
 
     xv, yv = np.meshgrid(latent_vals, latent_vals)
-    latent0_vals = np.reshape(xv, (xv.size,))
-    latent1_vals = np.reshape(yv, (yv.size,))
+    latent0_vals = xv.flatten()
+    latent1_vals = yv.flatten()
 
-    xs = np.zeros(
-        shape=(
-            n_vals**2,
-            disrnn_config.latent_size,
-        )
-    )
-    xs[:, policy_latent_inds[0]] = latent0_vals
-    xs[:, policy_latent_inds[1]] = latent1_vals
+    xs = np.zeros((
+        n_vals * n_vals,
+        subj_embedding_size + disrnn_config.latent_size,
+    ))
+    xs[:, :subj_embedding_size] = subj_embedding
+    # Vary the selected latents; other latents remain 0
+    xs[
+        :, subj_embedding_size + policy_latent_idx1_in_latent_space
+    ] = latent0_vals
+    xs[
+        :, subj_embedding_size + policy_latent_idx2_in_latent_space
+    ] = latent1_vals
 
-    y_hats, _ = apply(choice_net_params, jax.random.PRNGKey(0), xs)
+    y_hats = apply(choice_net_params, jax.random.PRNGKey(0), xs)
     # TODO(kevinjmiller): This assumes two-alternative logits. Generalize to
-    # allow more alternatives and/or scalar outputs
-    choice_logits = y_hats[:, 1] - y_hats[:, 0]
-
-    cmax = np.max(np.abs(choice_logits))
+    # K-alternative choice. For now, take difference between first two.
+    choice_logits_2d = y_hats[0][:, 0] - y_hats[0][:, 1]
+    choice_logits_2d = choice_logits_2d.reshape((n_vals, n_vals))
 
     fig, ax = plt.subplots()
-    scatter = ax.scatter(
-        latent0_vals, latent1_vals, c=choice_logits, s=100, cmap='bwr'
+    scatter = ax.imshow(
+        choice_logits_2d,
+        cmap='coolwarm',
+        origin='lower',
+        extent=[-axis_lim, axis_lim, -axis_lim, axis_lim],
+        aspect='auto',
     )
-    scatter.set_clim(-cmax, cmax)
     cbar = fig.colorbar(scatter, ax=ax)
     cbar.ax.tick_params(labelsize=small)
     cbar.set_label('Choice Logit', fontsize=medium)
     ax.set_title('Choice Rule', fontsize=large)
-    ax.set_xlabel(f'Latent {policy_latent_inds[0]+1}', fontsize=medium)
-    ax.set_ylabel(f'Latent {policy_latent_inds[1]+1}', fontsize=medium)
+    ax.set_xlabel(
+        f'Latent {policy_latent_idx1_in_latent_space + 1}', fontsize=medium
+    )
+    ax.set_ylabel(
+        f'Latent {policy_latent_idx2_in_latent_space + 1}', fontsize=medium
+    )
     ax.tick_params(axis='both', labelsize=small)
 
   return fig
