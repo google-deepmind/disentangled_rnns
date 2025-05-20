@@ -16,9 +16,32 @@ This code allows generating synthetic datasets, packaging laboratory datasets,
 training disRNNs with different hyperparameters, and inspecting the fit
 networks.
 
-## Installation
+## Exploring DisRNN in Colab
 
-These instruction assume you will be using a virtual environment created with [conda](https://anaconda.org/anaconda/conda).
+We provide several ipynb notebooks you can use to explore DisRNN. The links
+below will open these notebooks in Google Colab. We recommend creating a copy so
+that you will be able to edit the notebook (File -> Save a copy in Drive), and
+connecting your notebook to a GPU or TPU backend (Connect button in the top
+right -> Connect to a hosted runtime)
+
+*   The
+    [Train GRU](https://colab.research.google.com/github/google-deepmind/disentangled_rnns/blob/main/disentangled_rnns/notebooks/train_single_gru.ipynb)
+    notebook demonstrates fitting a gated recurrent unit network to a synthetic
+    dataset, and inspecting the fit network.
+*   The
+    [Train DisRNN](https://colab.research.google.com/github/google-deepmind/disentangled_rnns/blob/main/disentangled_rnns/notebooks/train_single_disrnn.ipynb)
+    notebook demonstrates fitting a DisRNN network to a syntheic dataset, and
+    inspecting the fit network.
+*   The
+    [Train Multisubject DisRNN](https://colab.research.google.com/github/google-deepmind/disentangled_rnns/blob/main/disentangled_rnns/notebooks/train_multisubject_disrnn.ipynb])
+    notebook demonstrates fitting a Multisubject DisRNN network to a dataset
+    from multiple synthetic subject with different generative parameters, and
+    inspecting the fit network and subject embeddings.
+
+## Installing and running locally
+
+These instruction assume you will be using a virtual environment created with
+[conda](https://anaconda.org/anaconda/conda).
 
 1. **Create and activate the virtual environment**
   ```shell
@@ -27,9 +50,10 @@ These instruction assume you will be using a virtual environment created with [c
   ```
 
 2. **Install the version of JAX suitable for your hardware**
-  * **For CPU only:** ```pip install -U "jax[cpu]"```
-  * **For NVIDIA GPU:** ```pip install -U "jax[cuda12]"```
-  * **For other architectures:** Consult the [Official JAX Installation Guide](https://github.com/jax-ml/jax#installation).
+    *   **For CPU only:** `pip install -U "jax[cpu]"`
+    *   **For NVIDIA GPU:** `pip install -U "jax[cuda12]"`
+    *   **For other architectures:** Consult the
+        [Official JAX Installation Guide](https://github.com/jax-ml/jax#installation).
 
 3. **Clone the github repo and install remaining requirements**
   ```shell
