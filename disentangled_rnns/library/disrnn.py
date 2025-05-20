@@ -504,10 +504,10 @@ class HkDisentangledRNN(hk.RNNCore):
 
 
 def log_bottlenecks(params,
-                    open_thresh=0.1,
-                    partially_open_thresh=0.25,
-                    closed_thresh=0.9) -> dict[str, int]:
-  """Computes info about bottlenecks."""
+                    open_thresh: float = 0.1,
+                    partially_open_thresh: float = 0.25,
+                    closed_thresh: float = 0.9) -> dict[str, int]:
+  """Computes info about bottlenecks for the base DisRNN."""
 
   params_disrnn = params['hk_disentangled_rnn']
 
@@ -568,3 +568,18 @@ def get_total_sigma(params):
       + jnp.sum(update_bottlenecks)
       + jnp.sum(choice_bottlenecks)
   )
+
+
+def get_auxiliary_metrics(params: hk.Params) -> dict[str, Any]:
+  """Computes auxiliary metrics for the base DisRNN.
+
+  Args:
+    params: Haiku parameters of the model.
+
+  Returns:
+    A dictionary of auxiliary metrics.
+  """
+
+  bottleneck_metrics = log_bottlenecks(params)
+  total_sigma_val = get_total_sigma(params)
+  return {'total_sigma': total_sigma_val, **bottleneck_metrics}

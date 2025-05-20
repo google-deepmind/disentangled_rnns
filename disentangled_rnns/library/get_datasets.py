@@ -335,3 +335,132 @@ def get_bounded_accumulator_dataset(
   ys[-1, :, 0] = decisions
   dataset = rnn_utils.DatasetRNN(xs, ys, y_type='categorical')
   return dataset
+
+
+def dataset_list_to_multisubject(
+    dataset_list: list[rnn_utils.DatasetRNN],
+    add_subj_id: bool = True,
+) -> rnn_utils.DatasetRNN:
+  """Turn a list of single-subject datasets into a multisubject dataset.
+
+  Multisubject dataset has a new first column containing an integer subject ID.
+  DisRNN in multisubject mode will convert this first to a one-hot then to a
+  subject embedding.
+
+  Args:
+    dataset_list: List of single-subject datasets
+    add_subj_id: Whether to add a subject ID column to the xs. If True, dataset
+      is suitable for multisubject mode. If False, dataset is suitable for
+      single-subject mode, treating all data as if from a single subject.
+
+  Returns:
+    A single DatasetRNN containing data from all datasets in the list
+  """
+  xs_dataset, ys_dataset = dataset_list[0].get_all()
+  x_names = dataset_list[0].x_names
+  y_names = dataset_list[0].y_names
+  y_type = dataset_list[0].y_type
+  n_classes = dataset_list[0].n_classes
+
+  # If we're adding a subject ID, we'll add a feature to the xs
+  if add_subj_id:
+    x_dim = np.shape(xs_dataset)[2] + 1
+  else:
+    x_dim = np.shape(xs_dataset)[2]
+  y_dim = np.shape(ys_dataset)[2]
+
+  xs = np.zeros((0, 0, x_dim))
+  ys = np.zeros((0, 0, y_dim))
+
+  max_n_trials = 0
+
+  # For each dataset in the list, add the subject ID column, then add it to the
+  # multisubject dataset
+  for dataset_i in range(len(dataset_list)):
+    # Check datasets are compatible
+    assert x_names == dataset_list[dataset_i].x_names, (
+        f'x_names do not match across datasets. Expected {x_names}, got'
+        f' {dataset_list[dataset_i].x_names}'
+    )
+    assert y_names == dataset_list[dataset_i].y_names, (
+        f'y_names do not match across datasets. Expected {y_names}, got'
+        f' {dataset_list[dataset_i].y_names}'
+    )
+    assert y_type == dataset_list[dataset_i].y_type, (
+        f'y_type does not match across datasets. Expected {y_type}, got'
+        f' {dataset_list[dataset_i].y_type}'
+    )
+    assert n_classes == dataset_list[dataset_i].n_classes, (
+        f'n_classes does not match across datasets. Expected {n_classes}, got'
+        f' {dataset_list[dataset_i].n_classes}'
+    )
+
+    xs_dataset, ys_dataset = dataset_list[dataset_i].get_all()
+    n_sessions = np.shape(xs_dataset)[1]
+    n_trials = np.shape(xs_dataset)[0]
+    if add_subj_id:
+      subj_ids = dataset_i * np.ones([n_trials, n_sessions, 1])
+      xs_dataset = np.concatenate([subj_ids, xs_dataset], axis=2)
+
+    # If this dataset has more trials than all previous datasets, add dummy
+    # trials to the previous datasets so all lengths will match
+    if n_trials > max_n_trials:
+      # Add dummy trials to existing xs and ys
+      xs = np.concatenate(
+          (xs, -1 * np.ones((n_trials - max_n_trials, np.shape(xs)[1], x_dim))),
+          axis=0,
+      )
+      ys = np.concatenate(
+          (
+              ys,
+              -1
+              * np.ones(
+                  (n_trials - max_n_trials, np.shape(ys)[1], np.shape(ys)[2])
+              ),
+          ),
+          axis=0,
+      )
+      max_n_trials = n_trials
+    # If this dataset has fewer trials than any previous dataset, add dummy
+    # trials to this dataset so all lengths will match
+    elif max_n_trials > n_trials:
+      xs_dataset = np.concatenate(
+          (
+              xs_dataset,
+              -1
+              * np.ones(
+                  (max_n_trials - n_trials, np.shape(xs_dataset)[1], x_dim)
+              ),
+          ),
+          axis=0,
+      )
+      ys_dataset = np.concatenate(
+          (
+              ys_dataset,
+              -1
+              * np.ones((
+                  max_n_trials - n_trials,
+                  np.shape(ys_dataset)[1],
+                  np.shape(ys_dataset)[2],
+              )),
+          ),
+          axis=0,
+      )
+
+    # Concatenate new xs and ys
+    xs = np.concatenate((xs, xs_dataset), axis=1)
+    ys = np.concatenate((ys, ys_dataset), axis=1)
+
+  if add_subj_id:
+    x_names = ['subj_id'] + x_names
+
+  dataset = rnn_utils.DatasetRNN(
+      xs=xs,
+      ys=ys,
+      x_names=x_names,
+      y_names=y_names,
+      y_type=y_type,
+      n_classes=n_classes,
+  )
+
+  return dataset
