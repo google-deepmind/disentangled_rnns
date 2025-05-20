@@ -138,8 +138,8 @@ class DisRnnConfig:
       self.x_names = [f'Observation {i}' for i in range(expected_len_xnames)]
     if len(self.x_names) != expected_len_xnames:
       raise ValueError(
-          f'Based on x_names {self.x_names}, expected obs_size to be '
-          f'{expected_len_xnames} but got {self.obs_size}'
+          f'Based on obs_size {self.obs_size}, expected x_names to have '
+          f'length {self.obs_size} but got {self.x_names}'
       )
 
     # Check activation is in jax.nn
