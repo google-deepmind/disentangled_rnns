@@ -1,20 +1,19 @@
 # Cognitive Model Discovery via Disentangled RNNs
 
-This is the code associated with the following paper:
+Disentangled RNN (DisRNN) is a recurrent neural network architecture designed
+for discovering interpretable dynamical systems consistent with a dataset. It
+includes several architectural features that encourage simplicity, in the sense
+of having a small number of latent variables carrying independent information
+and updated in a sparse way.
 
-[Cognitive Model Discovery via Disentangled RNNs](https://www.biorxiv.org/content/10.1101/2023.06.23.546250v1).
-Kevin Miller, Maria Eckstein, Matthew Botvinick, and Zeb Kurth-Nelson. _bioRxiv_
-2023
+We have explored fitting these to behavioral data from humans and other animals
+performing simple learning and decision-making tasks, and found that the
+resulting systems perform well as cognitive models and can readily be
+interpreted. You can read more about this work in our paper [Cognitive Model Discovery via Disentangled RNNs](https://proceedings.neurips.cc/paper_files/paper/2023/file/c194ced51c857ec2c1928b02250e0ac8-Paper-Conference.pdf).
 
-Disentangled RNNs are a recurrent neural network architecture including several
-architectural features that are designed to encourage networks to learn simple,
-human-interpretable model fits. In this paper, we apply these networks to
-synthetic and laboratory behavioral datasets from two tasks that are
-representative of those often used in behavioral neuroscience.
-
-This code allows generating synthetic datasets, packaging laboratory datasets,
-training disRNNs with different hyperparameters, and inspecting the fit
-networks.
+The code here allows generating synthetic datasets, packaging laboratory
+datasets, training disRNNs with different hyperparameters as well as standard
+RNNs, and inspecting the fit networks.
 
 ## Exploring DisRNN in Colab
 
@@ -26,17 +25,24 @@ right -> Connect to a hosted runtime)
 
 *   The
     [Train GRU](https://colab.research.google.com/github/google-deepmind/disentangled_rnns/blob/main/disentangled_rnns/notebooks/train_single_gru.ipynb)
-    notebook demonstrates fitting a gated recurrent unit network to a synthetic
-    dataset, and inspecting the fit network.
+    notebook demonstrates fitting a synthetic using a gated recurrent unit (GRU)
+    network. The GRU is a popular network architecture and, with the correct
+    hyperparameters and a sufficiently large dataset, is expected to provide
+    very good quality-of-fit in most situations.
 *   The
     [Train DisRNN](https://colab.research.google.com/github/google-deepmind/disentangled_rnns/blob/main/disentangled_rnns/notebooks/train_single_disrnn.ipynb)
-    notebook demonstrates fitting a DisRNN network to a syntheic dataset, and
-    inspecting the fit network.
+    notebook demonstrates fitting a syntheic dataset with a DisRNN network. It
+    also demonstrates some of the tools available for inspecting the fit DisRNN
+    and interpreting the resulting model.
 *   The
     [Train Multisubject DisRNN](https://colab.research.google.com/github/google-deepmind/disentangled_rnns/blob/main/disentangled_rnns/notebooks/train_multisubject_disrnn.ipynb])
-    notebook demonstrates fitting a Multisubject DisRNN network to a dataset
-    from multiple synthetic subject with different generative parameters, and
-    inspecting the fit network and subject embeddings.
+    notebook demonstrates fitting a synthetic dataset containing data from
+    multiple "individuals" which vary parametrically in their cognitive
+    strategy. We use a "Multisubject DisRNN" to fit both similarities and
+    differences using a single network. This combines ideas from DisRNN with
+    prior ideas from the literature about disentangled subject embeddings
+    ([Dezfouli et al., 2019](https://papers.nips.cc/paper_files/paper/2019/file/e077e1a544eec4f0307cf5c3c721d944-Paper.pdf),
+    [Song et al., 2021](https://escholarship.org/uc/item/3wj7w4x7))
 
 ## Installing and running locally
 
@@ -169,6 +175,7 @@ _ , network_states = rnn_utils.eval_network(make_network_eval, params, xs)
 ## Citing this work
 
 If you use this code, please cite the following paper:
+[Cognitive Model Discovery via Disentangled RNNs](https://proceedings.neurips.cc/paper_files/paper/2023/file/c194ced51c857ec2c1928b02250e0ac8-Paper-Conference.pdf)
 
 ```
 @misc{miller_disRNN_2023,
