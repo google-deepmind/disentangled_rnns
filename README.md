@@ -67,7 +67,6 @@ These instruction assume you will be using a virtual environment created with
   !git clone https://github.com/google-deepmind/disentangled_rnns
   %cd disentangled_rnns
   !pip install .
-  !pip install -r requirements.txt
   %cd ..
   ```
 

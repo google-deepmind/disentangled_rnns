@@ -17,19 +17,29 @@
 from collections.abc import Callable
 import json
 import sys
-from typing import Any, Optional, Literal
+from typing import Any, Literal, Optional
 import warnings
 
 from absl import logging
 import chex
 import haiku as hk
-from IPython import display
 import jax
 from jax.example_libraries import optimizers
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
 import optax
+
+# If we're running on colab, try to import IPython.display so we can display
+# progress that way. Otherwise, we will just print.
+if 'google.colab' in sys.modules:
+  try:
+    from IPython import display  # pylint: disable=g-bad-import-order, g-import-not-at-top
+    _display_available = True
+  except ImportError:
+    _display_available = False
+else:
+  _display_available = False
 
 
 class DatasetRNN:
@@ -616,9 +626,8 @@ def train_network(
       )
 
       if report_progress_by == 'print':
-        # If we're running on colab, use display, otherwise use print
-        on_colab = 'google.colab' in sys.modules
-        if on_colab:
+        # On colab, print does not always work, so try to use display
+        if _display_available:
           display.clear_output(wait=True)
           display.display(log_str)
         else:
