@@ -1,4 +1,4 @@
-# Copyright 2024 DeepMind Technologies Limited.
+# Copyright 2025 DeepMind Technologies Limited.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -299,7 +299,12 @@ def plot_update_rules(
   else:
     subj_embedding_size = 0
 
-  obs_size = disrnn_config.obs_size
+  # TODO(kevinjmiller): Generalize to allow different observation length
+  if disrnn_config.obs_size != 2:
+    raise NotImplementedError(
+        'Plot update rules currently assumes that there are exactly two'
+        f' observations. Instead founc observarions {obs_names}'
+    )
 
   latent_order = np.argsort(latent_sigmas)
   figs = []
@@ -311,9 +316,9 @@ def plot_update_rules(
 
       # Which of its input bottlenecks are open?
       update_net_inputs = np.argwhere(update_sigmas[latent_i] < 0.5)
-      # TODO(kevinjmiller): Generalize to allow different observation length
       obs1_sensitive = np.any(update_net_inputs == subj_embedding_size)
       obs2_sensitive = np.any(update_net_inputs == subj_embedding_size + 1)
+
       # Choose which observations to use based on input bottlenecks
       if obs1_sensitive and obs2_sensitive:
         observations = ([0, 0], [0, 1], [1, 0], [1, 1])
@@ -333,10 +338,12 @@ def plot_update_rules(
         observations = ([0, 0],)
         titles = ('All Trials',)
 
-      # Choose whether to condition on other latent values
+      # Choose which other latents to condition on, based on input bottlenecks
+      start_idx_of_latents = subj_embedding_size + disrnn_config.obs_size
+      is_latent_input_mask = update_net_inputs >= start_idx_of_latents
+      influential_latent_input_indices = update_net_inputs[is_latent_input_mask]
       update_net_input_latents = (
-          update_net_inputs[obs_size + subj_embedding_size :, 0]
-          - (subj_embedding_size + obs_size)
+          influential_latent_input_indices - start_idx_of_latents
       )
       # Doesn't count if it depends on itself (this'll be shown no matter what)
       latent_sensitive = np.delete(
