@@ -449,7 +449,7 @@ def dataset_list_to_multisubject(
     ys = np.concatenate((ys, ys_dataset), axis=1)
 
   if add_subj_id:
-    x_names = ['subj_id'] + x_names
+    x_names = ['Subject ID'] + x_names
 
   dataset = rnn_utils.DatasetRNN(
       xs=xs,
