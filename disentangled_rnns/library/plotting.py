@@ -47,33 +47,71 @@ def plot_bottlenecks(
   if isinstance(disrnn_config, multisubject_disrnn.MultisubjectDisRnnConfig):
     params_disrnn = params['multisubject_dis_rnn']
     subject_embedding_size = disrnn_config.subject_embedding_size
-  else:
+    update_input_names = [
+        f'SubjEmb {i+1}' for i in range(subject_embedding_size)
+    ] + disrnn_config.x_names[1:]
+    # For update_sigmas: concatenate transposed reparameterized sigmas
+    # Order of inputs to update nets: subject_embedding, observations, latents
+    update_subj_sigmas_t = np.transpose(
+        disrnn.reparameterize_sigma(
+            params_disrnn['update_net_subj_sigma_params']
+        )
+    )
+    update_obs_sigmas_t = np.transpose(
+        disrnn.reparameterize_sigma(
+            params_disrnn['update_net_obs_sigma_params']
+        )
+    )
+    update_latent_sigmas_t = np.transpose(
+        disrnn.reparameterize_sigma(
+            params_disrnn['update_net_latent_sigma_params']
+        )
+    )
+    update_sigmas = np.concatenate(
+        (update_subj_sigmas_t, update_obs_sigmas_t, update_latent_sigmas_t),
+        axis=1,
+    )
+
+    # For choice_sigmas: concatenate reparameterized sigmas
+    # Order of inputs to choice net: subject_embedding, latents
+    choice_subj_sigmas = disrnn.reparameterize_sigma(
+        params_disrnn['choice_net_subj_sigma_params']
+    )
+    choice_latent_sigmas = disrnn.reparameterize_sigma(
+        params_disrnn['choice_net_latent_sigma_params']
+    )
+    choice_sigmas = np.concatenate((choice_subj_sigmas, choice_latent_sigmas))
+  elif isinstance(disrnn_config, disrnn.DisRnnConfig):
     params_disrnn = params['hk_disentangled_rnn']
     subject_embedding_size = 0
-
-  latent_dim = params_disrnn['latent_sigma_params'].shape[0]
-  obs_dim = params_disrnn['update_net_sigma_params'].shape[0] - latent_dim
-
-  if isinstance(disrnn_config, multisubject_disrnn.MultisubjectDisRnnConfig):
-    update_input_names = (
-        [f'SubjEmb {i+1}' for i in range(subject_embedding_size)]
-        + disrnn_config.x_names[1:]
+    update_input_names = disrnn_config.x_names
+    # For update_sigmas: concatenate transposed reparameterized sigmas
+    # Order of inputs to update nets: observations, latents
+    update_obs_sigmas_t = np.transpose(
+        disrnn.reparameterize_sigma(
+            params_disrnn['update_net_obs_sigma_params']
+        )
+    )
+    update_latent_sigmas_t = np.transpose(
+        disrnn.reparameterize_sigma(
+            params_disrnn['update_net_latent_sigma_params']
+        )
+    )
+    update_sigmas = np.concatenate(
+        (update_obs_sigmas_t, update_latent_sigmas_t), axis=1)
+    choice_sigmas = np.array(
+        disrnn.reparameterize_sigma(
+            np.transpose(params_disrnn['choice_net_sigma_params'])
+        )
     )
   else:
-    update_input_names = disrnn_config.x_names
+    raise ValueError(
+        'plot_bottlenecks only supports DisRnnConfig and'
+        ' MultisubjectDisRnnConfig.'
+    )
 
   latent_sigmas = np.array(
       disrnn.reparameterize_sigma(params_disrnn['latent_sigma_params'])
-  )
-  update_sigmas = np.array(
-      disrnn.reparameterize_sigma(
-          np.transpose(params_disrnn['update_net_sigma_params'])
-      )
-  )
-  choice_sigmas = np.array(
-      disrnn.reparameterize_sigma(
-          np.transpose(params_disrnn['choice_net_sigma_params'])
-      )
   )
 
   if sort_latents:
@@ -91,20 +129,29 @@ def plot_bottlenecks(
     )
     choice_sigmas = choice_sigmas[choice_sigma_order]
 
+    # Sort update sigmas based on the order of latents, keeping subject
+    # embedding dimensions first if they exist, then observations, then latents.
+    non_latent_input_size = subject_embedding_size + disrnn_config.obs_size
     update_sigma_order = np.concatenate(
-        (np.arange(0, obs_dim, 1), obs_dim + latent_sigma_order), axis=0
+        (
+            np.arange(0, non_latent_input_size, 1),
+            non_latent_input_size + latent_sigma_order,
+        ),
+        axis=0,
     )
     update_sigmas = update_sigmas[latent_sigma_order, :]
     update_sigmas = update_sigmas[:, update_sigma_order]
 
-  latent_names = np.arange(1, latent_dim + 1)
+  latent_names = np.arange(1, disrnn_config.latent_size + 1)
   fig, axes = plt.subplots(1, 3, figsize=(15, 5))
 
   # Plot Latent Bottlenecks on axes[0]
   im1 = axes[0].imshow(np.swapaxes([1 - latent_sigmas], 0, 1), cmap='Oranges')
   im1.set_clim(vmin=0, vmax=1)
   axes[0].set_yticks(
-      ticks=range(latent_dim), labels=latent_names, fontsize=small
+      ticks=range(disrnn_config.latent_size),
+      labels=latent_names,
+      fontsize=small,
   )
   axes[0].set_xticks(ticks=[])
   axes[0].set_ylabel('Latent #', fontsize=medium)
@@ -113,7 +160,7 @@ def plot_bottlenecks(
   # Plot Choice Bottlenecks on axes[1]
   # These bottlenecks apply to the inputs of the choice network:
   # [subject embeddings, latents]
-  choice_input_dim = subject_embedding_size + latent_dim
+  choice_input_dim = subject_embedding_size + disrnn_config.latent_size
   choice_input_names = np.concatenate((
       [f'SubjEmb {i+1}' for i in range(subject_embedding_size)],
       [f'Latent {i}' for i in latent_names]
@@ -134,7 +181,9 @@ def plot_bottlenecks(
   # Y-axis corresponds to the target latent (sorted if sort_latents=True)
   cbar.ax.tick_params(labelsize=small)
   axes[2].set_yticks(
-      ticks=range(latent_dim), labels=latent_names, fontsize=small
+      ticks=range(disrnn_config.latent_size),
+      labels=latent_names,
+      fontsize=small,
   )
   # X-axis corresponds to the inputs to the update network:
   # [subject embeddings, observations, latents]
@@ -157,7 +206,7 @@ def plot_update_rules(
     disrnn_config: disrnn.DisRnnConfig,
     subj_ind: Optional[int] = None,
     axis_lim: float = 2.1,
-) -> plt.Figure:
+) -> list[plt.Figure]:
   """Generates visualizations of the update rules of a HkDisentangledRNN."""
 
   disrnn_config = copy.deepcopy(disrnn_config)
@@ -175,10 +224,36 @@ def plot_update_rules(
     make_network = lambda: multisubject_disrnn.MultisubjectDisRnn(disrnn_config)
     obs_names = disrnn_config.x_names[1:]  # First x_name is "Subject ID"
     param_prefix = 'multisubject_dis_rnn'
-  else:
+    subj_embedding_size = disrnn_config.subject_embedding_size
+    update_subj_s_t = np.transpose(disrnn.reparameterize_sigma(
+        params[param_prefix]['update_net_subj_sigma_params']))
+    update_obs_s_t = np.transpose(disrnn.reparameterize_sigma(
+        params[param_prefix]['update_net_obs_sigma_params']))
+    update_latent_s_t = np.transpose(disrnn.reparameterize_sigma(
+        params[param_prefix]['update_net_latent_sigma_params']))
+    update_sigmas = np.concatenate(
+        (update_subj_s_t, update_obs_s_t, update_latent_s_t), axis=1
+    )
+  elif isinstance(disrnn_config, disrnn.DisRnnConfig):
     make_network = lambda: disrnn.HkDisentangledRNN(disrnn_config)
     obs_names = disrnn_config.x_names
     param_prefix = 'hk_disentangled_rnn'
+    subj_embedding_size = 0
+    update_obs_s_t = np.transpose(
+        disrnn.reparameterize_sigma(
+            params[param_prefix]['update_net_obs_sigma_params']
+        )
+    )
+    update_latent_s_t = np.transpose(
+        disrnn.reparameterize_sigma(
+            params[param_prefix]['update_net_latent_sigma_params']
+        ))
+    update_sigmas = np.concatenate((update_obs_s_t, update_latent_s_t), axis=1)
+
+  else:
+    raise ValueError(
+        f'Unsupported config type: {type(disrnn_config)} for plot_update_rules.'
+    )
 
   def step(xs, state):
     core = make_network()
@@ -289,15 +364,6 @@ def plot_update_rules(
           params[param_prefix]['latent_sigma_params']
       )
   )
-  update_sigmas = np.array(
-      disrnn.reparameterize_sigma(
-          np.transpose(params[param_prefix]['update_net_sigma_params'])
-      )
-  )
-  if isinstance(disrnn_config, multisubject_disrnn.MultisubjectDisRnnConfig):
-    subj_embedding_size = disrnn_config.subject_embedding_size
-  else:
-    subj_embedding_size = 0
 
   # TODO(kevinjmiller): Generalize to allow different observation length
   if disrnn_config.obs_size != 2:
@@ -396,9 +462,24 @@ def plot_choice_rule(
   if isinstance(disrnn_config, multisubject_disrnn.MultisubjectDisRnnConfig):
     subj_embedding_size = disrnn_config.subject_embedding_size
     params_prefix = 'multisubject_dis_rnn'
-  else:
+    choice_subj_s = disrnn.reparameterize_sigma(
+        params[params_prefix]['choice_net_subj_sigma_params']
+    )
+    choice_latent_s = disrnn.reparameterize_sigma(
+        params[params_prefix]['choice_net_latent_sigma_params']
+    )
+    choice_net_sigmas = np.concatenate((choice_subj_s, choice_latent_s))
+  elif isinstance(disrnn_config, disrnn.DisRnnConfig):
     subj_embedding_size = 0
     params_prefix = 'hk_disentangled_rnn'
+    choice_net_sigmas = disrnn.reparameterize_sigma(
+        params[params_prefix]['choice_net_sigma_params']
+    )
+  else:
+    raise ValueError(
+        'DisRnnConfig is neither MultisubjectDisRnnConfig nor DisRnnConfig,'
+        f' but got {type(disrnn_config).__name__}'
+    )
 
   if subj_embedding is None:
     subj_embedding = np.zeros(shape=(subj_embedding_size,))
@@ -422,9 +503,6 @@ def plot_choice_rule(
   choice_net_params = {
       'choice_net': params[params_prefix + '/~predict_targets/choice_net']
   }
-  choice_net_sigmas = disrnn.reparameterize_sigma(
-      params[params_prefix]['choice_net_sigma_params']
-  )
 
   # Determine which latents to vary based on their choice_net_sigma_params.
   # choice_net_sigmas has shape (subj_embedding_size + latent_size,).

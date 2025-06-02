@@ -56,6 +56,8 @@ class DisrnnTest(absltest.TestCase):
         'hk_disentangled_rnn/~predict_targets/choice_net', disrnn_params
     )
 
+    # Parameters are stored under the module name given in hk.transform,
+    # which is 'hk_disentangled_rnn' if not specified otherwise.
     params = disrnn_params['hk_disentangled_rnn']
     update_net_params = disrnn_params[
         'hk_disentangled_rnn/~update_latents/update_net'
@@ -64,8 +66,11 @@ class DisrnnTest(absltest.TestCase):
         'hk_disentangled_rnn/~predict_targets/choice_net'
     ]
 
-    self.assertIn('update_net_sigma_params', params)
-    self.assertIn('update_net_multipliers', params)
+    self.assertIn('update_net_obs_sigma_params', params)
+    self.assertIn('update_net_obs_multipliers', params)
+    self.assertIn('update_net_latent_sigma_params', params)
+    self.assertIn('update_net_latent_multipliers', params)
+
     self.assertIn('latent_sigma_params', params)
     self.assertIn('choice_net_sigma_params', params)
     self.assertIn('choice_net_multipliers', params)
@@ -77,11 +82,20 @@ class DisrnnTest(absltest.TestCase):
     net_input_size = latent_size + obs_size
 
     self.assertEqual(
-        params['update_net_sigma_params'].shape, (net_input_size, latent_size)
+        params['update_net_obs_sigma_params'].shape, (obs_size, latent_size)
     )
     self.assertEqual(
-        params['update_net_multipliers'].shape, (net_input_size, latent_size)
+        params['update_net_obs_multipliers'].shape, (obs_size, latent_size)
     )
+    self.assertEqual(
+        params['update_net_latent_sigma_params'].shape,
+        (latent_size, latent_size),
+    )
+    self.assertEqual(
+        params['update_net_latent_multipliers'].shape,
+        (latent_size, latent_size),
+    )
+
     self.assertEqual(params['latent_sigma_params'].shape, (latent_size,))
     self.assertEqual(params['choice_net_sigma_params'].shape, (latent_size,))
     self.assertEqual(params['choice_net_multipliers'].shape, (latent_size,))
@@ -127,6 +141,16 @@ class DisrnnTest(absltest.TestCase):
         params=self.disrnn_params,
         n_steps=n_steps,
     )
+
+  def test_get_auxiliary_metrics(self):
+    """Smoke test for get_auxiliary_metrics."""
+    metrics = disrnn.get_auxiliary_metrics(self.disrnn_params)
+    self.assertIsInstance(metrics, dict)
+    self.assertIn('total_sigma', metrics)
+    self.assertIn('latent_bottlenecks_open', metrics)
+    self.assertIn('choice_bottlenecks_open', metrics)
+    self.assertIn('update_bottlenecks_open', metrics)
+    self.assertGreaterEqual(metrics['total_sigma'], 0)
 
 
 if __name__ == '__main__':

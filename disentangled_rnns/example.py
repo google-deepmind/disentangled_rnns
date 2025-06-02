@@ -81,16 +81,18 @@ def main(_) -> None:
       activation="leaky_relu",
       # Penalties
       noiseless_mode=False,
-      latent_penalty_scale=1e-2,
-      choice_net_penalty_scale=1e-3,
-      update_net_penalty_scale=1e-3,
+      latent_penalty=1e-2,
+      update_net_obs_penalty=1e-3,
+      update_net_latent_penalty=1e-3,
+      choice_net_latent_penalty=1e-3,
       l2_scale=1e-5,
   )
   # Define a config for warmup training with no noise and no penalties
   disrnn_config_warmup = copy.deepcopy(disrnn_config)
-  disrnn_config_warmup.latent_penalty_scale = 0
-  disrnn_config_warmup.choice_net_penalty_scale = 0
-  disrnn_config_warmup.update_net_penalty_scale = 0
+  disrnn_config_warmup.latent_penalty = 0
+  disrnn_config_warmup.choice_net_latent_penalty = 0
+  disrnn_config_warmup.update_net_obs_penalty = 0
+  disrnn_config_warmup.update_net_latent_penalty = 0
   disrnn_config_warmup.l2_scale = 0
   disrnn_config_warmup.noiseless_mode = True
 

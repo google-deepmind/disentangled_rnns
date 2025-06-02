@@ -100,19 +100,27 @@ class MultisubjectDisrnnTest(googletest.TestCase):
     choice_net_params = multisubject_disrnn_params[
         'multisubject_dis_rnn/~predict_targets/choice_net'
     ]
-    subject_embedding_params = multisubject_disrnn_params[
+    subject_embedding_linear_params = multisubject_disrnn_params[
         'multisubject_dis_rnn/subject_embedding_weights'
     ]
 
-    # Check inherited params
-    self.assertIn('update_net_sigma_params', params)
-    self.assertIn('update_net_multipliers', params)
+    # Check parameters directly under 'multisubject_dis_rnn'
     self.assertIn('latent_sigma_params', params)
-    self.assertIn('choice_net_sigma_params', params)
-    self.assertIn('choice_net_multipliers', params)
     self.assertIn('latent_inits', params)
-    # Check subject embedding specific params
-    self.assertIn('subject_embedding_sigma_params', params)
+
+    # Update network bottleneck parameters
+    self.assertIn('update_net_subj_sigma_params', params)
+    self.assertIn('update_net_subj_multipliers', params)
+    self.assertIn('update_net_obs_sigma_params', params)
+    self.assertIn('update_net_obs_multipliers', params)
+    self.assertIn('update_net_latent_sigma_params', params)
+    self.assertIn('update_net_latent_multipliers', params)
+
+    # Choice network bottleneck parameters
+    self.assertIn('choice_net_subj_sigma_params', params)
+    self.assertIn('choice_net_subj_multipliers', params)
+    self.assertIn('choice_net_latent_sigma_params', params)
+    self.assertIn('choice_net_latent_multipliers', params)
 
     # Check shapes based on config
     latent_size = multisubject_disrnn_config.latent_size
@@ -125,20 +133,58 @@ class MultisubjectDisrnnTest(googletest.TestCase):
     choice_net_units = multisubject_disrnn_config.choice_net_n_units_per_layer
 
     self.assertEqual(
-        params['update_net_sigma_params'].shape,
-        (update_net_input_size, latent_size),
-    )
-    self.assertEqual(params['latent_sigma_params'].shape, (latent_size,))
-    self.assertEqual(
-        params['choice_net_sigma_params'].shape, (choice_net_input_size,)
-    )
+        params['latent_sigma_params'].shape, (latent_size,)
+    )  # From super()._build_latent_bottlenecks()
     self.assertEqual(params['latent_inits'].shape, (latent_size,))
+
+    # Update network bottleneck shapes
     self.assertEqual(
-        params['subject_embedding_sigma_params'].shape, (subj_emb_size,)
+        params['update_net_subj_sigma_params'].shape,
+        (subj_emb_size, latent_size),
     )
     self.assertEqual(
-        subject_embedding_params['w'].shape, (max_n_subjects, subj_emb_size)
+        params['update_net_subj_multipliers'].shape,
+        (subj_emb_size, latent_size),
     )
+    self.assertEqual(
+        params['update_net_obs_sigma_params'].shape, (obs_size, latent_size)
+    )
+    self.assertEqual(
+        params['update_net_obs_multipliers'].shape, (obs_size, latent_size)
+    )
+    self.assertEqual(
+        params['update_net_latent_sigma_params'].shape,
+        (latent_size, latent_size),
+    )
+    self.assertEqual(
+        params['update_net_latent_multipliers'].shape,
+        (latent_size, latent_size),
+    )
+
+    # Choice network bottleneck shapes
+    self.assertEqual(
+        params['choice_net_subj_sigma_params'].shape, (subj_emb_size,)
+    )
+    self.assertEqual(
+        params['choice_net_subj_multipliers'].shape, (subj_emb_size,)
+    )
+    self.assertEqual(
+        params['choice_net_latent_sigma_params'].shape, (latent_size,)
+    )
+    self.assertEqual(
+        params['choice_net_latent_multipliers'].shape, (latent_size,)
+    )
+
+    # Subject embedding linear layer shapes
+    self.assertEqual(
+        subject_embedding_linear_params['w'].shape,
+        (max_n_subjects, subj_emb_size),
+    )
+    self.assertEqual(
+        subject_embedding_linear_params['b'].shape, (subj_emb_size,)
+    )
+
+    # MLP input weight shapes
     self.assertEqual(
         update_net_params['input_weights'].shape,
         (update_net_input_size, update_net_units),
@@ -195,6 +241,17 @@ class MultisubjectDisrnnTest(googletest.TestCase):
         multisubject_disrnn_params, multisubject_disrnn_config
     )
 
+  def test_get_auxiliary_metrics(self):
+    """Smoke test for get_auxiliary_metrics."""
+    metrics = multisubject_disrnn.get_auxiliary_metrics(
+        self.multisubject_disrnn_params
+    )
+    self.assertIsInstance(metrics, dict)
+    self.assertIn('total_sigma', metrics)
+    self.assertIn('latent_bottlenecks_open', metrics)
+    self.assertIn('choice_bottlenecks_open', metrics)
+    self.assertIn('update_bottlenecks_open', metrics)
+    self.assertGreaterEqual(metrics['total_sigma'], 0)
 
 if __name__ == '__main__':
   googletest.main()
