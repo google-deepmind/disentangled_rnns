@@ -727,7 +727,7 @@ def get_apply(
   model = hk.transform(step_sub)
   apply = jax.jit(model.apply)
 
-  return apply
+  return apply  # pytype: disable=bad-return-type  # jax-api-types
 
 
 def step_network(
