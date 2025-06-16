@@ -53,7 +53,7 @@ class DatasetRNN:
       self,
       xs: np.ndarray,
       ys: np.ndarray,
-      y_type: str,
+      y_type: Literal['categorical', 'scalar', 'mixed'] = 'categorical',
       n_classes: Optional[int] = None,
       x_names: Optional[list[str]] = None,
       y_names: Optional[list[str]] = None,
@@ -411,10 +411,17 @@ def train_network(
     n_steps: int = 1000,
     max_grad_norm: float = 1e10,
     loss_param: float = 1.0,
-    loss: str = 'mse',
+    loss: Literal[
+        'mse',
+        'penalized_mse',
+        'categorical',
+        'penalized_categorical',
+        'hybrid',
+        'penalized_hybrid',
+    ] = 'mse',
     log_losses_every: int = 10,
     do_plot: bool = False,
-    report_progress_by: str = 'print',
+    report_progress_by: Literal['print', 'log', 'none'] = 'print',
 ) -> tuple[hk.Params, optax.OptState, dict[str, np.ndarray]]:
   """Trains a network.
 
@@ -431,14 +438,17 @@ def train_network(
       If not specified, will begin training a network from scratch
     n_steps: An integer giving the number of steps you'd like to train for
     max_grad_norm:  Gradient clipping. Default to a very high ceiling
-    loss_param:
-    loss:
+    loss_param: Parameter to pass to the loss function. Hybrid loss uses this as
+      a weight between the categorical and MSE losses. Penalized losses use this
+      as a weight beterrn the supervised and penalty losses.
+    loss: The loss function to use. Options are 'mse', 'penalized_mse',
+      'categorical', 'penalized_categorical', 'hybrid', 'penalized_hybrid'.
     log_losses_every: How many training steps between each time we check for
       errors and log the loss
     do_plot: Boolean that controls whether a learning curve is plotted
     report_progress_by: Mode for reporting real-time progress. Options are
-      "display" for displaying to an ipython notebook, "print" for printing to
-      the console, "log" for using absl logging, and "none" for no output.
+      "print" for printing to the console, "log" for using absl logging, and
+      "none" for no output.
 
   Returns:
     params: Trained parameters
