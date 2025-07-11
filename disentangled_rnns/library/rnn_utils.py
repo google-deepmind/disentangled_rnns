@@ -323,17 +323,23 @@ def categorical_neg_log_likelihood(
 
 
 def likelihood_and_sse(
-    ys: np.ndarray, y_hats: np.ndarray, likelihood_weight: float = 1.0
+    ys: np.ndarray,
+    y_hats: np.ndarray,
+    likelihood_weight: float = 1.0,
+    n_categorical_targets: int = 2,
+    n_continuous_targets: int = 1,
 ) -> float:
   """Compute a weighted average of categorical log-likelihood and MSE."""
-  categorical_y_hats = y_hats[:, :, 0:2]
+  categorical_y_hats = y_hats[:, :, 0:n_categorical_targets]
   categorical_ys = ys[:, :, 0:1]
 
   # All trials with a negative target are masked.
   mask = jnp.logical_not(categorical_ys < 0)
 
-  continuous_y_hats = y_hats[:, :, 2:3]
-  continuous_ys = ys[:, :, 1:2]
+  continuous_y_hats = y_hats[
+      :, :, n_categorical_targets : n_categorical_targets + n_continuous_targets
+  ]
+  continuous_ys = ys[:, :, 1 : 1 + n_continuous_targets]
 
   log_likelihood, _ = categorical_neg_log_likelihood(
       categorical_ys, categorical_y_hats
@@ -348,19 +354,25 @@ def likelihood_and_sse(
 
 
 def normalized_likelihood_and_mse(
-    ys: np.ndarray, yhats: np.ndarray, likelihood_weight: float = 1.0
+    ys: np.ndarray,
+    yhats: np.ndarray,
+    likelihood_weight: float = 1.0,
+    n_categorical_targets: int = 2,
+    n_continuous_targets: int = 1,
 ) -> float | jnp.ndarray:
   """Compute a weighted average of normalized categorical log-likelihood and MSE."""
 
   # Convention is that the first two elements of yhats are for categorical
   # targets, and the next element is for continuous targets.
   # Optionally the last element of yhats is a penalty.
-  categorical_y_hats = yhats[:, :, 0:2]
+  categorical_y_hats = yhats[:, :, 0:n_categorical_targets]
   categorical_ys = ys[:, :, 0:1]
 
   mask = jnp.logical_not(categorical_ys < 0)
-  continuous_y_hats = yhats[:, :, 2:3]
-  continuous_ys = ys[:, :, 1:2]
+  continuous_y_hats = yhats[
+      :, :, n_categorical_targets : n_categorical_targets + n_continuous_targets
+  ]
+  continuous_ys = ys[:, :, 1 : 1 + n_continuous_targets]
   continuous_ys = jnp.where(mask, continuous_ys, jnp.nan)
 
   normlik_categorical = normalized_likelihood(
