@@ -257,6 +257,8 @@ def split_dataset(
       y_names=dataset.y_names,
       y_type=dataset.y_type,
       n_classes=dataset.n_classes,
+      batch_size=dataset.batch_size,
+      batch_mode=dataset.batch_mode,
   )
   dataset_eval = DatasetRNN(
       xs[:, eval_sessions, :],
@@ -265,6 +267,8 @@ def split_dataset(
       y_names=dataset.y_names,
       y_type=dataset.y_type,
       n_classes=dataset.n_classes,
+      batch_size=dataset.batch_size,
+      batch_mode=dataset.batch_mode,
   )
   return dataset_train, dataset_eval
 
