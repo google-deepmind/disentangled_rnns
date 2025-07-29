@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from disentangled_rnns.library import neuro_disrnn
+from disentangled_rnns.library import plotting
 from disentangled_rnns.library import rnn_utils
 from disentangled_rnns.library import two_armed_bandits_w_dopamine
 
@@ -119,6 +120,13 @@ class NeuroDisrnnTest(googletest.TestCase):
         params=self.neuro_disrnn_params,
         n_steps=n_steps,
     )
+
+  def test_neuro_disrnn_plotting(self):
+    neuro_disrnn_config = self.neuro_disrnn_config
+    neuro_disrnn_params = self.neuro_disrnn_params
+    neuro_disrnn.plot_bottlenecks(neuro_disrnn_params, neuro_disrnn_config)
+    neuro_disrnn.plot_update_rules(neuro_disrnn_params, neuro_disrnn_config)
+    neuro_disrnn.plot_choice_rule(neuro_disrnn_params, neuro_disrnn_config)
 
 
 if __name__ == '__main__':
