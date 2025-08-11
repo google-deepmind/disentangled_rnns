@@ -120,6 +120,13 @@ class NeuroDisrnnTest(googletest.TestCase):
         n_steps=n_steps,
     )
 
+  def test_neuro_disrnn_plotting(self):
+    neuro_disrnn_config = self.neuro_disrnn_config
+    neuro_disrnn_params = self.neuro_disrnn_params
+    neuro_disrnn.plot_bottlenecks(neuro_disrnn_params, neuro_disrnn_config)
+    neuro_disrnn.plot_update_rules(neuro_disrnn_params, neuro_disrnn_config)
+    neuro_disrnn.plot_choice_rule(neuro_disrnn_params, neuro_disrnn_config)
+
 
 if __name__ == '__main__':
   googletest.main()

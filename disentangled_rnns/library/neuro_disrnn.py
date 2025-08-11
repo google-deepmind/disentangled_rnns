@@ -436,6 +436,37 @@ def plot_neural_activity_rules(
   return fig
 
 
+def plot_choice_rule(
+    params: hk.Params,
+    disrnn_config: DisRnnWNeuralActivityConfig,
+    axis_lim: float = 2.1,
+) -> Optional[plt.Figure]:
+  """Plots the choice rule of a DisRNN with neural_activity prediction."""
+
+  params = {
+      key.replace('hk_neuro_disentangled_rnn', 'hk_disentangled_rnn'): value
+      for key, value in params.items()
+  }
+  plotting.plot_choice_rule(
+      params=params, disrnn_config=disrnn_config, axis_lim=axis_lim
+  )
+
+
+def plot_update_rules(
+    params: hk.Params,
+    disrnn_config: DisRnnWNeuralActivityConfig,
+    axis_lim: float = 2.1,
+) -> Optional[plt.Figure]:
+  """Plots the update rules of a DisRNN with neural_activity prediction."""
+  params = {
+      key.replace('hk_neuro_disentangled_rnn', 'hk_disentangled_rnn'): value
+      for key, value in params.items()
+  }
+  plotting.plot_update_rules(
+      params=params, disrnn_config=disrnn_config, axis_lim=axis_lim
+  )
+
+
 def log_bottlenecks(
     params: hk.Params,
     open_thresh: float = 0.1,
