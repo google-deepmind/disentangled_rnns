@@ -287,8 +287,9 @@ def sse(ys: np.ndarray, y_hats: np.ndarray) -> float:
   # We want to allow the training code to pass NaNs for missing targets. These
   # missing targets should generate no gradients. The mask here does that.
   mask = jnp.logical_not(jnp.isnan(ys))
-  errors = jnp.multiply((ys - y_hats), mask)
-  sum_squared_error = jnp.sum(jnp.square(errors))
+  errors = ys - y_hats
+  masked_errors = jnp.where(mask, errors, 0.0)
+  sum_squared_error = jnp.sum(jnp.square(masked_errors))
   return sum_squared_error  # pytype: disable=bad-return-type  # jnp-type
 
 
@@ -320,8 +321,8 @@ def categorical_neg_log_likelihood(
       labels[:, :, 0], num_classes=output_logits.shape[-1]
   )
   log_liks = one_hot_labels * log_probs
-  masked_log_liks = jnp.multiply(log_liks, mask)
-  loss = -jnp.nansum(masked_log_liks)
+  masked_log_liks = jnp.where(mask, log_liks, 0.0)
+  loss = -jnp.sum(masked_log_liks)
   n_unmasked_samples = jnp.sum(mask)
   return loss, n_unmasked_samples  # pytype: disable=bad-return-type  # jnp-type
 
@@ -406,8 +407,8 @@ def compute_penalty(targets: np.ndarray, outputs: np.ndarray) -> float:
   # Continuous mask: exclude targets that are NaN
   continuous_mask = jnp.logical_not(jnp.isnan(targets))
   mask = jnp.logical_and(categorical_mask, continuous_mask)
-  # If any feature is masked, then the entire trial is masked
-  mask = jnp.all(mask, axis=-1)
+  # A trial is unmasked if any of its targets are unmasked.
+  mask = jnp.any(mask, axis=-1)
 
   trialwise_penalty = outputs[:, :, -1]
   penalty = jnp.sum(jnp.multiply(trialwise_penalty, mask))
