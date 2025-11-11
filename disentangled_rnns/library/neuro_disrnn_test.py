@@ -12,14 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from absl.testing import absltest
 from disentangled_rnns.library import neuro_disrnn
 from disentangled_rnns.library import rnn_utils
 from disentangled_rnns.library import two_armed_bandits_w_dopamine
 
-from google3.testing.pybase import googletest
 
-
-class NeuroDisrnnTest(googletest.TestCase):
+class NeuroDisrnnTest(absltest.TestCase):
 
   def setUp(self):
     super().setUp()
@@ -129,4 +128,4 @@ class NeuroDisrnnTest(googletest.TestCase):
 
 
 if __name__ == '__main__':
-  googletest.main()
+  absltest.main()

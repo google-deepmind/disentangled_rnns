@@ -14,15 +14,14 @@
 
 import dataclasses
 
+from absl.testing import absltest
 from disentangled_rnns.library import get_datasets
 from disentangled_rnns.library import multisubject_disrnn
 from disentangled_rnns.library import plotting
 from disentangled_rnns.library import rnn_utils
 
-from google3.testing.pybase import googletest
 
-
-class MultisubjectDisrnnTest(googletest.TestCase):
+class MultisubjectDisrnnTest(absltest.TestCase):
 
   def setUp(self):
     super().setUp()
@@ -47,10 +46,8 @@ class MultisubjectDisrnnTest(googletest.TestCase):
           n_sessions=11, n_trials=7, alpha=alpha
       )
       multisubject_dataset_list.append(dataset)
-    self.multisubject_dataset = (
-        get_datasets.dataset_list_to_multisubject(
-            multisubject_dataset_list
-        )
+    self.multisubject_dataset = get_datasets.dataset_list_to_multisubject(
+        multisubject_dataset_list
     )
     self.multisubject_disrnn_params, _, _ = rnn_utils.train_network(
         make_network=lambda: multisubject_disrnn.MultisubjectDisRnn(
@@ -253,5 +250,6 @@ class MultisubjectDisrnnTest(googletest.TestCase):
     self.assertIn('update_bottlenecks_open', metrics)
     self.assertGreaterEqual(metrics['total_sigma'], 0)
 
+
 if __name__ == '__main__':
-  googletest.main()
+  absltest.main()
