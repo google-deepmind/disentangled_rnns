@@ -41,6 +41,7 @@ changelog = "https://github.com/google-deepmind/disentangled_rnns/blob/main/CHAN
 # Development deps (unittest, linting, formating,...)
 # Installed through `pip install -e .[dev]`
 dev = [
+    "absl-py",
     "pytest",
     "pytest-xdist",
     "pylint>=2.6.0",
