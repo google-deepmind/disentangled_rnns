@@ -179,6 +179,8 @@ def create_dataset(
   ys = np.zeros((n_steps_per_session, n_sessions, 2))
 
   for sess_i in np.arange(n_sessions):
+    environment.new_session()
+    agent.new_session()
     experiment = run_experiment(agent, environment, n_steps_per_session)
     prev_choices = np.concatenate(([0], experiment.choices[0:-1]))
     prev_rewards = np.concatenate(([0], experiment.rewards[0:-1]))

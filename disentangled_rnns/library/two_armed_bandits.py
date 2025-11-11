@@ -507,6 +507,8 @@ def create_dataset(agent: Agent,
   ys = np.zeros((n_steps_per_session, n_sessions, 1))
 
   for sess_i in np.arange(n_sessions):
+    environment.new_session()
+    agent.new_session()
     experiment = run_experiment(agent, environment, n_steps_per_session)
     prev_choices = np.concatenate(([0], experiment.choices[0:-1]))
     prev_rewards = np.concatenate(([0], experiment.rewards[0:-1]))
@@ -514,7 +516,6 @@ def create_dataset(agent: Agent,
         np.concatenate(([prev_choices], [prev_rewards]), axis=0), 0, 1
     )
     ys[:, sess_i] = np.expand_dims(experiment.choices, 1)
-    environment.new_session()
 
   dataset = rnn_utils.DatasetRNN(
       xs=xs,
