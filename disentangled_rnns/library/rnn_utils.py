@@ -853,7 +853,7 @@ def train_network(
 
   if training_loss and np.isnan(training_loss[-1]):
     raise ValueError('NaN in loss')
-  return params, opt_state, losses
+  return params, opt_state, losses  # pytype: disable=bad-return-type
 
 
 def eval_network(
