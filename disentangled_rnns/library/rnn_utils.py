@@ -307,8 +307,23 @@ def mse(ys: np.ndarray, y_hats: np.ndarray) -> float:
 @jax.jit
 def categorical_neg_log_likelihood(
     labels: np.ndarray, output_logits: np.ndarray
-) -> float:
-  """Compute total log-likelihood of a set of labels given a set of logits."""
+) -> tuple[float, int]:
+  """Compute total log-likelihood of a set of labels given a set of logits.
+
+  Also computes the total number of valid samples, for use in calculating
+  normalized likelihood.
+
+  Args:
+    labels: An array of shape (n_timesteps, n_episodes, 1) containing the
+      categorical labels. Negative values are treated as masked.
+    output_logits: An array of shape (n_timesteps, n_episodes, n_classes)
+      containing the logits output by the network.
+
+  Returns:
+    A tuple containing:
+      - loss: The total negative log-likelihood.
+      - n_unmasked_samples: The total number of valid (unmasked) samples.
+  """
   # Mask any errors for which label is negative
   mask = jnp.logical_not(labels < 0)
   log_probs = jax.nn.log_softmax(output_logits)
