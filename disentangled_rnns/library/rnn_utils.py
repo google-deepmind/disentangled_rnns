@@ -30,6 +30,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import optax
 
+import wandb
+
 # If we're running on colab, try to import IPython.display so we can display
 # progress that way. Otherwise, we will just print.
 if 'google.colab' in sys.modules:
@@ -680,6 +682,11 @@ def train_network(
           f'Training Loss: {loss:.2e}. '
           f'Validation Loss: {l_validation:.2e}'
       )
+
+      wandb.log(
+        {"train/loss": loss, "valid/loss": l_validation},
+        step=step + 1
+        )
 
       if report_progress_by == 'print':
         # On colab, print does not always work, so try to use display
