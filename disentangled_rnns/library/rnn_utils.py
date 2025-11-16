@@ -444,6 +444,7 @@ def train_network(
     opt_state: Optional[optax.OptState] = None,
     params: Optional[hk.Params] = None,
     n_steps: int = 1000,
+    step_offset: int = 0,
     max_grad_norm: float = 1e10,
     loss_param: dict[str, float] | float = 1.0,
     loss: Literal[
@@ -472,6 +473,7 @@ def train_network(
     params:  A set of parameters suitable for the network given by make_network
       If not specified, will begin training a network from scratch
     n_steps: An integer giving the number of steps you'd like to train for
+    step_offset: An integer offset to add to the step count when logging
     max_grad_norm:  Gradient clipping. Default to a very high ceiling
     loss_param: Parameters to pass to the loss function. Can be a dictionary for
       fine-grained control over different loss components (e.g.,
@@ -685,7 +687,7 @@ def train_network(
 
       wandb.log(
         {"train/loss": loss, "valid/loss": l_validation},
-        step=step + 1
+        step=step + step_offset,
         )
 
       if report_progress_by == 'print':
