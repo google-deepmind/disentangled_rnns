@@ -149,7 +149,7 @@ class DatasetRNN:
     # Are xs and ys non-empty?
     if xs.shape[0] == 0 or xs.shape[1] == 0:
       raise ValueError(
-          'xs and ys must be non-empty. Got xs.shape = {xs.shape} and'
+          f'xs and ys must be non-empty. Got xs.shape = {xs.shape} and'
           f' ys.shape = {ys.shape} instead.'
       )
 
