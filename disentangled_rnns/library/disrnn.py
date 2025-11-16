@@ -326,7 +326,6 @@ class HkDisentangledRNN(hk.RNNCore):
     self._update_net_obs_penalty = config.update_net_obs_penalty
     self._update_net_latent_penalty = config.update_net_latent_penalty
     self._choice_net_latent_penalty = config.choice_net_latent_penalty
-    self._noiseless_mode = config.noiseless_mode
     self._activation = getattr(jax.nn, config.activation)
     self._max_latent_value = config.max_latent_value
 

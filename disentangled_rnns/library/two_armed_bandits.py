@@ -16,14 +16,15 @@
 
 import abc
 from collections.abc import Callable
-from typing import NamedTuple, Optional, Union
+from typing import Literal, NamedTuple, Optional, Union
+import warnings
 
 from disentangled_rnns.library import rnn_utils
 import haiku as hk
 import jax
 import matplotlib.pyplot as plt
 import numpy as np
-
+import seaborn as sns
 
 abstractmethod = abc.abstractmethod
 
@@ -507,6 +508,8 @@ def create_dataset(agent: Agent,
   ys = np.zeros((n_steps_per_session, n_sessions, 1))
 
   for sess_i in np.arange(n_sessions):
+    environment.new_session()
+    agent.new_session()
     experiment = run_experiment(agent, environment, n_steps_per_session)
     prev_choices = np.concatenate(([0], experiment.choices[0:-1]))
     prev_rewards = np.concatenate(([0], experiment.rewards[0:-1]))
@@ -514,7 +517,6 @@ def create_dataset(agent: Agent,
         np.concatenate(([prev_choices], [prev_rewards]), axis=0), 0, 1
     )
     ys[:, sess_i] = np.expand_dims(experiment.choices, 1)
-    environment.new_session()
 
   dataset = rnn_utils.DatasetRNN(
       xs=xs,
@@ -528,56 +530,131 @@ def create_dataset(agent: Agent,
   return dataset
 
 
-def plot_sessdata(sessdata: SessData):
-  """Creates a figure showing data from a single behavioral session.
+def plot_2ab_sessdata(
+    choices: np.ndarray,
+    rewards: np.ndarray,
+    scalars: np.ndarray | None = None,
+    scalar_types: Literal['reward_probs', 'agent_states', 'other'] = 'other',
+    show_legend: bool = True,
+    left_color: str = 'rebeccapurple',
+    right_color: str = 'darkorange',
+):
+  """Creates a figure showing data from session of a two-armed binary bandit task.
 
   Args:
-    sessdata: A session of data to plot
+    choices: The choices made by the agent in the session
+    rewards: The rewards received by the agent in the session
+    scalars: Any scalars output by the agent in the session
+    scalar_types: Whether the scalars are reward probabilities or agent states
+    show_legend: Whether to show the legend of the scalars.
+    left_color: The color to use for the "left" arm (choice 0).
+    right_color: The color to use for the "right" arm (choice 1).
   """
 
-  choose_high = sessdata.choices == 1
-  choose_low = sessdata.choices == 0
-  rewarded = sessdata.rewards == 1
+  # Check that choices and rewards are both binary. Valid values are -1, 0,
+  # and 1
+  if not np.all(np.isin(choices, [-1, 0, 1])):
+    warnings.warn(
+        'Choices should be either -1, 0, or 1, but got choices: '
+        f'{np.unique(choices)}.'
+    )
+  if not np.all(np.isin(rewards, [-1, 0, 1])):
+    warnings.warn(
+        'Rewards should be either -1, 0, or 1, but got rewards: '
+        f'{np.unique(rewards)}.'
+    )
+
+  choose_high = choices == 1
+  choose_low = choices == 0
+  rewarded = rewards == 1
+
+  # Get the RdYlGn colormap
+  cmap = plt.cm.RdYlGn
+  # Get the RGBA values for reward (green) and omission (red) ticks
+  omission_color = cmap(0.1)  # A red that's near the bottom of the colormap
+  reward_color = cmap(0.9)  # A green that's near the top of the colormap
+
+  # Check whether we have scalars we'd like to plot.
+  if scalars is None:
+    scalar_names = []
+    scalars = []
+    ymax = 1
+    ymin = 0
+    scalar_colors = []
+    ylabel = ''
+  elif scalar_types == 'reward_probs':
+    scalar_names = ['p(reward|left)', 'p(reward|right)']
+    scalar_colors = [left_color, right_color]
+    ymax = 1
+    ymin = 0
+    ylabel = 'Reward Probability'
+  elif scalar_types == 'agent_states':
+    if scalars.ndim == 1:
+      scalars = np.expand_dims(scalars, 1)
+    scalar_names = [f'state {i}' for i in range(scalars.shape[1])]
+    scalar_colors = sns.color_palette('colorblind')
+    ymax = np.max(scalars)
+    ymin = np.min(scalars)
+    ylabel = 'Agent State'
+  elif scalar_types == 'other':
+    scalar_names = []
+    scalars = []
+    ymax = np.max(scalars)
+    ymin = np.min(scalars)
+    scalar_colors = []
+    ylabel = ''
+  else:
+    raise ValueError(
+        'scalar_types must be one of "reward_probs", "agent_states", or '
+        f'"other", but got {scalar_types}'
+    )
 
   # Make the plot
   plt.subplots(figsize=(10, 3))
-  plt.plot(sessdata.reward_probs)
+  # Plot the scalars
+  for scalar_i in range(len(scalar_names)):
+    plt.plot(
+        scalars[:, scalar_i], color=scalar_colors[scalar_i % len(scalar_colors)]
+    )
+  if show_legend:
+    plt.legend(scalar_names)
 
-  # Rewarded high
+  # Rewarded high: Long green ticks on top
+  top = ymax + 0.1 * (ymax - ymin)
+  bottom = ymin - 0.1 * (ymax - ymin)
   plt.scatter(
       np.argwhere(choose_high & rewarded),
-      1.1 * np.ones(np.sum(choose_high & rewarded)),
-      color='green',
-      marker=3)
-  plt.scatter(
-      np.argwhere(choose_high & rewarded),
-      1.1 * np.ones(np.sum(choose_high & rewarded)),
-      color='green',
-      marker='|')
-  # Omission high
+      np.ones(np.sum(choose_high & rewarded)) * top,
+      color=reward_color,
+      marker='|',
+  )
+
+  # Omission high: Short red ticks on top
   plt.scatter(
       np.argwhere(choose_high & 1 - rewarded),
-      1.1 * np.ones(np.sum(choose_high & 1 - rewarded)),
-      color='red',
-      marker='|')
+      np.ones(np.sum(choose_high & 1 - rewarded)) * top,
+      color=omission_color,
+      marker='|',
+  )
 
-  # Rewarded low
+  # Rewarded low: Green ticks on bottom
   plt.scatter(
       np.argwhere(choose_low & rewarded),
-      -0.1 * np.ones(np.sum(choose_low & rewarded)),
-      color='green',
-      marker='|')
-  plt.scatter(
-      np.argwhere(choose_low & rewarded),
-      -0.1 * np.ones(np.sum(choose_low & rewarded)),
-      color='green',
-      marker=2)
-  # Omission Low
+      np.ones(np.sum(choose_low & rewarded)) * bottom,
+      color=reward_color,
+      marker='|',
+  )
+
+  # Omission Low: Red ticks on bottom
   plt.scatter(
       np.argwhere(choose_low & 1 - rewarded),
-      -0.1 * np.ones(np.sum(choose_low & 1 - rewarded)),
-      color='red',
-      marker='|')
+      np.ones(np.sum(choose_low & 1 - rewarded)) * bottom,
+      color=omission_color,
+      marker='|',
+  )
 
   plt.xlabel('Trial')
-  plt.ylabel('Probability')
+  plt.xlim([0, len(choices)])
+  plt.ylabel(ylabel)
+  if ylabel == 'Reward Probability':
+    plt.yticks([0, 0.5, 1], ['0%', '50%', '100%'])

@@ -14,8 +14,10 @@
 
 """Test that example.py is able to run correctly."""
 
+import sys
 from absl import flags
 from absl.testing import absltest
+from absl.testing import flagsaver
 from disentangled_rnns import example
 
 FLAGS = flags.FLAGS
@@ -23,12 +25,15 @@ FLAGS = flags.FLAGS
 
 class ExampleTest(absltest.TestCase):
 
+  @flagsaver.flagsaver(
+      n_steps_per_session=10,
+      n_sessions=10,
+      n_training_steps=10,
+      n_warmup_steps=10,
+  )
   def test_example_script(self):
     try:
-      FLAGS.n_steps_per_session = 10
-      FLAGS.n_sessions = 10
-      FLAGS.n_training_steps = 10
-      FLAGS.n_warmup_steps = 10
+      FLAGS(sys.argv)
       example.main(None)
     except Exception as e:  # pylint: disable=broad-exception-caught
       self.fail(f"Example script failed: {e}")

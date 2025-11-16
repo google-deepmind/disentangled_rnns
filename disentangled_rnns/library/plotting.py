@@ -546,7 +546,7 @@ def plot_choice_rule(
     ] = policy_latent_vals
     choice_net_output = apply(choice_net_params, jax.random.PRNGKey(0), xs)
     y_hats = choice_net_output[0]
-    choice_logits = y_hats[:, 0] - y_hats[:, 1]
+    choice_logits = y_hats[:, 1] - y_hats[:, 0]
 
     fig, ax = plt.subplots()
     ax.plot(policy_latent_vals, choice_logits, 'g')
@@ -590,7 +590,7 @@ def plot_choice_rule(
     y_hats = apply(choice_net_params, jax.random.PRNGKey(0), xs)
     # TODO(kevinjmiller): This assumes two-alternative logits. Generalize to
     # K-alternative choice. For now, take difference between first two.
-    choice_logits_2d = y_hats[0][:, 0] - y_hats[0][:, 1]
+    choice_logits_2d = y_hats[0][:, 1] - y_hats[0][:, 0]
     choice_logits_2d = choice_logits_2d.reshape((n_vals, n_vals))
 
     fig, ax = plt.subplots()

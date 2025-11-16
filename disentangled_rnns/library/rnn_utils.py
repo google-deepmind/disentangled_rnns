@@ -35,6 +35,7 @@ import optax
 if 'google.colab' in sys.modules:
   try:
     from IPython import display  # pylint: disable=g-bad-import-order, g-import-not-at-top
+
     _display_available = True
   except ImportError:
     _display_available = False
@@ -53,7 +54,7 @@ class DatasetRNN:
       self,
       xs: np.ndarray,
       ys: np.ndarray,
-      y_type: str,
+      y_type: Literal['categorical', 'scalar', 'mixed'] = 'categorical',
       n_classes: Optional[int] = None,
       x_names: Optional[list[str]] = None,
       y_names: Optional[list[str]] = None,
@@ -79,10 +80,10 @@ class DatasetRNN:
       batch_size: The size of the batch (number of episodes) to serve up each
         time next() is called. If not specified, all episodes in the dataset
         will be served
-      batch_mode: How to batch the dataset. Options are 'single', 'rolling',
-        and 'random'. In 'single' mode, all episodes are served together. In
-        'rolling' mode, a new batch is formed by rolling the episodes forward
-        in time. In 'random' mode, a new batch is formed by randomly sampling
+      batch_mode: How to batch the dataset. Options are 'single', 'rolling', and
+        'random'. In 'single' mode, all episodes are served together. In
+        'rolling' mode, a new batch is formed by rolling the episodes forward in
+        time. In 'random' mode, a new batch is formed by randomly sampling
         episodes. If not specified, will default to 'single'.
     """
     ##################
@@ -146,8 +147,8 @@ class DatasetRNN:
     # Are xs and ys non-empty?
     if xs.shape[0] == 0 or xs.shape[1] == 0:
       raise ValueError(
-          'xs and ys must be non-empty. Got xs.shape = {xs.shape} and ys.shape'
-          f' = {ys.shape} instead.'
+          'xs and ys must be non-empty. Got xs.shape = {xs.shape} and'
+          f' ys.shape = {ys.shape} instead.'
       )
 
     # Process feature and target names
@@ -256,6 +257,8 @@ def split_dataset(
       y_names=dataset.y_names,
       y_type=dataset.y_type,
       n_classes=dataset.n_classes,
+      batch_size=dataset.batch_size,
+      batch_mode=dataset.batch_mode,
   )
   dataset_eval = DatasetRNN(
       xs[:, eval_sessions, :],
@@ -264,6 +267,8 @@ def split_dataset(
       y_names=dataset.y_names,
       y_type=dataset.y_type,
       n_classes=dataset.n_classes,
+      batch_size=dataset.batch_size,
+      batch_mode=dataset.batch_mode,
   )
   return dataset_train, dataset_eval
 
@@ -282,8 +287,9 @@ def sse(ys: np.ndarray, y_hats: np.ndarray) -> float:
   # We want to allow the training code to pass NaNs for missing targets. These
   # missing targets should generate no gradients. The mask here does that.
   mask = jnp.logical_not(jnp.isnan(ys))
-  errors = jnp.multiply((ys - y_hats), mask)
-  sum_squared_error = jnp.sum(jnp.square(errors))
+  errors = ys - y_hats
+  masked_errors = jnp.where(mask, errors, 0.0)
+  sum_squared_error = jnp.sum(jnp.square(masked_errors))
   return sum_squared_error  # pytype: disable=bad-return-type  # jnp-type
 
 
@@ -301,8 +307,23 @@ def mse(ys: np.ndarray, y_hats: np.ndarray) -> float:
 @jax.jit
 def categorical_neg_log_likelihood(
     labels: np.ndarray, output_logits: np.ndarray
-) -> float:
-  """Compute total log-likelihood of a set of labels given a set of logits."""
+) -> tuple[float, int]:
+  """Compute total log-likelihood of a set of labels given a set of logits.
+
+  Also computes the total number of valid samples, for use in calculating
+  normalized likelihood.
+
+  Args:
+    labels: An array of shape (n_timesteps, n_episodes, 1) containing the
+      categorical labels. Negative values are treated as masked.
+    output_logits: An array of shape (n_timesteps, n_episodes, n_classes)
+      containing the logits output by the network.
+
+  Returns:
+    A tuple containing:
+      - loss: The total negative log-likelihood.
+      - n_unmasked_samples: The total number of valid (unmasked) samples.
+  """
   # Mask any errors for which label is negative
   mask = jnp.logical_not(labels < 0)
   log_probs = jax.nn.log_softmax(output_logits)
@@ -315,24 +336,30 @@ def categorical_neg_log_likelihood(
       labels[:, :, 0], num_classes=output_logits.shape[-1]
   )
   log_liks = one_hot_labels * log_probs
-  masked_log_liks = jnp.multiply(log_liks, mask)
-  loss = -jnp.nansum(masked_log_liks)
+  masked_log_liks = jnp.where(mask, log_liks, 0.0)
+  loss = -jnp.sum(masked_log_liks)
   n_unmasked_samples = jnp.sum(mask)
   return loss, n_unmasked_samples  # pytype: disable=bad-return-type  # jnp-type
 
 
 def likelihood_and_sse(
-    ys: np.ndarray, y_hats: np.ndarray, likelihood_weight: float = 1.0
+    ys: np.ndarray,
+    y_hats: np.ndarray,
+    likelihood_weight: float = 1.0,
+    n_categorical_targets: int = 2,
+    n_continuous_targets: int = 1,
 ) -> float:
   """Compute a weighted average of categorical log-likelihood and MSE."""
-  categorical_y_hats = y_hats[:, :, 0:2]
+  categorical_y_hats = y_hats[:, :, 0:n_categorical_targets]
   categorical_ys = ys[:, :, 0:1]
 
   # All trials with a negative target are masked.
   mask = jnp.logical_not(categorical_ys < 0)
 
-  continuous_y_hats = y_hats[:, :, 2:3]
-  continuous_ys = ys[:, :, 1:2]
+  continuous_y_hats = y_hats[
+      :, :, n_categorical_targets : n_categorical_targets + n_continuous_targets
+  ]
+  continuous_ys = ys[:, :, 1 : 1 + n_continuous_targets]
 
   log_likelihood, _ = categorical_neg_log_likelihood(
       categorical_ys, categorical_y_hats
@@ -347,19 +374,25 @@ def likelihood_and_sse(
 
 
 def normalized_likelihood_and_mse(
-    ys: np.ndarray, yhats: np.ndarray, likelihood_weight: float = 1.0
+    ys: np.ndarray,
+    yhats: np.ndarray,
+    likelihood_weight: float = 1.0,
+    n_categorical_targets: int = 2,
+    n_continuous_targets: int = 1,
 ) -> float | jnp.ndarray:
   """Compute a weighted average of normalized categorical log-likelihood and MSE."""
 
   # Convention is that the first two elements of yhats are for categorical
   # targets, and the next element is for continuous targets.
   # Optionally the last element of yhats is a penalty.
-  categorical_y_hats = yhats[:, :, 0:2]
+  categorical_y_hats = yhats[:, :, 0:n_categorical_targets]
   categorical_ys = ys[:, :, 0:1]
 
   mask = jnp.logical_not(categorical_ys < 0)
-  continuous_y_hats = yhats[:, :, 2:3]
-  continuous_ys = ys[:, :, 1:2]
+  continuous_y_hats = yhats[
+      :, :, n_categorical_targets : n_categorical_targets + n_continuous_targets
+  ]
+  continuous_ys = ys[:, :, 1 : 1 + n_continuous_targets]
   continuous_ys = jnp.where(mask, continuous_ys, jnp.nan)
 
   normlik_categorical = normalized_likelihood(
@@ -389,8 +422,8 @@ def compute_penalty(targets: np.ndarray, outputs: np.ndarray) -> float:
   # Continuous mask: exclude targets that are NaN
   continuous_mask = jnp.logical_not(jnp.isnan(targets))
   mask = jnp.logical_and(categorical_mask, continuous_mask)
-  # If any feature is masked, then the entire trial is masked
-  mask = jnp.all(mask, axis=-1)
+  # A trial is unmasked if any of its targets are unmasked.
+  mask = jnp.any(mask, axis=-1)
 
   trialwise_penalty = outputs[:, :, -1]
   penalty = jnp.sum(jnp.multiply(trialwise_penalty, mask))
@@ -410,11 +443,18 @@ def train_network(
     params: Optional[hk.Params] = None,
     n_steps: int = 1000,
     max_grad_norm: float = 1e10,
-    loss_param: float = 1.0,
-    loss: str = 'mse',
+    loss_param: dict[str, float] | float = 1.0,
+    loss: Literal[
+        'mse',
+        'penalized_mse',
+        'categorical',
+        'penalized_categorical',
+        'hybrid',
+        'penalized_hybrid',
+    ] = 'mse',
     log_losses_every: int = 10,
     do_plot: bool = False,
-    report_progress_by: str = 'print',
+    report_progress_by: Literal['print', 'log', 'none'] = 'print',
 ) -> tuple[hk.Params, optax.OptState, dict[str, np.ndarray]]:
   """Trains a network.
 
@@ -431,14 +471,18 @@ def train_network(
       If not specified, will begin training a network from scratch
     n_steps: An integer giving the number of steps you'd like to train for
     max_grad_norm:  Gradient clipping. Default to a very high ceiling
-    loss_param:
-    loss:
+    loss_param: Parameters to pass to the loss function. Can be a dictionary for
+      fine-grained control over different loss components (e.g.,
+      {'penalty_scale': 0.1, 'likelihood_weight': 0.8}) or a single float for
+      simpler losses.
+    loss: The loss function to use. Options are 'mse', 'penalized_mse',
+      'categorical', 'penalized_categorical', 'hybrid', 'penalized_hybrid'.
     log_losses_every: How many training steps between each time we check for
       errors and log the loss
     do_plot: Boolean that controls whether a learning curve is plotted
     report_progress_by: Mode for reporting real-time progress. Options are
-      "display" for displaying to an ipython notebook, "print" for printing to
-      the console, "log" for using absl logging, and "none" for no output.
+      "print" for printing to the console, "log" for using absl logging, and
+      "none" for no output.
 
   Returns:
     params: Trained parameters
@@ -472,6 +516,16 @@ def train_network(
   if opt_state is None:
     opt_state = opt.init(params)
 
+  loss_param_dict = (
+      loss_param if isinstance(loss_param, dict) else {'value': loss_param}
+  )
+
+  def get_loss_param(
+      loss_param_dict: dict[str, float], key: str, default: float
+  ) -> float:
+    """Helper to get a value from loss_param_dict."""
+    return loss_param_dict.get(key, loss_param_dict.get('value', default))
+
   ############################################
   # Define possible losses and training step #
   ###########################################
@@ -481,13 +535,14 @@ def train_network(
     return loss
 
   def penalized_mse_loss(
-      params, xs, ys, random_key, penalty_scale=loss_param
+      params, xs, ys, random_key, loss_param=loss_param_dict
   ) -> float:
     """Treats the last element of the model outputs as a penalty."""
     # (n_steps, n_episodes, n_targets+1)
     model_output = model.apply(params, random_key, xs)
     y_hats = model_output[:, :, :-1]
     penalty, n_unmasked_samples = compute_penalty(ys, model_output)
+    penalty_scale = get_loss_param(loss_param, 'penalty_scale', 1.0)
     loss = mse(ys, y_hats) + penalty_scale * penalty / n_unmasked_samples
     return loss
 
@@ -501,7 +556,7 @@ def train_network(
     return nll / n_unmasked_samples
 
   def penalized_categorical_loss(
-      params, xs, targets, random_key, penalty_scale=loss_param
+      params, xs, targets, random_key, loss_param=loss_param_dict
   ) -> float:
     """Treats the last element of the model outputs as a penalty."""
     # (n_steps, n_episodes, n_targets)
@@ -511,37 +566,38 @@ def train_network(
     nll, n_unmasked_samples = categorical_neg_log_likelihood(
         targets, output_logits
     )
+    penalty_scale = get_loss_param(loss_param, 'penalty_scale', 1.0)
     avg_nll = nll / n_unmasked_samples
     avg_penalty = penalty / n_unmasked_samples
     loss = avg_nll + penalty_scale * avg_penalty
     return loss
 
   def hybrid_loss(
-      params, xs, ys, random_key, likelihood_weight=loss_param
+      params, xs, ys, random_key, loss_param=loss_param_dict
   ) -> float:
     """A loss that combines categorical and continuous targets."""
 
     model_output = model.apply(params, random_key, xs)
     y_hats = model_output
-
+    likelihood_weight = get_loss_param(loss_param, 'likelihood_weight', 1.0)
     loss = jax.jit(likelihood_and_sse)(
         ys, y_hats, likelihood_weight=likelihood_weight
     )
     return loss
 
   def penalized_hybrid_loss(
-      params, xs, ys, random_key, likelihood_weight=loss_param
+      params, xs, ys, random_key, loss_param=loss_param_dict
   ) -> float:
     """A hybrid loss with a penalty."""
-    # Currently, hardcoded but should ideally be a parameter.
-    penalty_scale = 1.0
+
+    penalty_scale = get_loss_param(loss_param, 'penalty_scale', 1.0)
     model_output = model.apply(params, random_key, xs)
 
     # model_output has the continuous and categorical targets first followed by
     # the penalty. The likelihood_and_sse functions handles
     # ignoring the penalty, hence we don't need to do anything special here.
     y_hats = model_output
-
+    likelihood_weight = get_loss_param(loss_param, 'likelihood_weight', 1.0)
     supervised_loss = likelihood_and_sse(
         ys, y_hats, likelihood_weight=likelihood_weight
     )
@@ -637,9 +693,7 @@ def train_network(
       elif report_progress_by == 'none':
         pass
       else:
-        warnings.warn(
-            f'Unknown report_progress_by mode: {report_progress_by}'
-        )
+        warnings.warn(f'Unknown report_progress_by mode: {report_progress_by}')
 
   # If we actually did any training, print final loss and make a nice plot
   if n_steps > 1 and do_plot:
@@ -695,10 +749,12 @@ def eval_network(
     states = np.array(states[0])
 
   # States should now be (n_timesteps, n_episodes, n_hidden)
-  assert states.shape[0] == xs.shape[0], (
-      'States and inputs should have the same number of timesteps.')
-  assert states.shape[1] == xs.shape[1], (
-      'States and inputs should have the same number of episodes.')
+  assert (
+      states.shape[0] == xs.shape[0]
+  ), 'States and inputs should have the same number of timesteps.'
+  assert (
+      states.shape[1] == xs.shape[1]
+  ), 'States and inputs should have the same number of episodes.'
 
   return np.asarray(y_hats), states
 
@@ -923,5 +979,5 @@ class NpJnpJsonEncoder(json.JSONEncoder):
       return super().default(o)
     except TypeError as exc:
       raise TypeError(
-          f"Object of type {type(o).__name__} is not JSON serializable"
+          f'Object of type {type(o).__name__} is not JSON serializable'
       ) from exc

@@ -23,9 +23,16 @@ To release a new version (e.g. from `1.0.0` -> `2.0.0`):
 
 ## [Unreleased]
 
+## [0.1.1] - 2025-11-10
+
+* Initial Release on PyPi
+
+Previous version was not released on PyPI, so bumping up the version to trigger
+a release and act as a baseline for future releases.
+
 ## [0.1.0] - 2022-01-01
 
 * Initial release
 
-[Unreleased]: https://github.com/google-deepmind/disentangled_rnns/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.0
+[Unreleased]: https://github.com/google-deepmind/disentangled_rnns/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.1

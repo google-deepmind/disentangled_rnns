@@ -16,7 +16,7 @@
 
 import json
 import os
-from typing import Optional
+from typing import Optional, Literal, cast
 import urllib.request
 
 from disentangled_rnns.library import pclicks
@@ -356,8 +356,17 @@ def dataset_list_to_multisubject(
   xs_dataset, ys_dataset = dataset_list[0].get_all()
   x_names = dataset_list[0].x_names
   y_names = dataset_list[0].y_names
-  y_type = dataset_list[0].y_type
+  y_type_str = dataset_list[0].y_type
   n_classes = dataset_list[0].n_classes
+
+  # Runtime check for y_type_str before casting
+  allowed_y_types = ('categorical', 'scalar', 'mixed')
+  if y_type_str not in allowed_y_types:
+    raise ValueError(
+        f'Invalid y_type "{y_type_str}" found in dataset_list. '
+        f'Expected one of {allowed_y_types}.')
+  # Cast for pytype
+  y_type = cast(Literal['categorical', 'scalar', 'mixed'], y_type_str)
 
   # If we're adding a subject ID, we'll add a feature to the xs
   if add_subj_id:
