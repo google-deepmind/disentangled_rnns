@@ -30,6 +30,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import optax
 
+
 # If we're running on colab, try to import IPython.display so we can display
 # progress that way. Otherwise, we will just print.
 if 'google.colab' in sys.modules:
@@ -52,8 +53,8 @@ class DatasetRNN:
 
   def __init__(
       self,
-      xs: np.ndarray,
-      ys: np.ndarray,
+      xs: np.typing.NDArray[np.number],
+      ys: np.typing.NDArray[np.number],
       y_type: Literal['categorical', 'scalar', 'mixed'] = 'categorical',
       n_classes: Optional[int] = None,
       x_names: Optional[list[str]] = None,
@@ -65,12 +66,13 @@ class DatasetRNN:
 
     Args:
       xs: Values to become inputs to the network. Should have dimensionality
-        [timestep, episode, feature]
+        [timestep, episode, feature]. Must be numeric, will be cast to float32.
       ys: Values to become output targets for the RNN. Should have
         dimensionality [timestep, episode, feature]
       y_type: Either 'categorical','scalar' or 'mixed'. If 'categorical',
         targets must be integers. If 'mixed', first element is assumed to be
-        categorical.
+        categorical. If 'scalar', targets must be numeric and will be cast to
+        float32. If 'categorical', targets must be integers.
       n_classes: The number of classes in the categorical targets. If not
         specified, will be inferred from the data.
       x_names: A list of names for the features in xs. If not supplied, will be
@@ -104,9 +106,16 @@ class DatasetRNN:
             'multiple distinct types of categorical targets, feel free to '
             'implement this and send a CL'
         )
+      # For categorical ys, ensure they are integers or close to integers
+      uniques = np.unique(ys)
+      if not np.all(np.isclose(uniques, np.round(uniques))):
+        raise ValueError(
+            'For y_type="categorical", ys must be integers or floats close to'
+            f' integers. Got unique values: {uniques}'
+        )
 
     if y_type in ['categorical', 'mixed']:
-      # NOTE: By convention, for y_type=='mixed' the first element of the target
+      # By convention, for y_type=='mixed' the first element of the target
       # is assumed to be categorical.
       categorical_index = 0
       categorical_ys = ys[:, :, categorical_index]
@@ -182,8 +191,8 @@ class DatasetRNN:
     self.y_type = y_type
     self.n_classes = n_classes
     self.batch_size = batch_size
-    self._xs = xs
-    self._ys = ys
+    self._xs = xs.astype(np.float32)
+    self._ys = ys.astype(np.float32)
     self._n_episodes = self._xs.shape[1]
     self._n_timesteps = self._xs.shape[0]
     self.batch_mode = batch_mode
