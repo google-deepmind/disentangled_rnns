@@ -30,8 +30,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import optax
 
-import wandb
-
 # If we're running on colab, try to import IPython.display so we can display
 # progress that way. Otherwise, we will just print.
 if 'google.colab' in sys.modules:
