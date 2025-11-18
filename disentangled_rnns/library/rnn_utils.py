@@ -456,9 +456,9 @@ def train_network(
     ] = 'mse',
     log_losses_every: int = 10,
     do_plot: bool = False,
-    report_progress_by: Literal['print', 'log', 'none'] = 'print',
+    report_progress_by: Literal['print', 'log', 'wandb', 'none'] = 'print',
     wandb_run: Optional[Any] = None,
-    wandb_step_offset: Optional[int] = 0,
+    wandb_step_offset: int = 0,
 ) -> tuple[hk.Params, optax.OptState, dict[str, np.ndarray]]:
   """Trains a network.
 
@@ -473,8 +473,7 @@ def train_network(
       initialize a new optimizer from scratch
     params:  A set of parameters suitable for the network given by make_network
       If not specified, will begin training a network from scratch
-    step_offset: An integer offset to add to the step count when logging
-      For example, if
+    n_steps: An integer giving the number of steps you'd like to train for
     max_grad_norm:  Gradient clipping. Default to a very high ceiling
     loss_param: Parameters to pass to the loss function. Can be a dictionary for
       fine-grained control over different loss components (e.g.,
@@ -486,12 +485,13 @@ def train_network(
       errors and log the loss
     do_plot: Boolean that controls whether a learning curve is plotted
     report_progress_by: Mode for reporting real-time progress. Options are
-      "print" for printing to the console, "log" for using absl logging, and
-      "none" for no output.
-    wandb_run: Optional wandb run object used for logging metrics. If not
-      provided, metrics are logged via the global wandb context.
-    wandb_step_offset: Optional integer used to shift the logged step index
-      (e.g. to include the warmup steps before the actual run).
+      "print" for printing to the console, "log" for using absl logging, "wandb"
+       for both W&B logging and printing, and "none" for no output.
+    wandb_run: Optional W&B run object used for logging metrics during train.
+       W&B logging occurs only if both wandb_run is provided and
+       report_progress_by is 'wandb'.
+    wandb_step_offset: Integer used to shift the logged step index
+      (e.g. to include warmup steps logged beforehand).
 
   Returns:
     params: Trained parameters
@@ -690,10 +690,13 @@ def train_network(
           f'Validation Loss: {l_validation:.2e}'
       )
 
-      log_payload = {"train/loss": loss, "valid/loss": l_validation}
-      wandb_run.log(log_payload, step=step + wandb_step_offset)
+      if report_progress_by == 'wandb' and wandb_run is not None:
+        wandb_run.log(
+            {"train/loss": loss, "valid/loss": l_validation},
+            step=step + wandb_step_offset,
+        )
 
-      if report_progress_by == 'print':
+      if report_progress_by == 'print' or report_progress_by == 'wandb':
         # On colab, print does not always work, so try to use display
         if _display_available:
           display.clear_output(wait=True)
