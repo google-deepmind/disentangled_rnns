@@ -13,8 +13,9 @@
 # limitations under the License.
 
 """Disentangled RNN and plotting functions."""
+
 import dataclasses
-from typing import Optional, Callable, Any, Sequence
+from typing import Any, Callable, Optional, Sequence
 
 import haiku as hk
 import jax
@@ -42,8 +43,8 @@ def information_bottleneck(
     inputs: The inputs to the bottleneck. Shape is (batch_size, bottleneck_dims)
     sigmas: The standard deviations of the sampling distribution (diagonal of
       the sqrt of the covariance matrix). Shape is (bottleneck_dims).
-    multipliers: The multipliers to apply to the inputs. Shape is
-      (batch_size, bottleneck_dims)
+    multipliers: The multipliers to apply to the inputs. Shape is (batch_size,
+      bottleneck_dims)
     noiseless_mode: If True, no noise is added and no penalty is computed.
 
   Returns:
@@ -92,6 +93,7 @@ def reparameterize_sigma(
     hk_param: The haiku parameter corresponding to a bottleneck sigma. Range
       from -inf to +inf
     min_sigma: The minimum value of the standard deviation.
+
   Returns:
     sigma: The bottleneck standard deviation. Range from min_sigma to inf.
   """
@@ -104,8 +106,8 @@ class DisRnnConfig:
 
   Attributes:
     obs_size: Number of dimensions in the observation vector
-    output_size: Number of dimensions the disRNN will output
-      (logits or predicted targets)
+    output_size: Number of dimensions the disRNN will output (logits or
+      predicted targets)
     latent_size: Number of recurrent variables
     update_net_n_units_per_layer: Number of units in each layer of the update
       networks
@@ -117,8 +119,8 @@ class DisRnnConfig:
     latent_penalty: Multiplier for KL cost on the latent bottlenecks
     choice_net_latent_penalty: Multiplier for bottleneck cost on latent inputs
       to the choice network
-    update_net_obs_penalty: Multiplier for bottleneck cost on observation
-      inputs to the update network
+    update_net_obs_penalty: Multiplier for bottleneck cost on observation inputs
+      to the update network
     update_net_latent_penalty: Multiplier for latent inputs to the update
       networks
     l2_scale: Multiplier for L2 penalty on hidden layer weights in both update
@@ -128,6 +130,9 @@ class DisRnnConfig:
       prevent runaway latents resulting in NaNs
     x_names: Names of the observation vector elements. Must have length obs_size
     y_names: Names of the target vector elements. Must have length target_size
+    enable_aux_outputs: if enabled, supported classes will also give the
+      auxiliary outputs. Can be used for getting internal model states such as
+      subject embeddings etc.
   """
 
   obs_size: int = 2
@@ -149,10 +154,12 @@ class DisRnnConfig:
 
   l2_scale: float = 0.01
 
-  max_latent_value: float = 2.
+  max_latent_value: float = 2.0
 
   x_names: Optional[list[str]] = None
   y_names: Optional[list[str]] = None
+
+  enable_aux_outputs: bool = False
 
   def __post_init__(self):
     """Checks that the configuration is valid."""
@@ -190,13 +197,15 @@ class ResMLP(hk.Module):
     name: Optional name, which affects the names of the haiku parameters
   """
 
-  def __init__(self,
-               input_size: int,
-               output_size: int,
-               n_layers: int = 5,
-               n_units_per_layer: int = 5,
-               activation_fn: Callable[[Any], Any] = jax.nn.relu,
-               name=None):
+  def __init__(
+      self,
+      input_size: int,
+      output_size: int,
+      n_layers: int = 5,
+      n_units_per_layer: int = 5,
+      activation_fn: Callable[[Any], Any] = jax.nn.relu,
+      name=None,
+  ):
     super().__init__(name=name)
 
     self.n_layers = n_layers
@@ -258,9 +267,7 @@ class ResMLP(hk.Module):
 
     # Compute sum of squares of all hidden layer weights. This will be passed on
     # and can be used to compute an L2 (ridge) penalty.
-    self.l2 = (
-        jnp.sum(jnp.square(jnp.array(self._hidden_layer_weights)))
-    )
+    self.l2 = jnp.sum(jnp.square(jnp.array(self._hidden_layer_weights)))
 
   def __call__(self, inputs):
 
@@ -284,7 +291,8 @@ class ResMLP(hk.Module):
 
 
 def get_initial_bottleneck_params(
-    shape: Sequence[int], name: str,
+    shape: Sequence[int],
+    name: str,
 ) -> tuple[jnp.ndarray, jnp.ndarray]:
   """Defines a bottleneck with a sigma and a multiplier."""
   # At init the bottlenecks should all be open: sigmas small and multipliers 1
@@ -328,6 +336,7 @@ class HkDisentangledRNN(hk.RNNCore):
     self._choice_net_latent_penalty = config.choice_net_latent_penalty
     self._activation = getattr(jax.nn, config.activation)
     self._max_latent_value = config.max_latent_value
+    self._auxiliary_outputs = config.enable_aux_outputs
 
     # Get Haiku parameters. IMPORTANT: if you are subclassing HkDisentangledRNN,
     # you must override _get_haiku_parameters to add any new parameters that you
@@ -369,11 +378,9 @@ class HkDisentangledRNN(hk.RNNCore):
     """Initializes parameters for the latent bottlenecks."""
     # Latents will also go through a bottleneck after being updated. These
     # bottlenecks do not need multipliers, the network output can rescale them
-    self._latent_sigmas, _ = (
-        get_initial_bottleneck_params(
-            shape=(self._latent_size,),
-            name='latent',
-        )
+    self._latent_sigmas, _ = get_initial_bottleneck_params(
+        shape=(self._latent_size,),
+        name='latent',
     )
 
   def _build_choice_bottlenecks(self):
@@ -404,6 +411,7 @@ class HkDisentangledRNN(hk.RNNCore):
     Args:
       update_net_inputs: Additional inputs for the update rules.
       prev_latent_values: The latents from the previous time step.
+
     Returns:
       new_latent_values: The updated latents.
       penalty_increment: A penalty associated with the update.
@@ -468,8 +476,8 @@ class HkDisentangledRNN(hk.RNNCore):
         n_units_per_layer=self._choice_net_n_units_per_layer,
         n_layers=self._choice_net_n_layers,
         activation_fn=self._activation,
-        name='choice_net'
-        )(choice_net_inputs)
+        name='choice_net',
+    )(choice_net_inputs)
     penalty_increment += self._l2_scale * choice_net_l2
 
     return predicted_targets, penalty_increment
@@ -545,10 +553,12 @@ class HkDisentangledRNN(hk.RNNCore):
     return output, new_latents
 
 
-def log_bottlenecks(params,
-                    open_thresh: float = 0.1,
-                    partially_open_thresh: float = 0.25,
-                    closed_thresh: float = 0.9) -> dict[str, int]:
+def log_bottlenecks(
+    params,
+    open_thresh: float = 0.1,
+    partially_open_thresh: float = 0.25,
+    closed_thresh: float = 0.9,
+) -> dict[str, int]:
   """Computes info about bottlenecks for the base DisRNN."""
 
   params_disrnn = params['hk_disentangled_rnn']
@@ -612,7 +622,7 @@ def log_bottlenecks(params,
       'update_bottlenecks_open': int(update_bottlenecks_open),
       'update_bottlenecks_partial': int(update_bottlenecks_partial),
       'update_bottlenecks_closed': int(update_bottlenecks_closed),
-      }
+  }
   return bottleneck_dict
 
 
@@ -622,13 +632,17 @@ def get_total_sigma(params):
   params_disrnn = params['hk_disentangled_rnn']
 
   latent_bottlenecks = reparameterize_sigma(
-      params_disrnn['latent_sigma_params'])
+      params_disrnn['latent_sigma_params']
+  )
   update_obs_bottlenecks = reparameterize_sigma(
-      params_disrnn['update_net_obs_sigma_params'])
+      params_disrnn['update_net_obs_sigma_params']
+  )
   update_latent_bottlenecks = reparameterize_sigma(
-      params_disrnn['update_net_latent_sigma_params'])
+      params_disrnn['update_net_latent_sigma_params']
+  )
   choice_bottlenecks = reparameterize_sigma(
-      params_disrnn['choice_net_sigma_params'])
+      params_disrnn['choice_net_sigma_params']
+  )
 
   return float(
       jnp.sum(latent_bottlenecks)
