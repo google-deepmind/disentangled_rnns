@@ -444,7 +444,6 @@ def train_network(
     opt_state: Optional[optax.OptState] = None,
     params: Optional[hk.Params] = None,
     n_steps: int = 1000,
-    step_offset: int = 0,
     max_grad_norm: float = 1e10,
     loss_param: dict[str, float] | float = 1.0,
     loss: Literal[
@@ -458,6 +457,8 @@ def train_network(
     log_losses_every: int = 10,
     do_plot: bool = False,
     report_progress_by: Literal['print', 'log', 'none'] = 'print',
+    wandb_run: Optional[Any] = None,
+    wandb_step_offset: Optional[int] = 0,
 ) -> tuple[hk.Params, optax.OptState, dict[str, np.ndarray]]:
   """Trains a network.
 
@@ -472,8 +473,8 @@ def train_network(
       initialize a new optimizer from scratch
     params:  A set of parameters suitable for the network given by make_network
       If not specified, will begin training a network from scratch
-    n_steps: An integer giving the number of steps you'd like to train for
     step_offset: An integer offset to add to the step count when logging
+      For example, if
     max_grad_norm:  Gradient clipping. Default to a very high ceiling
     loss_param: Parameters to pass to the loss function. Can be a dictionary for
       fine-grained control over different loss components (e.g.,
@@ -487,6 +488,10 @@ def train_network(
     report_progress_by: Mode for reporting real-time progress. Options are
       "print" for printing to the console, "log" for using absl logging, and
       "none" for no output.
+    wandb_run: Optional wandb run object used for logging metrics. If not
+      provided, metrics are logged via the global wandb context.
+    wandb_step_offset: Optional integer used to shift the logged step index
+      (e.g. to include the warmup steps before the actual run).
 
   Returns:
     params: Trained parameters
@@ -685,10 +690,8 @@ def train_network(
           f'Validation Loss: {l_validation:.2e}'
       )
 
-      wandb.log(
-        {"train/loss": loss, "valid/loss": l_validation},
-        step=step + step_offset,
-        )
+      log_payload = {"train/loss": loss, "valid/loss": l_validation}
+      wandb_run.log(log_payload, step=step + wandb_step_offset)
 
       if report_progress_by == 'print':
         # On colab, print does not always work, so try to use display
