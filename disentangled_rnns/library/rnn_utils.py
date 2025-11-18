@@ -488,8 +488,8 @@ def train_network(
     wandb_run: Optional W&B run object used for logging metrics during train.
        W&B logging occurs only if both wandb_run is provided and
        report_progress_by is 'wandb'.
-    wandb_step_offset: Integer used to shift the logged step index
-      (e.g. to include warmup steps logged beforehand).
+    wandb_step_offset: Integer used to shift the W&B step count, if necessary
+       (e.g. to include warmup steps logged beforehand in the same W&B run).
 
   Returns:
     params: Trained parameters
