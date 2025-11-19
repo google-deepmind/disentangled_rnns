@@ -201,6 +201,83 @@ def plot_bottlenecks(
   return fig
 
 
+def append_bottleneck(
+    fig: plt.Figure,
+    bottleneck_values: np.ndarray,
+    bottleneck_names: list,
+    title: str,
+    sort_latents: bool,
+) -> plt.Figure:
+  """Appends a bottleneck plot to an existing figure of bottleneck plots."""
+  old_axes_props = []
+  subplot_axes = [ax for ax in fig.axes if ax.get_subplotspec() is not None]
+
+  for ax in subplot_axes:
+    # For some reason, some subplots don't have any images, so we skip them.
+    if len(ax.images) < 1:
+      continue
+    xtickrotation = 0
+    if ax.get_xticklabels():
+      xtickrotation = ax.get_xticklabels()[0].get_rotation()
+
+    props = {
+        'title': ax.get_title(),
+        'ylabel': ax.get_ylabel(),
+        'xlabel': ax.get_xlabel(),
+        'xticks': ax.get_xticks(),
+        'xticklabels': [l.get_text() for l in ax.get_xticklabels()],
+        'xtickrotation': xtickrotation,
+        'yticks': ax.get_yticks(),
+        'yticklabels': [l.get_text() for l in ax.get_yticklabels()],
+        'ylim': ax.get_ylim(),
+        'xlim': ax.get_xlim(),
+        'images': [],
+    }
+    for im in ax.images:
+      props['images'].append({
+          'data': im.get_array(),
+          'cmap': im.get_cmap(),
+          'clim': im.get_clim(),
+      })
+    old_axes_props.append(props)
+
+  n_axes_old = len(old_axes_props)
+
+  fig, axes = plt.subplots(
+      1, n_axes_old + 1, figsize=(5 * (n_axes_old + 1), 5)
+  )
+
+  ax = axes[-1]
+  im = ax.imshow(np.swapaxes([1 - bottleneck_values], 0, 1), cmap='Oranges')
+  im.set_clim(vmin=0, vmax=1)
+  ax.set_title(title)
+  ylabel = 'Latent # (Sorted)' if sort_latents else 'Latent #'
+  ax.set_ylabel(ylabel)
+  ax.set_xticks([])
+  ax.set_yticks(ticks=range(len(bottleneck_names)), labels=bottleneck_names)
+
+
+  for i, props in enumerate(old_axes_props):
+    ax = axes[i]
+    if props['images']:
+      im_props = props['images'][0]
+      im = ax.imshow(im_props['data'], cmap=im_props['cmap'])
+      im.set_clim(im_props['clim'])
+
+    ax.set_title(props['title'])
+    ax.set_xlabel(props['xlabel'])
+    ax.set_ylabel(props['ylabel'])
+    ax.set_xticks(props['xticks'])
+    ax.set_xticklabels(props['xticklabels'], rotation=props['xtickrotation'])
+    ax.set_yticks(props['yticks'])
+    ax.set_yticklabels(props['yticklabels'])
+    ax.set_ylim(props['ylim'])
+    ax.set_xlim(props['xlim'])
+
+  #fig.tight_layout()
+  return fig
+
+
 def plot_update_rules(
     params: hk.Params,
     disrnn_config: disrnn.DisRnnConfig,
