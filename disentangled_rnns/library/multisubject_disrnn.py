@@ -251,7 +251,12 @@ class MultisubjectDisRnn(disrnn.HkDisentangledRNN):
     output = output.at[:, :-1].set(predicted_targets)
     output = output.at[:, -1].set(penalty)
 
-    return output, new_latents
+    final_outputs = output, new_latents
+    if self._auxiliary_outputs:
+      aux_output = {'subject_embeddings': subject_embeddings}
+      final_outputs = (*final_outputs, aux_output)
+
+    return final_outputs
 
 
 def get_auxiliary_metrics(
