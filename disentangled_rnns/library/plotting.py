@@ -19,6 +19,7 @@ from typing import Optional
 
 from disentangled_rnns.library import disrnn
 from disentangled_rnns.library import multisubject_disrnn
+from disentangled_rnns.library import multisubject_neuro_disrnn
 from disentangled_rnns.library import rnn_utils
 import haiku as hk
 import jax
@@ -35,6 +36,7 @@ large = 20
 mpl.rcParams['grid.color'] = 'none'
 mpl.rcParams['axes.facecolor'] = 'white'
 plt.rcParams['svg.fonttype'] = 'none'
+
 
 
 def plot_bottlenecks(
@@ -106,8 +108,7 @@ def plot_bottlenecks(
     )
   else:
     raise ValueError(
-        'plot_bottlenecks only supports DisRnnConfig and'
-        ' MultisubjectDisRnnConfig.'
+        f'plot_bottlenecks only supports DisRnnConfig and MultisubjectDisRnnConfig. Got {type(disrnn_config)}'
     )
 
   latent_sigmas = np.array(
@@ -201,6 +202,83 @@ def plot_bottlenecks(
   return fig
 
 
+def append_bottleneck(
+    fig: plt.Figure,
+    bottleneck_values: np.ndarray,
+    bottleneck_names: list,
+    title: str,
+    sort_latents: bool,
+) -> plt.Figure:
+  """Appends a bottleneck plot to an existing figure of bottleneck plots."""
+  old_axes_props = []
+  subplot_axes = [ax for ax in fig.axes if ax.get_subplotspec() is not None]
+
+  for ax in subplot_axes:
+    # For some reason, some subplots don't have any images, so we skip them.
+    if len(ax.images) < 1:
+      continue
+    xtickrotation = 0
+    if ax.get_xticklabels():
+      xtickrotation = ax.get_xticklabels()[0].get_rotation()
+
+    props = {
+        'title': ax.get_title(),
+        'ylabel': ax.get_ylabel(),
+        'xlabel': ax.get_xlabel(),
+        'xticks': ax.get_xticks(),
+        'xticklabels': [l.get_text() for l in ax.get_xticklabels()],
+        'xtickrotation': xtickrotation,
+        'yticks': ax.get_yticks(),
+        'yticklabels': [l.get_text() for l in ax.get_yticklabels()],
+        'ylim': ax.get_ylim(),
+        'xlim': ax.get_xlim(),
+        'images': [],
+    }
+    for im in ax.images:
+      props['images'].append({
+          'data': im.get_array(),
+          'cmap': im.get_cmap(),
+          'clim': im.get_clim(),
+      })
+    old_axes_props.append(props)
+
+  n_axes_old = len(old_axes_props)
+
+  fig, axes = plt.subplots(
+      1, n_axes_old + 1, figsize=(5 * (n_axes_old + 1), 5)
+  )
+
+  ax = axes[-1]
+  im = ax.imshow(np.swapaxes([1 - bottleneck_values], 0, 1), cmap='Oranges')
+  im.set_clim(vmin=0, vmax=1)
+  ax.set_title(title)
+  ylabel = 'Latent # (Sorted)' if sort_latents else 'Latent #'
+  ax.set_ylabel(ylabel)
+  ax.set_xticks([])
+  ax.set_yticks(ticks=range(len(bottleneck_names)), labels=bottleneck_names)
+
+
+  for i, props in enumerate(old_axes_props):
+    ax = axes[i]
+    if props['images']:
+      im_props = props['images'][0]
+      im = ax.imshow(im_props['data'], cmap=im_props['cmap'])
+      im.set_clim(im_props['clim'])
+
+    ax.set_title(props['title'])
+    ax.set_xlabel(props['xlabel'])
+    ax.set_ylabel(props['ylabel'])
+    ax.set_xticks(props['xticks'])
+    ax.set_xticklabels(props['xticklabels'], rotation=props['xtickrotation'])
+    ax.set_yticks(props['yticks'])
+    ax.set_yticklabels(props['yticklabels'])
+    ax.set_ylim(props['ylim'])
+    ax.set_xlim(props['xlim'])
+
+  #fig.tight_layout()
+  return fig
+
+
 def plot_update_rules(
     params: hk.Params,
     disrnn_config: disrnn.DisRnnConfig,
@@ -220,7 +298,34 @@ def plot_update_rules(
     print('subj_ind provided, but not in multisubject mode. Ignoring it')
     subj_ind = None
 
-  if isinstance(disrnn_config, multisubject_disrnn.MultisubjectDisRnnConfig):
+  if isinstance(
+      disrnn_config, multisubject_neuro_disrnn.MultisubjectNeuroDisRnnConfig
+  ):
+    make_network = lambda: multisubject_neuro_disrnn.MultisubjectNeuroDisRnn(
+        disrnn_config
+    )
+    obs_names = disrnn_config.x_names[1:]  # First x_name is "Subject ID"
+    param_prefix = 'multisubject_neuro_dis_rnn'
+    subj_embedding_size = disrnn_config.subject_embedding_size
+    update_subj_s_t = np.transpose(
+        disrnn.reparameterize_sigma(
+            params[param_prefix]['update_net_subj_sigma_params']
+        )
+    )
+    update_obs_s_t = np.transpose(
+        disrnn.reparameterize_sigma(
+            params[param_prefix]['update_net_obs_sigma_params']
+        )
+    )
+    update_latent_s_t = np.transpose(
+        disrnn.reparameterize_sigma(
+            params[param_prefix]['update_net_latent_sigma_params']
+        )
+    )
+    update_sigmas = np.concatenate(
+        (update_subj_s_t, update_obs_s_t, update_latent_s_t), axis=1
+    )
+  elif isinstance(disrnn_config, multisubject_disrnn.MultisubjectDisRnnConfig):
     make_network = lambda: multisubject_disrnn.MultisubjectDisRnn(disrnn_config)
     obs_names = disrnn_config.x_names[1:]  # First x_name is "Subject ID"
     param_prefix = 'multisubject_dis_rnn'
@@ -459,7 +564,19 @@ def plot_choice_rule(
   disrnn_config.noiseless_mode = True  # Turn off noise for plotting
   activation_fn = getattr(jax.nn, disrnn_config.activation)
 
-  if isinstance(disrnn_config, multisubject_disrnn.MultisubjectDisRnnConfig):
+  if isinstance(
+      disrnn_config, multisubject_neuro_disrnn.MultisubjectNeuroDisRnnConfig
+  ):
+    subj_embedding_size = disrnn_config.subject_embedding_size
+    params_prefix = 'multisubject_neuro_dis_rnn'
+    choice_subj_s = disrnn.reparameterize_sigma(
+        params[params_prefix]['choice_net_subj_sigma_params']
+    )
+    choice_latent_s = disrnn.reparameterize_sigma(
+        params[params_prefix]['choice_net_latent_sigma_params']
+    )
+    choice_net_sigmas = np.concatenate((choice_subj_s, choice_latent_s))
+  elif isinstance(disrnn_config, multisubject_disrnn.MultisubjectDisRnnConfig):
     subj_embedding_size = disrnn_config.subject_embedding_size
     params_prefix = 'multisubject_dis_rnn'
     choice_subj_s = disrnn.reparameterize_sigma(
