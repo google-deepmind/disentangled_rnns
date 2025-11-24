@@ -1065,8 +1065,8 @@ class NpJnpJsonEncoder(json.JSONEncoder):
     if o is None:
       return None
 
-    # Lists and dicts: Handle recursively
-    if isinstance(o, list):
+    # Lists, tuples, and dicts: Handle recursively
+    if isinstance(o, (list, tuple)):
       return [self.default(x) for x in o]
     if isinstance(o, dict):
       return {k: self.default(v) for k, v in o.items()}
