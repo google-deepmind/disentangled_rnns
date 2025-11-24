@@ -147,7 +147,7 @@ class DatasetRNN:
     # Are xs and ys non-empty?
     if xs.shape[0] == 0 or xs.shape[1] == 0:
       raise ValueError(
-          'xs and ys must be non-empty. Got xs.shape = {xs.shape} and'
+          f'xs and ys must be non-empty. Got xs.shape = {xs.shape} and'
           f' ys.shape = {ys.shape} instead.'
       )
 
@@ -454,7 +454,9 @@ def train_network(
     ] = 'mse',
     log_losses_every: int = 10,
     do_plot: bool = False,
-    report_progress_by: Literal['print', 'log', 'none'] = 'print',
+    report_progress_by: Literal['print', 'log', 'wandb', 'none'] = 'print',
+    wandb_run: Optional[Any] = None,
+    wandb_step_offset: int = 0,
 ) -> tuple[hk.Params, optax.OptState, dict[str, np.ndarray]]:
   """Trains a network.
 
@@ -481,8 +483,13 @@ def train_network(
       errors and log the loss
     do_plot: Boolean that controls whether a learning curve is plotted
     report_progress_by: Mode for reporting real-time progress. Options are
-      "print" for printing to the console, "log" for using absl logging, and
-      "none" for no output.
+      "print" for printing to the console, "log" for using absl logging, "wandb"
+       for both W&B logging and printing, and "none" for no output.
+    wandb_run: Optional W&B run object used for logging metrics during train.
+       W&B logging occurs only if both wandb_run is provided and
+       report_progress_by is 'wandb'.
+    wandb_step_offset: Integer used to shift the W&B step count, if necessary
+       (e.g. to include warmup steps logged beforehand in the same W&B run).
 
   Returns:
     params: Trained parameters
@@ -681,7 +688,16 @@ def train_network(
           f'Validation Loss: {l_validation:.2e}'
       )
 
-      if report_progress_by == 'print':
+      if report_progress_by == 'wandb' and wandb_run is not None:
+        try:
+          wandb_run.log(
+              {"train/loss": loss, "valid/loss": l_validation},
+              step=step + wandb_step_offset,
+          )
+        except Exception as e:
+          warnings.warn(f"W&B logging failed: {e}")
+
+      if report_progress_by in ('print', 'wandb'):
         # On colab, print does not always work, so try to use display
         if _display_available:
           display.clear_output(wait=True)
