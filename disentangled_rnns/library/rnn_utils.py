@@ -30,6 +30,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import optax
 
+
 # If we're running on colab, try to import IPython.display so we can display
 # progress that way. Otherwise, we will just print.
 if 'google.colab' in sys.modules:
@@ -52,8 +53,8 @@ class DatasetRNN:
 
   def __init__(
       self,
-      xs: np.ndarray,
-      ys: np.ndarray,
+      xs: np.typing.NDArray[np.number],
+      ys: np.typing.NDArray[np.number],
       y_type: Literal['categorical', 'scalar', 'mixed'] = 'categorical',
       n_classes: Optional[int] = None,
       x_names: Optional[list[str]] = None,
@@ -65,12 +66,14 @@ class DatasetRNN:
 
     Args:
       xs: Values to become inputs to the network. Should have dimensionality
-        [timestep, episode, feature]
+        [timestep, episode, feature]. Must be numeric, will be cast to float32.
       ys: Values to become output targets for the RNN. Should have
-        dimensionality [timestep, episode, feature]
-      y_type: Either 'categorical','scalar' or 'mixed'. If 'categorical',
-        targets must be integers. If 'mixed', first element is assumed to be
-        categorical.
+        dimensionality [timestep, episode, feature].
+      y_type: The type of the target variable(s). Can be 'categorical',
+        'scalar', or 'mixed'. - 'categorical': Targets must be integers
+        representing classes. - 'scalar': Targets must be numeric and will be
+        cast to float32. - 'mixed': Assumes the first target feature is
+        categorical and the rest are scalar.
       n_classes: The number of classes in the categorical targets. If not
         specified, will be inferred from the data.
       x_names: A list of names for the features in xs. If not supplied, will be
@@ -104,9 +107,16 @@ class DatasetRNN:
             'multiple distinct types of categorical targets, feel free to '
             'implement this and send a CL'
         )
+      # For categorical ys, ensure they are integers or close to integers
+      uniques = np.unique(ys)
+      if not np.all(np.isclose(uniques, np.round(uniques))):
+        raise ValueError(
+            'For y_type="categorical", ys must be integers or floats close to'
+            f' integers. Got unique values: {uniques}'
+        )
 
     if y_type in ['categorical', 'mixed']:
-      # NOTE: By convention, for y_type=='mixed' the first element of the target
+      # By convention, for y_type=='mixed' the first element of the target
       # is assumed to be categorical.
       categorical_index = 0
       categorical_ys = ys[:, :, categorical_index]
@@ -182,8 +192,8 @@ class DatasetRNN:
     self.y_type = y_type
     self.n_classes = n_classes
     self.batch_size = batch_size
-    self._xs = xs
-    self._ys = ys
+    self._xs = xs.astype(np.float32)
+    self._ys = ys.astype(np.float32)
     self._n_episodes = self._xs.shape[1]
     self._n_timesteps = self._xs.shape[0]
     self.batch_mode = batch_mode
@@ -283,9 +293,16 @@ def nan_in_dict(d: np.ndarray | dict[str, Any]):
 
 @jax.jit
 def sse(ys: np.ndarray, y_hats: np.ndarray) -> float:
-  """Compute the sum of squared errors between ys and y_hats."""
-  # We want to allow the training code to pass NaNs for missing targets. These
-  # missing targets should generate no gradients. The mask here does that.
+  """Computes the sum of squared errors, ignoring NaNs in the targets.
+
+  Args:
+    ys: The ground truth targets. NaNs are treated as missing values and are
+      ignored in the loss calculation.
+    y_hats: The predicted values.
+
+  Returns:
+    The sum of squared errors.
+  """
   mask = jnp.logical_not(jnp.isnan(ys))
   errors = ys - y_hats
   masked_errors = jnp.where(mask, errors, 0.0)
@@ -295,9 +312,16 @@ def sse(ys: np.ndarray, y_hats: np.ndarray) -> float:
 
 @jax.jit
 def mse(ys: np.ndarray, y_hats: np.ndarray) -> float:
-  """Compute the mean squared error between ys and y_hats."""
-  # We want to allow the training code to pass NaNs for missing targets. These
-  # missing targets should generate no gradients. The mask here does that.
+  """Computes the mean squared error, ignoring NaNs in the targets.
+
+  Args:
+    ys: The ground truth targets. NaNs are treated as missing values and are
+      ignored in the loss calculation.
+    y_hats: The predicted values.
+
+  Returns:
+    The mean squared error.
+  """
   mask = jnp.logical_not(jnp.isnan(ys))
   sq_errors = sse(ys, y_hats)
   loss = sq_errors / jnp.sum(mask)
@@ -349,7 +373,30 @@ def likelihood_and_sse(
     n_categorical_targets: int = 2,
     n_continuous_targets: int = 1,
 ) -> float:
-  """Compute a weighted average of categorical log-likelihood and MSE."""
+  """Computes a weighted sum of categorical NLL and SSE for mixed targets.
+
+  This loss is unnormalized.
+
+  By convention, for mixed targets:
+  - `ys` contains categorical targets at index 0 and continuous targets at
+    indices [1, 1 + n_continuous_targets).
+  - `y_hats` contains logits for categorical targets at indices
+    [0, n_categorical_targets) and predictions for continuous targets at indices
+    [n_categorical_targets, n_categorical_targets + n_continuous_targets).
+
+  Args:
+    ys: Ground truth targets.
+    y_hats: Network predictions (logits for categorical, values for continuous).
+    likelihood_weight: The weight for the categorical negative log-likelihood.
+      The SSE is weighted by (1 - likelihood_weight).
+    n_categorical_targets: The number of output logits for the categorical
+      target.
+    n_continuous_targets: The number of continuous targets.
+
+  Returns:
+    The weighted sum of the total negative log-likelihood and sum of squared
+    errors.
+  """
   categorical_y_hats = y_hats[:, :, 0:n_categorical_targets]
   categorical_ys = ys[:, :, 0:1]
 
@@ -380,7 +427,27 @@ def normalized_likelihood_and_mse(
     n_categorical_targets: int = 2,
     n_continuous_targets: int = 1,
 ) -> float | jnp.ndarray:
-  """Compute a weighted average of normalized categorical log-likelihood and MSE."""
+  """Computes a weighted average of normalized categorical likelihood and MSE.
+
+  By convention, for mixed targets:
+  - `ys` contains categorical targets at index 0 and continuous targets at
+    indices [1, 1 + n_continuous_targets).
+  - `yhats` contains logits for categorical targets at indices
+    [0, n_categorical_targets) and predictions for continuous targets at indices
+    [n_categorical_targets, n_categorical_targets + n_continuous_targets).
+
+  Args:
+    ys: Ground truth targets.
+    yhats: Network predictions (logits for categorical, values for continuous).
+    likelihood_weight: The weight for the normalized categorical likelihood. The
+      MSE is weighted by (1 - likelihood_weight).
+    n_categorical_targets: The number of output logits for the categorical
+      target.
+    n_continuous_targets: The number of continuous targets.
+
+  Returns:
+    The weighted average of the normalized likelihood and mean squared error.
+  """
 
   # Convention is that the first two elements of yhats are for categorical
   # targets, and the next element is for continuous targets.
@@ -407,6 +474,17 @@ def normalized_likelihood_and_mse(
 def normalized_likelihood(
     labels: np.ndarray, output_logits: np.ndarray
 ) -> float:
+  """Computes the normalized likelihood (geometric mean of probabilities).
+
+  Args:
+    labels: An array of shape (n_timesteps, n_episodes, 1) containing the
+      categorical labels. Negative values are treated as masked.
+    output_logits: An array of shape (n_timesteps, n_episodes, n_classes)
+      containing the logits output by the network.
+
+  Returns:
+    The normalized likelihood.
+  """
   total_nll, n_unmasked_samples = categorical_neg_log_likelihood(
       labels, output_logits
   )
@@ -415,8 +493,25 @@ def normalized_likelihood(
 
 
 @jax.jit
-def compute_penalty(targets: np.ndarray, outputs: np.ndarray) -> float:
-  """Compute the penalty, masking invalid timesteps."""
+def compute_penalty(
+    targets: np.ndarray, outputs: np.ndarray
+) -> tuple[float, int]:
+  """Computes the total penalty from network outputs, masking invalid timesteps.
+
+  A timestep is considered invalid and masked if all its target values are
+  invalid. For categorical targets, -1 is invalid. For continuous targets, NaN
+  is invalid. The penalty is assumed to be the last feature in the `outputs`
+  array.
+
+  Args:
+    targets: The ground truth targets, used for masking.
+    outputs: The network outputs, where the last feature is the penalty.
+
+  Returns:
+    A tuple containing:
+      - penalty: The total penalty over all valid timesteps.
+      - n_unmasked_samples: The number of valid timesteps.
+  """
   # Categorical mask: Exclude targets exactly equal to -1
   categorical_mask = jnp.logical_not(targets == -1)
   # Continuous mask: exclude targets that are NaN
@@ -458,21 +553,25 @@ def train_network(
     wandb_run: Optional[Any] = None,
     wandb_step_offset: int = 0,
 ) -> tuple[hk.Params, optax.OptState, dict[str, np.ndarray]]:
-  """Trains a network.
+  """Trains a Haiku recurrent neural network.
 
   Args:
-    make_network: A function that, when called, returns a Haiku RNN
-    training_dataset: A DatasetRNN, containing the data you wish to train on
+    make_network: A function that, when called, returns a Haiku RNN.
+    training_dataset: A DatasetRNN, containing the data you wish to train on.
     validation_dataset: A DatasetRNN, containing the data you wish to use for
-      validation
-    opt: The optimizer yuo'd like to use to train the network
-    random_key: A jax random key, to be used in initializing the network
-    opt_state: An optimzier state suitable for opt If not specified, will
-      initialize a new optimizer from scratch
-    params:  A set of parameters suitable for the network given by make_network
-      If not specified, will begin training a network from scratch
-    n_steps: An integer giving the number of steps you'd like to train for
-    max_grad_norm:  Gradient clipping. Default to a very high ceiling
+      validation.
+    opt: An optax optimizer you'd like to use to train the network. Default is
+      Adam with learning rate 1e-3.
+    random_key: A jax random key, used for network initialization and during
+      training.
+    opt_state: An optax.OptState object containing an optimizer state suitable
+      for the optimizer specified in opt. If None, will initialize an optimizer
+      state from scratch.
+    params:  An hk.Params object containing a set of parameters suitable for the
+      network given by make_network. If not specified, will randomly
+      initialize new parameters.
+    n_steps: An integer giving the number of steps you'd like to train for.
+    max_grad_norm:  Gradient clipping. Default to a very high ceiling.
     loss_param: Parameters to pass to the loss function. Can be a dictionary for
       fine-grained control over different loss components (e.g.,
       {'penalty_scale': 0.1, 'likelihood_weight': 0.8}) or a single float for
@@ -480,8 +579,8 @@ def train_network(
     loss: The loss function to use. Options are 'mse', 'penalized_mse',
       'categorical', 'penalized_categorical', 'hybrid', 'penalized_hybrid'.
     log_losses_every: How many training steps between each time we check for
-      errors and log the loss
-    do_plot: Boolean that controls whether a learning curve is plotted
+      errors and log the loss.
+    do_plot: Boolean that controls whether a learning curve is plotted.
     report_progress_by: Mode for reporting real-time progress. Options are
       "print" for printing to the console, "log" for using absl logging, "wandb"
        for both W&B logging and printing, and "none" for no output.
@@ -492,9 +591,14 @@ def train_network(
        (e.g. to include warmup steps logged beforehand in the same W&B run).
 
   Returns:
-    params: Trained parameters
-    opt_state: Optimizer state at the end of training
-    losses: Losses on both datasets
+    params: hk.Params object containing the trained parameters. Typically this
+      can be treated as a nested dictionary with a format that depends on the
+      structure of the network.
+    opt_state: optax.OptState object containing the optimizer state at the end
+      of training.
+    losses: A dictionary with keys 'training_loss' and 'validation_loss'
+      mapping to numpy arrays containing a timeseries of losses on each
+      dataset. Losses are recorded every log_losses_every steps.
   """
   sample_xs, _ = next(training_dataset)  # Get a sample input, for shape
 
@@ -737,16 +841,23 @@ def eval_network(
     params: hk.Params,
     xs: np.ndarray,
 ) -> tuple[np.ndarray, Any]:
-  """Run an RNN with specified params and inputs. Track internal state.
+  """Runs an RNN and returns its outputs and all internal states.
 
   Args:
     make_network: A Haiku function that defines a network architecture
     params: A set of params suitable for that network
-    xs: A batch of inputs [timesteps, episodes, features] suitable for the model
+    xs: A batch of inputs `[timesteps, episodes, features]` suitable for the
+      model
 
   Returns:
-    y_hats: Network outputs at each timestep
-    states: Network states at each timestep
+    network_outputs: Output provided by the network on each timestep. A numpy
+      array of shape [timesteps, episodes, output_size]. The meaning of each
+      element depends on the network configuration. For DisRNNs the final
+      element will be the penalty attributable to that timestep. Previous
+      elements will reflect predicted targets -- logits in the case of
+      categorical targets and means in the case of continuous targets.
+    states: Network states at each timestep. A numpy array of shape
+      [timesteps, episodes, hidden_size].
   """
 
   def unroll_network(xs):
@@ -772,7 +883,7 @@ def eval_network(
       states.shape[1] == xs.shape[1]
   ), 'States and inputs should have the same number of episodes.'
 
-  return np.asarray(y_hats), states
+  return np.asarray(y_hats), np.asarray(states)
 
 
 def get_apply(
@@ -812,17 +923,20 @@ def step_network(
   """Run an RNN for just a single step on a single input, with batching.
 
   Args:
-    make_network: A Haiku function that defines a network architecture
-    params: A set of params suitable for that network
-    state: An RNN state suitable for that network
-    xs: An input for a single timestep from a single episode, with shape
-      [n_features]
+    make_network: A Haiku function that defines a network architecture.
+    params: A set of params suitable for that network.
+    state: An RNN state suitable for that network.
+    xs: An input for a single timestep, with shape `[n_features]` or
+      `[batch_size, n_features]`.
     apply: A jitted function that applies the network to a single input. If not
-      supplied, will be generated from the network architecture
+      supplied, will be generated from the network architecture.
 
   Returns:
-    y_hat: The output given by the network, with dimensionality [n_features]
-    new_state: The new RNN state of the network
+    A tuple containing:
+      - y_hat: The network output, with shape `[output_size]` or
+        `[batch_size, output_size]`.
+      - new_state: The new RNN state.
+      - apply: The (possibly newly created) jitted apply function.
   """
 
   if apply is None:
@@ -906,7 +1020,16 @@ def get_new_params(
 def eval_feedforward_network(
     make_network: Callable[..., Any], params: hk.Params, xs: np.ndarray
 ) -> np.ndarray:
-  """Run a feedforward network with specified params and inputs."""
+  """Runs a feedforward network with specified parameters and inputs.
+
+  Args:
+    make_network: A Haiku function that defines a feedforward network.
+    params: A set of parameters suitable for the network.
+    xs: A batch of inputs with shape `[batch_size, n_features]`.
+
+  Returns:
+    The network outputs with shape `[batch_size, n_outputs]`.
+  """
 
   def forward(xs):
     net = make_network()
