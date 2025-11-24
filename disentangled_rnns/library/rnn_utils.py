@@ -689,12 +689,15 @@ def train_network(
       )
 
       if report_progress_by == 'wandb' and wandb_run is not None:
-        wandb_run.log(
-            {"train/loss": loss, "valid/loss": l_validation},
-            step=step + wandb_step_offset,
-        )
+        try:
+          wandb_run.log(
+              {"train/loss": loss, "valid/loss": l_validation},
+              step=step + wandb_step_offset,
+          )
+        except Exception as e:
+          warnings.warn(f"W&B logging failed: {e}")
 
-      if report_progress_by == 'print' or report_progress_by == 'wandb':
+      if report_progress_by in ('print', 'wandb'):
         # On colab, print does not always work, so try to use display
         if _display_available:
           display.clear_output(wait=True)
