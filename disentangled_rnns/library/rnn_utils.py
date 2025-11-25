@@ -183,9 +183,15 @@ class DatasetRNN:
     ####################
     # Property setting #
     ####################
-    # If batch size not specified, use all episodes in the dataset
+    # If batch size not specified, use all episodes in a single batch
     if batch_size is None:
       batch_size = xs.shape[1]
+    # In single-batch mode, batch size must match dataset size
+    if batch_mode == 'single' and batch_size != xs.shape[1]:
+      raise ValueError(
+          'In single batch mode, match size must be equal to dataset size, or',
+          f'must be None. Instead, is {batch_size}'
+      )
 
     self.x_names = x_names
     self.y_names = y_names
@@ -260,6 +266,11 @@ def split_dataset(
   train_sessions[np.arange(eval_every_n - 1, n_sessions, eval_every_n)] = False
   eval_sessions = np.logical_not(train_sessions)
 
+  if dataset.batch_mode == 'single':
+    batch_size = None
+  else:
+    batch_size = dataset.batch_size
+
   dataset_train = DatasetRNN(
       xs[:, train_sessions, :],
       ys[:, train_sessions, :],
@@ -267,7 +278,7 @@ def split_dataset(
       y_names=dataset.y_names,
       y_type=dataset.y_type,
       n_classes=dataset.n_classes,
-      batch_size=dataset.batch_size,
+      batch_size=batch_size,
       batch_mode=dataset.batch_mode,
   )
   dataset_eval = DatasetRNN(
@@ -277,7 +288,7 @@ def split_dataset(
       y_names=dataset.y_names,
       y_type=dataset.y_type,
       n_classes=dataset.n_classes,
-      batch_size=dataset.batch_size,
+      batch_size=None,
       batch_mode=dataset.batch_mode,
   )
   return dataset_train, dataset_eval
