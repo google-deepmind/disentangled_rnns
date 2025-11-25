@@ -58,7 +58,7 @@ class BaseEnvironment(abc.ABC):
     """
 
   @abstractmethod
-  def step(self, attempted_choice: int) -> tuple[int, float, int]:
+  def step(self, attempted_choice: int) -> tuple[int, float | int, int]:
     """Executes a single step in the environment.
 
     Args:
@@ -221,7 +221,7 @@ class EnvironmentPayoutMatrix(BaseEnvironment):
       )
     self._current_trial = 0
 
-  def step(self, attempted_choice: int) -> tuple[int, float, int]:
+  def step(self, attempted_choice: int) -> tuple[int, float | int, int]:
     # If agent choice is default empty value -1, return -1 for all outputs.
     if attempted_choice == -1:
       choice = -1
@@ -256,7 +256,7 @@ class EnvironmentPayoutMatrix(BaseEnvironment):
         self._current_session, self._current_trial, choice
     ]
     self._current_trial += 1
-    return choice, float(reward), int(instructed)
+    return choice, reward.item(), int(instructed)
 
   @property
   def payout(self) -> np.ndarray:
