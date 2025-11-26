@@ -257,13 +257,18 @@ class DatasetRNN:
 
 
 def split_dataset(
-    dataset: DatasetRNN, eval_every_n: int
+    dataset: DatasetRNN, eval_every_n: int, eval_offset: int = 1
 ) -> tuple[DatasetRNN, DatasetRNN]:
   """Split a dataset into train and eval sets."""
   xs, ys = dataset.get_all()
   n_sessions = xs.shape[1]
   train_sessions = np.ones(n_sessions, dtype=bool)
-  train_sessions[np.arange(eval_every_n - 1, n_sessions, eval_every_n)] = False
+  if eval_offset < 0 or eval_offset > eval_every_n - 1:
+    raise ValueError(
+        f'eval_offset {eval_offset} must be between 0 and {eval_every_n - 1}.'
+        f' Got {eval_offset} instead.'
+    )
+  train_sessions[np.arange(eval_offset, n_sessions, eval_every_n)] = False
   eval_sessions = np.logical_not(train_sessions)
 
   if dataset.batch_mode == 'single':
