@@ -183,9 +183,15 @@ class DatasetRNN:
     ####################
     # Property setting #
     ####################
-    # If batch size not specified, use all episodes in the dataset
+    # If batch size not specified, use all episodes in a single batch
     if batch_size is None:
       batch_size = xs.shape[1]
+    # In single-batch mode, batch size must match dataset size
+    if batch_mode == 'single' and batch_size != xs.shape[1]:
+      raise ValueError(
+          'In single batch mode, match size must be equal to dataset size, or',
+          f'must be None. Instead, is {batch_size}'
+      )
 
     self.x_names = x_names
     self.y_names = y_names
@@ -251,14 +257,24 @@ class DatasetRNN:
 
 
 def split_dataset(
-    dataset: DatasetRNN, eval_every_n: int
+    dataset: DatasetRNN, eval_every_n: int, eval_offset: int = 1
 ) -> tuple[DatasetRNN, DatasetRNN]:
   """Split a dataset into train and eval sets."""
   xs, ys = dataset.get_all()
   n_sessions = xs.shape[1]
   train_sessions = np.ones(n_sessions, dtype=bool)
-  train_sessions[np.arange(eval_every_n - 1, n_sessions, eval_every_n)] = False
+  if eval_offset < 0 or eval_offset > eval_every_n - 1:
+    raise ValueError(
+        f'eval_offset {eval_offset} must be between 0 and {eval_every_n - 1}.'
+        f' Got {eval_offset} instead.'
+    )
+  train_sessions[np.arange(eval_offset, n_sessions, eval_every_n)] = False
   eval_sessions = np.logical_not(train_sessions)
+
+  if dataset.batch_mode == 'single':
+    batch_size = None
+  else:
+    batch_size = dataset.batch_size
 
   dataset_train = DatasetRNN(
       xs[:, train_sessions, :],
@@ -267,7 +283,7 @@ def split_dataset(
       y_names=dataset.y_names,
       y_type=dataset.y_type,
       n_classes=dataset.n_classes,
-      batch_size=dataset.batch_size,
+      batch_size=batch_size,
       batch_mode=dataset.batch_mode,
   )
   dataset_eval = DatasetRNN(
@@ -277,7 +293,7 @@ def split_dataset(
       y_names=dataset.y_names,
       y_type=dataset.y_type,
       n_classes=dataset.n_classes,
-      batch_size=dataset.batch_size,
+      batch_size=None,
       batch_mode=dataset.batch_mode,
   )
   return dataset_train, dataset_eval
@@ -582,8 +598,8 @@ def train_network(
       errors and log the loss.
     do_plot: Boolean that controls whether a learning curve is plotted.
     report_progress_by: Mode for reporting real-time progress. Options are
-      "print" for printing to the console, "log" for using absl logging, "wandb"
-       for both W&B logging and printing, and "none" for no output.
+      'print' for printing to the console, 'log' for using absl logging, 'wandb'
+       for both W&B logging and printing, and 'none' for no output.
     wandb_run: Optional W&B run object used for logging metrics during train.
        W&B logging occurs only if both wandb_run is provided and
        report_progress_by is 'wandb'.
@@ -792,14 +808,14 @@ def train_network(
           f'Validation Loss: {l_validation:.2e}'
       )
 
-      if report_progress_by == 'wandb' and wandb_run is not None:
+      if report_progress_by == 'wandb' and hasattr(wandb_run, 'log'):
         try:
           wandb_run.log(
-              {"train/loss": loss, "valid/loss": l_validation},
+              {'train/loss': loss, 'valid/loss': l_validation},
               step=step + wandb_step_offset,
           )
-        except Exception as e:
-          warnings.warn(f"W&B logging failed: {e}")
+        except RuntimeError as e:
+          warnings.warn(f'W&B logging failed: {e}')
 
       if report_progress_by in ('print', 'wandb'):
         # On colab, print does not always work, so try to use display
@@ -1081,8 +1097,8 @@ class NpJnpJsonEncoder(json.JSONEncoder):
     if o is None:
       return None
 
-    # Lists and dicts: Handle recursively
-    if isinstance(o, list):
+    # Lists, tuples, and dicts: Handle recursively
+    if isinstance(o, (list, tuple)):
       return [self.default(x) for x in o]
     if isinstance(o, dict):
       return {k: self.default(v) for k, v in o.items()}

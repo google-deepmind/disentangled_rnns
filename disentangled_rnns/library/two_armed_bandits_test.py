@@ -79,7 +79,6 @@ class TwoArmedBanditsTest(parameterized.TestCase):
         agent=agent,
         n_steps_per_session=10,
         n_sessions=10,
-        batch_size=5,
     )
 
     self.assertIsInstance(dataset, rnn_utils.DatasetRNN)
