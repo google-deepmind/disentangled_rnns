@@ -582,8 +582,8 @@ def train_network(
       errors and log the loss.
     do_plot: Boolean that controls whether a learning curve is plotted.
     report_progress_by: Mode for reporting real-time progress. Options are
-      "print" for printing to the console, "log" for using absl logging, "wandb"
-       for both W&B logging and printing, and "none" for no output.
+      'print' for printing to the console, 'log' for using absl logging, 'wandb'
+       for both W&B logging and printing, and 'none' for no output.
     wandb_run: Optional W&B run object used for logging metrics during train.
        W&B logging occurs only if both wandb_run is provided and
        report_progress_by is 'wandb'.
@@ -792,14 +792,14 @@ def train_network(
           f'Validation Loss: {l_validation:.2e}'
       )
 
-      if report_progress_by == 'wandb' and wandb_run is not None:
+      if report_progress_by == 'wandb' and hasattr(wandb_run, 'log'):
         try:
           wandb_run.log(
-              {"train/loss": loss, "valid/loss": l_validation},
+              {'train/loss': loss, 'valid/loss': l_validation},
               step=step + wandb_step_offset,
           )
-        except Exception as e:
-          warnings.warn(f"W&B logging failed: {e}")
+        except RuntimeError as e:
+          warnings.warn(f'W&B logging failed: {e}')
 
       if report_progress_by in ('print', 'wandb'):
         # On colab, print does not always work, so try to use display
