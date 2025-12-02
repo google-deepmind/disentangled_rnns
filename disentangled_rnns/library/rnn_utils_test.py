@@ -216,9 +216,43 @@ class TestRNNUtils(absltest.TestCase):
     # Check that opt state has changed
     self.assertNotEqual(self.opt_state, new_opt_state)
 
+  def test_train_network_from_json_params(self):
+    """Smoke test for training from params loaded from json."""
+
+    # Generate params, convert them to json, convert them back
+    initial_params, _, _ = rnn_utils.train_network(
+        self.make_network,
+        validation_dataset=None,
+        training_dataset=self.dataset,
+        loss='categorical',
+        n_steps=0,
+    )
+    json_string = json.dumps(initial_params, cls=rnn_utils.NpJnpJsonEncoder)
+    loaded_params = json.loads(json_string)
+
+    # Check that we're able to train from loaded params
+    new_params, _, losses = rnn_utils.train_network(
+        self.make_network,
+        training_dataset=self.dataset,
+        validation_dataset=self.dataset,
+        random_key=self.random_key,
+        loss='categorical',
+        n_steps=10,  # A small number of steps for a smoke test
+        opt=optax.adam(learning_rate=0.01),
+        params=loaded_params,
+    )
+
+    self.assertGreater(losses['training_loss'][0], losses['training_loss'][-1])
+    initial_params_after_conversion = rnn_utils.to_np(loaded_params)
+    self.assertFalse(
+        np.all(
+            initial_params_after_conversion['gru']['w_h']
+            == new_params['gru']['w_h']
+        )
+    )
+
   def test_eval_network(self):
-    """Eval a network on a set of inputs. Check shapes look right.
-    """
+    """Eval a network on a set of inputs. Check shapes look right."""
     # Get a set of inputs
     xs, _ = next(self.dataset)
     # Eval the network on that set of inputs

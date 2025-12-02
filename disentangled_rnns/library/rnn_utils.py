@@ -616,6 +616,9 @@ def train_network(
       mapping to numpy arrays containing a timeseries of losses on each
       dataset. Losses are recorded every log_losses_every steps.
   """
+  # If loaded from json, params might be a nested dict of lists. Convert to np.
+  if params is not None:
+    params = to_np(params)
   sample_xs, _ = next(training_dataset)  # Get a sample input, for shape
 
   # Haiku, step one: Define the batched network
@@ -872,9 +875,11 @@ def eval_network(
       element will be the penalty attributable to that timestep. Previous
       elements will reflect predicted targets -- logits in the case of
       categorical targets and means in the case of continuous targets.
-    states: Network states at each timestep. A numpy array of shape
-      [timesteps, episodes, hidden_size].
+      states: Network states at each timestep. A numpy array of shape
+        [timesteps, episodes, hidden_size].
   """
+  # If loaded from json, params might be a nested dict of lists. Convert to np.
+  params = to_np(params)
 
   def unroll_network(xs):
     core = make_network()
@@ -954,6 +959,8 @@ def step_network(
       - new_state: The new RNN state.
       - apply: The (possibly newly created) jitted apply function.
   """
+  # If loaded from json, params might be a nested dict of lists. Convert to np.
+  params = to_np(params)
 
   if apply is None:
     apply = get_apply(make_network)
@@ -965,7 +972,7 @@ def step_network(
 
 def get_initial_state(
     make_network: Callable[[], hk.RNNCore],
-    params: Optional[Any] = None,
+    params: Optional[hk.Params] = None,
     batch_size: int = 1,
     seed: int = 0,
 ) -> Any:
@@ -982,6 +989,9 @@ def get_initial_state(
   Returns:
     initial_state: An initial state from that network
   """
+  # If loaded from json, params might be a nested dict of lists. Convert to np.
+  if params is not None:
+    params = to_np(params)
 
   def unroll_network():
     core = make_network()
@@ -1016,9 +1026,9 @@ def get_new_params(
     params: A set of parameters suitable for the architecture
   """
 
-  # If no key has been supplied, pick a random one.
+  # If no key has been supplied, initialize a fixed key.
   if random_key is None:
-    random_key = jax.random.PRNGKey(np.random.randint(2**32))
+    random_key = jax.random.PRNGKey(0)
 
   def unroll_network():
     core = make_network()
@@ -1046,6 +1056,8 @@ def eval_feedforward_network(
   Returns:
     The network outputs with shape `[batch_size, n_outputs]`.
   """
+  # If loaded from json, params might be a nested dict of lists. Convert to np.
+  params = to_np(params)
 
   def forward(xs):
     net = make_network()
@@ -1060,13 +1072,13 @@ def eval_feedforward_network(
   return np.array(y_hats)
 
 
-def to_np(list_dict: dict[str, Any]):
+def to_np(list_dict: dict[str, Any] | hk.Params):
   """Converts all numerical lists in a dict to np arrays.
 
   Elements that are convertible to numpy are converted. Elements that are dicts
   are recursively unpacked in the same way. Other elements are left unchanged.
   The intended use case is reconstructing a dict from json that was saved with
-  NpEncoder and has had all its np arrays converted to lists.
+  NpJnpJsonEncoder and has had all its np arrays converted to lists.
 
   Args:
     list_dict: A dict or hierarchical tree of dicts
