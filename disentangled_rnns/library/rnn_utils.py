@@ -1015,7 +1015,7 @@ def get_initial_state(
 def get_new_params(
     make_network: Callable[..., hk.RNNCore],
     random_key: Optional[jax.Array] = None,
-) -> Any:
+) -> hk.Params:
   """Get a new set of random parameters for a network architecture.
 
   Args:
