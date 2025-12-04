@@ -1014,13 +1014,18 @@ def get_initial_state(
 
 def get_new_params(
     make_network: Callable[..., hk.RNNCore],
+    input_size: int,
     random_key: Optional[jax.Array] = None,
-) -> Any:
+) -> hk.Params:
   """Get a new set of random parameters for a network architecture.
 
   Args:
     make_network: A Haiku function that defines a network architecture
+    input_size: The dimensionality of the input features. This is needed because
+      in some networks, the number of params depends on this and is not
+      inferrable from the network architecture alone.
     random_key: a Jax random key
+
 
   Returns:
     params: A set of parameters suitable for the architecture
@@ -1030,15 +1035,19 @@ def get_new_params(
   if random_key is None:
     random_key = jax.random.PRNGKey(0)
 
-  def unroll_network():
+  def unroll_network(xs):
     core = make_network()
-    state = core.initial_state(batch_size=1)
-
-    return state
+    batch_size = xs.shape[1]
+    state = core.initial_state(batch_size=batch_size)
+    ys, _ = hk.dynamic_unroll(core, xs, state)
+    return ys
 
   model = hk.transform(unroll_network)
+
+  dummy_input = jnp.zeros((1, 1, input_size))
+
   init = jax.jit(model.init)
-  params = init(random_key)
+  params = init(random_key, dummy_input)
 
   return params
 

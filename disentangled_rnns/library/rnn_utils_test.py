@@ -216,6 +216,35 @@ class TestRNNUtils(absltest.TestCase):
     # Check that opt state has changed
     self.assertNotEqual(self.opt_state, new_opt_state)
 
+  def test_get_new_params(self):
+    """Test that get_new_params returns a new set of params."""
+    xs, _ = next(self.dataset)
+    input_size = xs.shape[-1]
+    new_params = rnn_utils.get_new_params(self.make_network,
+                                          input_size=input_size)
+    self.assertNotEmpty(new_params, 'new_params should not be empty')
+    self.assertIn('gru', new_params)
+
+  def test_training_from_new_params(self):
+    """Test that training from new params works."""
+    xs, _ = next(self.dataset)
+    input_size = xs.shape[-1]
+    new_params = rnn_utils.get_new_params(self.make_network,
+                                          input_size=input_size)
+
+    _, _, losses = rnn_utils.train_network(
+        self.make_network,
+        training_dataset=self.dataset,
+        validation_dataset=self.dataset,
+        random_key=self.random_key,
+        loss='categorical',
+        n_steps=100,
+        opt=optax.adam(learning_rate=0.01),
+        opt_state=None,
+        params=new_params)
+    self.assertGreater(losses['training_loss'][0],
+                       losses['training_loss'][-1])
+
   def test_train_network_from_json_params(self):
     """Smoke test for training from params loaded from json."""
 
