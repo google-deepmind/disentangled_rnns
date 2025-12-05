@@ -17,7 +17,7 @@
 from collections.abc import Callable
 import json
 import sys
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, Mapping
 import warnings
 
 from absl import logging
@@ -30,6 +30,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import optax
 
+RnnParams = Mapping[str, Mapping[str, Any]]
 
 # If we're running on colab, try to import IPython.display so we can display
 # progress that way. Otherwise, we will just print.
@@ -300,7 +301,7 @@ def split_dataset(
 
 
 def nan_in_dict(d: np.ndarray | dict[str, Any]):
-  """Check a nested dict (e.g. hk.params) for nans."""
+  """Check a nested dict (e.g. RnnParams) for nans."""
   if not isinstance(d, dict):
     return np.any(np.isnan(d))
   else:
@@ -551,7 +552,7 @@ def train_network(
     opt: optax.GradientTransformation = optax.adam(1e-3),
     random_key: Optional[chex.PRNGKey] = None,
     opt_state: Optional[optax.OptState] = None,
-    params: Optional[hk.Params] = None,
+    params: Optional[RnnParams] = None,
     n_steps: int = 1000,
     max_grad_norm: float = 1e10,
     loss_param: dict[str, float] | float = 1.0,
@@ -568,7 +569,7 @@ def train_network(
     report_progress_by: Literal['print', 'log', 'wandb', 'none'] = 'print',
     wandb_run: Optional[Any] = None,
     wandb_step_offset: int = 0,
-) -> tuple[hk.Params, optax.OptState, dict[str, np.ndarray]]:
+) -> tuple[RnnParams, optax.OptState, dict[str, np.ndarray]]:
   """Trains a Haiku recurrent neural network.
 
   Args:
@@ -583,7 +584,7 @@ def train_network(
     opt_state: An optax.OptState object containing an optimizer state suitable
       for the optimizer specified in opt. If None, will initialize an optimizer
       state from scratch.
-    params:  An hk.Params object containing a set of parameters suitable for the
+    params:  An RnnParams object containing a set of parameters suitable for the
       network given by make_network. If not specified, will randomly
       initialize new parameters.
     n_steps: An integer giving the number of steps you'd like to train for.
@@ -607,7 +608,7 @@ def train_network(
        (e.g. to include warmup steps logged beforehand in the same W&B run).
 
   Returns:
-    params: hk.Params object containing the trained parameters. Typically this
+    params: RnnParams object containing the trained parameters. Typically this
       can be treated as a nested dictionary with a format that depends on the
       structure of the network.
     opt_state: optax.OptState object containing the optimizer state at the end
@@ -857,7 +858,7 @@ def train_network(
 
 def eval_network(
     make_network: Callable[[], hk.RNNCore],
-    params: hk.Params,
+    params: RnnParams,
     xs: np.ndarray,
 ) -> tuple[np.ndarray, Any]:
   """Runs an RNN and returns its outputs and all internal states.
@@ -936,7 +937,7 @@ def get_apply(
 
 def step_network(
     make_network: Callable[[], hk.RNNCore],
-    params: hk.Params,
+    params: RnnParams,
     state: Any,
     xs: Any,
     apply: Any = None,
@@ -972,7 +973,7 @@ def step_network(
 
 def get_initial_state(
     make_network: Callable[[], hk.RNNCore],
-    params: Optional[hk.Params] = None,
+    params: Optional[RnnParams] = None,
     batch_size: int = 1,
     seed: int = 0,
 ) -> Any:
@@ -1016,7 +1017,7 @@ def get_new_params(
     make_network: Callable[..., hk.RNNCore],
     input_size: int,
     random_key: Optional[jax.Array] = None,
-) -> hk.Params:
+) -> RnnParams:
   """Get a new set of random parameters for a network architecture.
 
   Args:
@@ -1053,7 +1054,7 @@ def get_new_params(
 
 
 def eval_feedforward_network(
-    make_network: Callable[..., Any], params: hk.Params, xs: np.ndarray
+    make_network: Callable[..., Any], params: RnnParams, xs: np.ndarray
 ) -> np.ndarray:
   """Runs a feedforward network with specified parameters and inputs.
 
@@ -1081,7 +1082,7 @@ def eval_feedforward_network(
   return np.array(y_hats)
 
 
-def to_np(list_dict: dict[str, Any] | hk.Params):
+def to_np(list_dict: dict[str, Any] | RnnParams):
   """Converts all numerical lists in a dict to np arrays.
 
   Elements that are convertible to numpy are converted. Elements that are dicts

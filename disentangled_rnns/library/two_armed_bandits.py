@@ -402,7 +402,9 @@ class AgentNetwork:
     params: A set of Haiku parameters suitable for that architecture
   """
 
-  def __init__(self, make_network: Callable[[], hk.RNNCore], params: hk.Params):
+  def __init__(
+      self, make_network: Callable[[], hk.RNNCore], params: rnn_utils.RnnParams
+  ):
 
     def step_network(
         xs: np.ndarray, state: hk.State

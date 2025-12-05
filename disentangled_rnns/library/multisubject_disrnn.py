@@ -18,6 +18,7 @@ import dataclasses
 from typing import Any
 
 from disentangled_rnns.library import disrnn
+from disentangled_rnns.library import rnn_utils
 import haiku as hk
 import jax
 import jax.numpy as jnp
@@ -255,7 +256,7 @@ class MultisubjectDisRnn(disrnn.HkDisentangledRNN):
 
 
 def get_auxiliary_metrics(
-    params: hk.Params,
+    params: rnn_utils.RnnParams,
     open_thresh: float = 0.1,
     closed_thresh: float = 0.9,
 ) -> dict[str, Any]:

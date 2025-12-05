@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import json
-
 from absl.testing import absltest
 from disentangled_rnns.library import rnn_utils
 from disentangled_rnns.library import two_armed_bandits

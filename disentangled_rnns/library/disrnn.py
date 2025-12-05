@@ -16,6 +16,7 @@
 import dataclasses
 from typing import Optional, Callable, Any, Sequence
 
+from disentangled_rnns.library import rnn_utils
 import haiku as hk
 import jax
 import jax.numpy as jnp
@@ -638,7 +639,7 @@ def get_total_sigma(params):
   )
 
 
-def get_auxiliary_metrics(params: hk.Params) -> dict[str, Any]:
+def get_auxiliary_metrics(params: rnn_utils.RnnParams) -> dict[str, Any]:
   """Computes auxiliary metrics for the base DisRNN.
 
   Args:

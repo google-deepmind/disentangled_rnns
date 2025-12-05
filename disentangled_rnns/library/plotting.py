@@ -38,7 +38,7 @@ plt.rcParams['svg.fonttype'] = 'none'
 
 
 def plot_bottlenecks(
-    params: hk.Params,
+    params: rnn_utils.RnnParams,
     disrnn_config: disrnn.DisRnnConfig,
     sort_latents: bool = True,
 ) -> plt.Figure:
@@ -202,7 +202,7 @@ def plot_bottlenecks(
 
 
 def plot_update_rules(
-    params: hk.Params,
+    params: rnn_utils.RnnParams,
     disrnn_config: disrnn.DisRnnConfig,
     subj_ind: Optional[int] = None,
     axis_lim: float = 2.1,
@@ -437,7 +437,7 @@ def plot_update_rules(
 
 
 def plot_choice_rule(
-    params: hk.Params,
+    params: rnn_utils.RnnParams,
     disrnn_config: disrnn.DisRnnConfig,
     subj_embedding: Optional[np.ndarray] = None,
     axis_lim: float = 2.1,

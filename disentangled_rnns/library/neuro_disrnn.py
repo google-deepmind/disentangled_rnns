@@ -162,7 +162,7 @@ class HkNeuroDisentangledRNN(disrnn.HkDisentangledRNN):
 
 
 def plot_bottlenecks(
-    params: hk.Params,
+    params: rnn_utils.RnnParams,
     disrnn_w_neural_activity_config: DisRnnWNeuralActivityConfig,
     sort_latents: bool = True,
 ) -> plt.Figure:
@@ -235,7 +235,7 @@ def plot_bottlenecks(
 
 
 def plot_neural_activity_rules(
-    params: hk.Params,
+    params: rnn_utils.RnnParams,
     disrnn_config: DisRnnWNeuralActivityConfig,
     axis_lim: float = 2.1,
 ) -> Optional[plt.Figure]:
@@ -325,7 +325,7 @@ def plot_neural_activity_rules(
   }
 
   # Plotting logic.
-  fig, axes = plt.subplots(
+  fig, _ = plt.subplots(
       2, 2, figsize=(10, 8), sharex=True, sharey=True, constrained_layout=True
   )
   small = 8
@@ -437,7 +437,7 @@ def plot_neural_activity_rules(
 
 
 def plot_choice_rule(
-    params: hk.Params,
+    params: rnn_utils.RnnParams,
     disrnn_config: DisRnnWNeuralActivityConfig,
     axis_lim: float = 2.1,
 ) -> Optional[plt.Figure]:
@@ -453,7 +453,7 @@ def plot_choice_rule(
 
 
 def plot_update_rules(
-    params: hk.Params,
+    params: rnn_utils.RnnParams,
     disrnn_config: DisRnnWNeuralActivityConfig,
     axis_lim: float = 2.1,
 ) -> Optional[plt.Figure]:
@@ -468,7 +468,7 @@ def plot_update_rules(
 
 
 def log_bottlenecks(
-    params: hk.Params,
+    params: rnn_utils.RnnParams,
     open_thresh: float = 0.1,
     partially_open_thresh: float = 0.25,
     closed_thresh: float = 0.9,
@@ -524,7 +524,7 @@ def get_total_sigma(params):
 
 
 def get_auxiliary_metrics(
-    params: hk.Params,
+    params: rnn_utils.RnnParams,
     make_model_fn: Callable[[], hk.RNNCore],
     dataset_train: rnn_utils.DatasetRNN,
     dataset_eval: rnn_utils.DatasetRNN,
