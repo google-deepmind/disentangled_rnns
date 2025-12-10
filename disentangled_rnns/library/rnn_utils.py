@@ -17,7 +17,7 @@
 from collections.abc import Callable
 import json
 import sys
-from typing import Any, Literal, Optional, Mapping
+from typing import Any, Literal, Mapping, Optional
 import warnings
 
 from absl import logging
@@ -191,7 +191,7 @@ class DatasetRNN:
     if batch_mode == 'single' and batch_size != xs.shape[1]:
       raise ValueError(
           'In single batch mode, match size must be equal to dataset size, or',
-          f'must be None. Instead, is {batch_size}'
+          f'must be None. Instead, is {batch_size}',
       )
 
     self.x_names = x_names
@@ -585,8 +585,8 @@ def train_network(
       for the optimizer specified in opt. If None, will initialize an optimizer
       state from scratch.
     params:  An RnnParams object containing a set of parameters suitable for the
-      network given by make_network. If not specified, will randomly
-      initialize new parameters.
+      network given by make_network. If not specified, will randomly initialize
+      new parameters.
     n_steps: An integer giving the number of steps you'd like to train for.
     max_grad_norm:  Gradient clipping. Default to a very high ceiling.
     loss_param: Parameters to pass to the loss function. Can be a dictionary for
@@ -600,12 +600,12 @@ def train_network(
     do_plot: Boolean that controls whether a learning curve is plotted.
     report_progress_by: Mode for reporting real-time progress. Options are
       'print' for printing to the console, 'log' for using absl logging, 'wandb'
-       for both W&B logging and printing, and 'none' for no output.
+      for both W&B logging and printing, and 'none' for no output.
     wandb_run: Optional W&B run object used for logging metrics during train.
-       W&B logging occurs only if both wandb_run is provided and
-       report_progress_by is 'wandb'.
+      W&B logging occurs only if both wandb_run is provided and
+      report_progress_by is 'wandb'.
     wandb_step_offset: Integer used to shift the W&B step count, if necessary
-       (e.g. to include warmup steps logged beforehand in the same W&B run).
+      (e.g. to include warmup steps logged beforehand in the same W&B run).
 
   Returns:
     params: RnnParams object containing the trained parameters. Typically this
@@ -941,6 +941,7 @@ def step_network(
     state: Any,
     xs: Any,
     apply: Any = None,
+    convert_params_to_np: bool = True,
 ) -> tuple[Any, Any, Any]:
   """Run an RNN for just a single step on a single input, with batching.
 
@@ -952,6 +953,9 @@ def step_network(
       `[batch_size, n_features]`.
     apply: A jitted function that applies the network to a single input. If not
       supplied, will be generated from the network architecture.
+    convert_params_to_np: Whether to convert params to np. This is helpful if
+      the params are loaded from json, but will cause issues if `step_network`
+      is jitted.
 
   Returns:
     A tuple containing:
@@ -961,7 +965,8 @@ def step_network(
       - apply: The (possibly newly created) jitted apply function.
   """
   # If loaded from json, params might be a nested dict of lists. Convert to np.
-  params = to_np(params)
+  if convert_params_to_np:
+    params = to_np(params)
 
   if apply is None:
     apply = get_apply(make_network)
@@ -1026,7 +1031,6 @@ def get_new_params(
       in some networks, the number of params depends on this and is not
       inferrable from the network architecture alone.
     random_key: a Jax random key
-
 
   Returns:
     params: A set of parameters suitable for the architecture
