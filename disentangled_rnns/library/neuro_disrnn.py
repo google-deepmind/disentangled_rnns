@@ -288,7 +288,7 @@ def plot_neural_activity_rules(
   neural_activity_multipliers = params_disrnn['neural_activity_net_multipliers']
 
   # Identify influential latents (sigmas < 0.5).
-  influential_latents = np.where(neural_activity_sigmas[:latent_size] < 0.1)[0]
+  influential_latents = np.where(neural_activity_sigmas[:latent_size] < 0.5)[0]
   n_influential_latents = len(influential_latents)
 
   if n_influential_latents == 0:
@@ -474,6 +474,10 @@ def log_bottlenecks(
     closed_thresh: float = 0.9,
 ) -> dict[str, int]:
   """Computes info about bottlenecks."""
+  params = {
+      key.replace('hk_neuro_disentangled_rnn', 'hk_disentangled_rnn'): value
+      for key, value in params.items()
+  }
   bnecks = disrnn.log_bottlenecks(
       params, open_thresh, partially_open_thresh, closed_thresh
   )
@@ -512,6 +516,10 @@ def log_bottlenecks(
 def get_total_sigma(params):
   """Get sum of reparameterized sigmas of a DisRNN."""
 
+  params = {
+      key.replace('hk_neuro_disentangled_rnn', 'hk_disentangled_rnn'): value
+      for key, value in params.items()
+  }
   prev_sigma_total = disrnn.get_total_sigma(params)
 
   params_disrnn = params['hk_disentangled_rnn']
