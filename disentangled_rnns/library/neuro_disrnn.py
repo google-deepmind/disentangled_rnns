@@ -198,39 +198,13 @@ def plot_bottlenecks(
       sort_latents,
   )
 
-  plt.close()
-
-  # Regenerate the figure with the neural_activity bottlenecks added to the end.
-  base_axes = fig.axes
-  fig, axes = plt.subplots(1, 4, figsize=(25, 5))
-
-  im = axes[-1].imshow(
-      np.swapaxes([1 - neural_activity_sigmas], 0, 1), cmap='Oranges'
+  fig = plotting.append_bottleneck(
+      fig=fig,
+      bottleneck_values=neural_activity_sigmas,
+      bottleneck_names=list(latent_names),
+      title='Neural Activity Bottlenecks',
+      sort_latents=sort_latents,
   )
-  im.set_clim(vmin=0, vmax=1)
-  axes[-1].set_title('Neural Activity Bottlenecks')
-  axes[-1].set_ylabel('Latent # (Sorted)' if sort_latents else 'Latent #')
-  axes[-1].set_xticks([])  # Remove x-axis ticks as it's a 1D representation
-  axes[-1].set_yticks(ticks=range(len(latent_names)), labels=latent_names)
-
-  for i, ax in enumerate(base_axes):
-    if len(ax.images) < 1:
-      continue
-    image = ax.images[0].get_array()
-    im = axes[i].imshow(image, cmap='Oranges')
-    im.set_clim(vmin=0, vmax=1)
-    axes[i].set_title(ax.get_title())
-    axes[i].set_ylabel(ax.get_ylabel())
-    axes[i].set_xticks(
-        ticks=ax.get_xticks(),
-        labels=ax.get_xticklabels(),
-        rotation='vertical',
-    )
-    axes[i].set_yticks(ticks=ax.get_yticks(), labels=ax.get_yticklabels())
-    axes[i].set_ylim(ax.get_ylim())
-    axes[i].set_xlim(ax.get_xlim())
-
-  # fig.tight_layout()
   return fig
 
 
