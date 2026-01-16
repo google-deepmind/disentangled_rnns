@@ -212,7 +212,7 @@ class EnvironmentPayoutMatrix(BaseEnvironment):
           (self._n_sessions, self._n_trials), np.nan
       )
 
-    self._current_session = 0
+    self._current_session = -1
     self._current_trial = 0
 
   def new_session(self):
@@ -423,7 +423,7 @@ class AgentNetwork:
 
     self._initial_state = rnn_state.apply(params)
     self._model_fun = jax.jit(
-        lambda xs, state: model.apply(params, xs, rnn_state)
+        lambda xs, state: model.apply(params, xs, state)
     )
     self._xs = np.zeros((1, 2))
     self.new_session()
@@ -457,7 +457,7 @@ class SessData(NamedTuple):
 
 
 def run_experiment(
-    agent: Agent, environment: EnvironmentBanditsDrift, n_steps: int
+    agent: Agent, environment: BaseEnvironment, n_steps: int
 ) -> SessData:
   """Runs a behavioral session from a given agent and environment.
 
@@ -471,11 +471,12 @@ def run_experiment(
   """
   choices = np.zeros(n_steps)
   rewards = np.zeros(n_steps)
-  reward_probs = np.zeros((n_steps, 2))
+  reward_probs = np.full((n_steps, environment.n_arms), np.nan)
 
   for step in np.arange(n_steps):
     # First record environment reward probs
-    reward_probs[step] = environment.reward_probs
+    if hasattr(environment, 'reward_probs'):
+      reward_probs[step] = environment.reward_probs
     # First agent makes a choice
     attempted_choice = agent.get_choice()
     # Then environment computes a reward
@@ -497,7 +498,7 @@ def run_experiment(
 
 def create_dataset(
     agent: Agent,
-    environment: EnvironmentBanditsDrift,
+    environment: BaseEnvironment,
     n_steps_per_session: int,
     n_sessions: int,
     batch_size: int | None = None,
