@@ -347,7 +347,9 @@ def mse(ys: np.ndarray, y_hats: np.ndarray) -> float:
 
 @jax.jit
 def categorical_neg_log_likelihood(
-    labels: np.ndarray, output_logits: np.ndarray
+    labels: np.ndarray,
+    output_logits: np.ndarray,
+    valid_actions_mask: np.ndarray | None = None,
 ) -> tuple[float, int]:
   """Compute total log-likelihood of a set of labels given a set of logits.
 
@@ -359,6 +361,9 @@ def categorical_neg_log_likelihood(
       categorical labels. Negative values are treated as masked.
     output_logits: An array of shape (n_timesteps, n_episodes, n_classes)
       containing the logits output by the network.
+    valid_actions_mask: An array of shape (n_timesteps, n_episodes, n_classes)
+      containing a binary mask for the logits. If None, all logits are
+      considered valid actions.
 
   Returns:
     A tuple containing:
@@ -367,7 +372,7 @@ def categorical_neg_log_likelihood(
   """
   # Mask any errors for which label is negative
   mask = jnp.logical_not(labels < 0)
-  log_probs = jax.nn.log_softmax(output_logits)
+  log_probs = jax.nn.log_softmax(output_logits, where=valid_actions_mask)
   if labels.shape[2] != 1:
     raise ValueError(
         'Categorical loss function requires targets to be of dimensionality'
