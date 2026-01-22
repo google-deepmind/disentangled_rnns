@@ -24,6 +24,9 @@ To release a new version (e.g. from `1.0.0` -> `2.0.0`):
 
 ## [Unreleased]
 
+- Modify default behavior of DatasetRNN to use random batching, and allow
+  passing a random number generator for reproducibility.
+
 ## [0.1.3] - 2026-01-15
 
 - Fix a bug which prevented some two_armed_bandit agents and environments from working correctly to generate synthetic datasets

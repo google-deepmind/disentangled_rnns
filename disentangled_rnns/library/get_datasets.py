@@ -265,7 +265,6 @@ def get_q_learning_dataset(
       environment,
       n_steps_per_session=n_trials,
       n_sessions=n_sessions,
-      batch_size=n_sessions,
   )
   return dataset
 
@@ -292,7 +291,6 @@ def get_actor_critic_dataset(
       environment,
       n_steps_per_session=n_trials,
       n_sessions=n_sessions,
-      batch_size=n_sessions,
   )
   return dataset
 

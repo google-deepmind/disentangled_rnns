@@ -25,7 +25,7 @@ import optax
 
 n_steps_per_session = 10
 n_sessions = 3
-batch_size = n_sessions
+batch_size = 1024
 n_hidden = 20
 
 
@@ -50,7 +50,7 @@ class TestRNNUtils(absltest.TestCase):
         environment,
         n_steps_per_session=n_steps_per_session,
         n_sessions=n_sessions,
-        batch_size=batch_size)
+        )
 
     # "Train" for zero steps to instantiate model variables
     self.params, self.opt_state, _ = rnn_utils.train_network(
@@ -78,9 +78,9 @@ class TestRNNUtils(absltest.TestCase):
         xs=np.zeros((n_steps_per_session, n_sessions, 2)),
         ys=np.zeros((n_steps_per_session, n_sessions, 1)),
         y_type='categorical',
-        batch_size=None)
+        batch_size=10)
     xs, _ = next(dataset)
-    self.assertEqual(np.shape(xs), (n_steps_per_session, n_sessions, 2))
+    self.assertEqual(np.shape(xs), (n_steps_per_session, 10, 2))
 
   def test_dataset_rnn_rolling_batch_gt_nepisodes(self):
     """Test rolling batch mode when batch_size > n_episodes."""
@@ -186,10 +186,18 @@ class TestRNNUtils(absltest.TestCase):
 
   def test_split_dataset(self):
     dataset_train, dataset_eval = rnn_utils.split_dataset(self.dataset, 2)
-    xs_train, _ = next(dataset_train)
-    xs_eval, _ = next(dataset_eval)
-    self.assertEqual(np.shape(xs_train), (n_steps_per_session, 2, 2))
-    self.assertEqual(np.shape(xs_eval), (n_steps_per_session, 1, 2))
+    xs_train_all, _ = dataset_train.get_all()
+    xs_eval_all, _ = dataset_eval.get_all()
+    self.assertEqual(np.shape(xs_train_all), (n_steps_per_session, 2, 2))
+    self.assertEqual(np.shape(xs_eval_all), (n_steps_per_session, 1, 2))
+    xs_train_batch, _ = next(dataset_train)
+    xs_eval_batch, _ = next(dataset_eval)
+    self.assertEqual(
+        np.shape(xs_train_batch), (n_steps_per_session, batch_size, 2)
+    )
+    self.assertEqual(
+        np.shape(xs_eval_batch), (n_steps_per_session, batch_size, 2)
+    )
 
   def test_train_network(self):
     """Train the network for a few steps, check that the loss goes down.
@@ -282,12 +290,12 @@ class TestRNNUtils(absltest.TestCase):
   def test_eval_network(self):
     """Eval a network on a set of inputs. Check shapes look right."""
     # Get a set of inputs
-    xs, _ = next(self.dataset)
+    xs, _ = self.dataset.get_all()
     # Eval the network on that set of inputs
     y_hats, states = rnn_utils.eval_network(make_network, self.params, xs)
 
     # Check outputs have the right shape
-    self.assertEqual(np.shape(y_hats), (n_steps_per_session, batch_size, 2))
+    self.assertEqual(np.shape(y_hats), (n_steps_per_session, n_sessions, 2))
     # Check states have the right shape
     self.assertEqual(
         np.shape(states), (n_steps_per_session, n_sessions, n_hidden))

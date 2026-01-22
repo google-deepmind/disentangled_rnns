@@ -53,7 +53,6 @@ def main(_) -> None:
       environment,
       n_steps_per_session=FLAGS.n_steps_per_session,
       n_sessions=FLAGS.n_sessions,
-      batch_size=FLAGS.n_sessions,
   )
 
   # Second synthetic dataset for evaluation
@@ -62,7 +61,6 @@ def main(_) -> None:
       environment,
       n_steps_per_session=FLAGS.n_steps_per_session,
       n_sessions=FLAGS.n_sessions,
-      batch_size=FLAGS.n_sessions,
   )
 
   # Define the disRNN architecture

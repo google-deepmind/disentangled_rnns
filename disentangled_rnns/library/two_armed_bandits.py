@@ -501,8 +501,6 @@ def create_dataset(
     environment: BaseEnvironment,
     n_steps_per_session: int,
     n_sessions: int,
-    batch_size: int | None = None,
-    batch_mode: Literal['single', 'rolling', 'random'] = 'single',
 ) -> rnn_utils.DatasetRNN:
   """Generates a behavioral dataset from a given agent and environment.
 
@@ -512,9 +510,6 @@ def create_dataset(
     n_steps_per_session: The number of trials in each behavioral session to be
       generated
     n_sessions: The number of sessions to generate
-    batch_size: The size of the batches to serve from the dataset
-    batch_mode: Batch mode to pass to DatasetRNN. Must be a type that is
-      supported by DatasetRNN.
 
   Returns:
     rnn_utils.DatasetRNN object
@@ -540,8 +535,6 @@ def create_dataset(
       y_names=['choice'],
       y_type='categorical',
       n_classes=2,
-      batch_size=batch_size,
-      batch_mode=batch_mode,
   )
   return dataset
 

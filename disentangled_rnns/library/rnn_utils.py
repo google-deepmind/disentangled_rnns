@@ -57,38 +57,42 @@ class DatasetRNN:
       xs: np.typing.NDArray[np.number],
       ys: np.typing.NDArray[np.number],
       y_type: Literal['categorical', 'scalar', 'mixed'] = 'categorical',
-      n_classes: Optional[int] = None,
-      x_names: Optional[list[str]] = None,
-      y_names: Optional[list[str]] = None,
-      batch_size: Optional[int] = None,
-      batch_mode: Literal['single', 'rolling', 'random'] = 'single',
+      batch_mode: Literal['single', 'rolling', 'random'] = 'random',
+      batch_size: int | None = 1024,
+      n_classes: int | None = None,
+      x_names: list[str] | None = None,
+      y_names: list[str] | None = None,
+      rng: np.random.Generator | None = None,
   ):
-    """Do error checking and bin up the dataset into batches.
+    """Do error checking and define properties.
 
     Args:
       xs: Values to become inputs to the network. Should have dimensionality
         [timestep, episode, feature]. Must be numeric, will be cast to float32.
       ys: Values to become output targets for the RNN. Should have
         dimensionality [timestep, episode, feature].
-      y_type: The type of the target variable(s). Can be 'categorical',
-        'scalar', or 'mixed'. - 'categorical': Targets must be integers
-        representing classes. - 'scalar': Targets must be numeric and will be
-        cast to float32. - 'mixed': Assumes the first target feature is
-        categorical and the rest are scalar.
+      y_type: The type of the target variable(s). Options are:
+        'categorical': Targets must be integers representing classes.
+        'scalar': Targets must be numeric and will be cast to float32.
+        'mixed': Assumes the first target feature is categorical and the rest
+          are scalar.
+      batch_mode: How to batch the dataset. Options are:
+        'random' [default]: Batches are formed by sampling episodes randomly
+           with replacement.
+        'rolling': Batches are formed by taking consecutive episodes in time,
+           wrapping around at the end of the dataset.
+        'single': All episodes are served together in a single batch.
+      batch_size: The size of the batch (number of episodes) to serve up each
+        time next() is called. If batch_mode is 'single', this is ignored and
+        all episodes are served together in a single batch.
       n_classes: The number of classes in the categorical targets. If not
         specified, will be inferred from the data.
       x_names: A list of names for the features in xs. If not supplied, will be
         generated automatically.
       y_names: A list of names for the features in ys. If not supplied, will be
         generated automatically.
-      batch_size: The size of the batch (number of episodes) to serve up each
-        time next() is called. If not specified, all episodes in the dataset
-        will be served
-      batch_mode: How to batch the dataset. Options are 'single', 'rolling', and
-        'random'. In 'single' mode, all episodes are served together. In
-        'rolling' mode, a new batch is formed by rolling the episodes forward in
-        time. In 'random' mode, a new batch is formed by randomly sampling
-        episodes. If not specified, will default to 'single'.
+      rng: A numpy random number generator. If not supplied, a new one will be
+        created.
     """
     ##################
     # Error checking #
@@ -184,14 +188,11 @@ class DatasetRNN:
     ####################
     # Property setting #
     ####################
-    # If batch size not specified, use all episodes in a single batch
+    # If batch size is None, set it to the number of episodes.
     if batch_size is None:
-      batch_size = xs.shape[1]
-    # In single-batch mode, batch size must match dataset size
-    if batch_mode == 'single' and batch_size != xs.shape[1]:
-      raise ValueError(
-          'In single batch mode, match size must be equal to dataset size, or',
-          f'must be None. Instead, is {batch_size}',
+      assert batch_mode not in ['rolling', 'random'], (
+          f'batch_mode was {batch_mode}, which requires batch_size to be'
+          f' specified. Instead, batch_size was {batch_size}.'
       )
 
     self.x_names = x_names
@@ -205,16 +206,17 @@ class DatasetRNN:
     self._n_timesteps = self._xs.shape[0]
     self.batch_mode = batch_mode
     self._current_start_index = 0  # For batch_mode='rolling'
+    self.rng = rng if rng is not None else np.random.default_rng()
 
   def __iter__(self):
     return self
 
   def get_all(self):
-    """Returns all the data in the dataset."""
+    """Returns all the data in the dataset. Use this for evaluation."""
     return self._xs, self._ys
 
   def __next__(self):
-    """Return a batch of data, including both xs and ys."""
+    """Return a batch of data. Use this for training."""
 
     if self.batch_size == 0:
       # Return empty arrays with correct number of dimensions
@@ -247,7 +249,7 @@ class DatasetRNN:
       return xs_batch, ys_batch
 
     elif self.batch_mode == 'random':
-      inds_to_get = np.random.choice(self._n_episodes, size=self.batch_size)
+      inds_to_get = self.rng.choice(self._n_episodes, size=self.batch_size)
       return self._xs[:, inds_to_get], self._ys[:, inds_to_get]
 
     else:
@@ -272,11 +274,6 @@ def split_dataset(
   train_sessions[np.arange(eval_offset, n_sessions, eval_every_n)] = False
   eval_sessions = np.logical_not(train_sessions)
 
-  if dataset.batch_mode == 'single':
-    batch_size = None
-  else:
-    batch_size = dataset.batch_size
-
   dataset_train = DatasetRNN(
       xs[:, train_sessions, :],
       ys[:, train_sessions, :],
@@ -284,8 +281,9 @@ def split_dataset(
       y_names=dataset.y_names,
       y_type=dataset.y_type,
       n_classes=dataset.n_classes,
-      batch_size=batch_size,
+      batch_size=dataset.batch_size,
       batch_mode=dataset.batch_mode,
+      rng=dataset.rng,
   )
   dataset_eval = DatasetRNN(
       xs[:, eval_sessions, :],
@@ -294,8 +292,9 @@ def split_dataset(
       y_names=dataset.y_names,
       y_type=dataset.y_type,
       n_classes=dataset.n_classes,
-      batch_size=None,
+      batch_size=dataset.batch_size,
       batch_mode=dataset.batch_mode,
+      rng=dataset.rng,
   )
   return dataset_train, dataset_eval
 
