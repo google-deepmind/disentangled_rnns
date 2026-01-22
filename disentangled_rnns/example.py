@@ -142,7 +142,7 @@ def main(_) -> None:
   # Eval disRNN on unseen data #
   ##############################
   # Use the wamrup disrnn, so that there will be no noise
-  xs, _ = next(dataset_eval)
+  xs = next(dataset_eval)["xs"]
   # pylint: disable-next=unused-variable
   _, network_states = rnn_utils.eval_network(make_disrnn_warmup, params, xs)
 

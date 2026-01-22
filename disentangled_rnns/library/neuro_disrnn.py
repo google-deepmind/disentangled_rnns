@@ -538,7 +538,8 @@ def get_auxiliary_metrics(
     dataset_eval: rnn_utils.DatasetRNN,
 ) -> dict[str, np.ndarray]:
   """Compute auxiliary metrics for DisRNN with Neural Activity."""
-  xs, ys = dataset_train.get_all()
+  data = dataset_train.get_all()
+  xs, ys = data['xs'], data['ys']
   network_outputs, _ = rnn_utils.eval_network(
       make_model_fn,
       params,
@@ -552,7 +553,8 @@ def get_auxiliary_metrics(
       ys, y_hats, likelihood_weight=0.0
   )
 
-  xs, ys = dataset_eval.get_all()
+  data = dataset_eval.get_all()
+  xs, ys = data['xs'], data['ys']
   network_outputs, _ = rnn_utils.eval_network(
       make_model_fn,
       params,

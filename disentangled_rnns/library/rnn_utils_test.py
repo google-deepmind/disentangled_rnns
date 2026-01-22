@@ -63,7 +63,8 @@ class TestRNNUtils(absltest.TestCase):
         opt=optax.adam(learning_rate=0.001))
 
   def test_dataset_rnn(self):
-    xs, ys = next(self.dataset)
+    data = next(self.dataset)
+    xs, ys = data['xs'], data['ys']
 
     # Inputs for y-maze should be choice & reward
     self.assertEqual(np.shape(xs), (n_steps_per_session, batch_size, 2))
@@ -79,7 +80,7 @@ class TestRNNUtils(absltest.TestCase):
         ys=np.zeros((n_steps_per_session, n_sessions, 1)),
         y_type='categorical',
         batch_size=10)
-    xs, _ = next(dataset)
+    xs = next(dataset)['xs']
     self.assertEqual(np.shape(xs), (n_steps_per_session, 10, 2))
 
   def test_dataset_rnn_rolling_batch_gt_nepisodes(self):
@@ -105,14 +106,14 @@ class TestRNNUtils(absltest.TestCase):
 
     # Initial order: [0, 1, 2]
     # First batch expected indices: tile([0,1,2], 2)[:5] = [0, 1, 2, 0, 1]
-    xs_batch1, _ = next(dataset)
+    xs_batch1 = next(dataset)['xs']
     self.assertEqual(xs_batch1.shape, (n_timesteps, batch_s, n_features))
     np.testing.assert_array_equal(xs_batch1[0, :, 0], [0, 1, 2, 0, 1])
     # Expected start index after 1st batch: (0 + 5) % 3 = 2
     self.assertEqual(dataset._current_start_index, 2)
 
     # Second batch expected indices: tile([2,0,1], 2)[:5] = [2, 0, 1, 2, 0]
-    xs_batch2, _ = next(dataset)
+    xs_batch2 = next(dataset)['xs']
     self.assertEqual(xs_batch2.shape, (n_timesteps, batch_s, n_features))
     np.testing.assert_array_equal(xs_batch2[0, :, 0], [2, 0, 1, 2, 0])
     # Expected start index after 2nd batch: (2 + 5) % 3 = 1
@@ -139,14 +140,14 @@ class TestRNNUtils(absltest.TestCase):
     )
     # Initial order: [0, 1, 2]
     # First batch: [0, 1]
-    xs_batch1, _ = next(dataset)
+    xs_batch1 = next(dataset)['xs']
     self.assertEqual(xs_batch1.shape, (n_timesteps, batch_s, n_features))
     np.testing.assert_array_equal(xs_batch1[0, :, 0], [0, 1])
     # Expected start index after 1st batch: (0 + 2) % 3 = 2
     self.assertEqual(dataset._current_start_index, 2)
 
     # Second batch: [2, 0]
-    xs_batch2, _ = next(dataset)
+    xs_batch2 = next(dataset)['xs']
     np.testing.assert_array_equal(xs_batch2[0, :, 0], [2, 0])
     # Expected start index after 2nd batch: (2 + 2) % 3 = 1
     self.assertEqual(dataset._current_start_index, 1)
@@ -172,26 +173,26 @@ class TestRNNUtils(absltest.TestCase):
     )
     # Initial order: [0, 1, 2]
     # First batch: [0, 1, 2]
-    xs_batch1, _ = next(dataset)
+    xs_batch1 = next(dataset)['xs']
     self.assertEqual(xs_batch1.shape, (n_timesteps, batch_s, n_features))
     np.testing.assert_array_equal(xs_batch1[0, :, 0], [0, 1, 2])
     # Expected start index after 1st batch: (0 + 3) % 3 = 0
     self.assertEqual(dataset._current_start_index, 0)
 
     # Second batch: [0, 1, 2]
-    xs_batch2, _ = next(dataset)
+    xs_batch2 = next(dataset)['xs']
     np.testing.assert_array_equal(xs_batch2[0, :, 0], [0, 1, 2])
     # Expected start index after 2nd batch: (0 + 3) % 3 = 0
     self.assertEqual(dataset._current_start_index, 0)
 
   def test_split_dataset(self):
     dataset_train, dataset_eval = rnn_utils.split_dataset(self.dataset, 2)
-    xs_train_all, _ = dataset_train.get_all()
-    xs_eval_all, _ = dataset_eval.get_all()
+    xs_train_all = dataset_train.get_all()['xs']
+    xs_eval_all = dataset_eval.get_all()['xs']
     self.assertEqual(np.shape(xs_train_all), (n_steps_per_session, 2, 2))
     self.assertEqual(np.shape(xs_eval_all), (n_steps_per_session, 1, 2))
-    xs_train_batch, _ = next(dataset_train)
-    xs_eval_batch, _ = next(dataset_eval)
+    xs_train_batch = next(dataset_train)['xs']
+    xs_eval_batch = next(dataset_eval)['xs']
     self.assertEqual(
         np.shape(xs_train_batch), (n_steps_per_session, batch_size, 2)
     )
@@ -225,7 +226,7 @@ class TestRNNUtils(absltest.TestCase):
 
   def test_get_new_params(self):
     """Test that get_new_params returns a new set of params."""
-    xs, _ = next(self.dataset)
+    xs = next(self.dataset)['xs']
     input_size = xs.shape[-1]
     new_params = rnn_utils.get_new_params(self.make_network,
                                           input_size=input_size)
@@ -234,7 +235,7 @@ class TestRNNUtils(absltest.TestCase):
 
   def test_training_from_new_params(self):
     """Test that training from new params works."""
-    xs, _ = next(self.dataset)
+    xs = next(self.dataset)['xs']
     input_size = xs.shape[-1]
     new_params = rnn_utils.get_new_params(self.make_network,
                                           input_size=input_size)
@@ -290,7 +291,7 @@ class TestRNNUtils(absltest.TestCase):
   def test_eval_network(self):
     """Eval a network on a set of inputs. Check shapes look right."""
     # Get a set of inputs
-    xs, _ = self.dataset.get_all()
+    xs = self.dataset.get_all()['xs']
     # Eval the network on that set of inputs
     y_hats, states = rnn_utils.eval_network(make_network, self.params, xs)
 
@@ -310,7 +311,7 @@ class TestRNNUtils(absltest.TestCase):
     """Step the network forward two steps. Check the shapes all look right.
     """
     # Get a set of inputs
-    xs, _ = next(self.dataset)
+    xs = next(self.dataset)['xs']
     # Define a network state
     state = rnn_utils.get_initial_state(self.make_network)
 

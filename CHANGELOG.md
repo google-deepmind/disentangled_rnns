@@ -24,8 +24,12 @@ To release a new version (e.g. from `1.0.0` -> `2.0.0`):
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-01-22
+
 - Modify default behavior of DatasetRNN to use random batching, and allow
   passing a random number generator for reproducibility.
+- Modify DatasetRNN to return a dict instead of a tuple. This paves the way for
+  generalizations with fields other than just inputs and targets.
 
 ## [0.1.3] - 2026-01-15
 
@@ -56,3 +60,4 @@ a release and act as a baseline for future releases.
 [0.1.1]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.1
 [0.1.2]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.2
 [0.1.3]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.3
+[0.1.4]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.4

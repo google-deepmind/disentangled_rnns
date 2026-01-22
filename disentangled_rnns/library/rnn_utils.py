@@ -213,7 +213,7 @@ class DatasetRNN:
 
   def get_all(self):
     """Returns all the data in the dataset. Use this for evaluation."""
-    return self._xs, self._ys
+    return {'xs': self._xs, 'ys': self._ys}
 
   def __next__(self):
     """Return a batch of data. Use this for training."""
@@ -227,7 +227,7 @@ class DatasetRNN:
           (self._n_timesteps, 0, self._ys.shape[2]), dtype=self._ys.dtype
       )
       warnings.warn('DatasetRNN batch_size is 0. Returning an empty batch.')
-      return empty_xs, empty_ys
+      return {'xs': empty_xs, 'ys': empty_ys}
 
     if self.batch_mode == 'single':
       return self.get_all()
@@ -246,11 +246,11 @@ class DatasetRNN:
       self._current_start_index = (
           self._current_start_index + self.batch_size
       ) % self._n_episodes
-      return xs_batch, ys_batch
+      return {'xs': xs_batch, 'ys': ys_batch}
 
     elif self.batch_mode == 'random':
       inds_to_get = self.rng.choice(self._n_episodes, size=self.batch_size)
-      return self._xs[:, inds_to_get], self._ys[:, inds_to_get]
+      return {'xs': self._xs[:, inds_to_get], 'ys': self._ys[:, inds_to_get]}
 
     else:
       raise ValueError(
@@ -263,7 +263,16 @@ def split_dataset(
     dataset: DatasetRNN, eval_every_n: int, eval_offset: int = 1
 ) -> tuple[DatasetRNN, DatasetRNN]:
   """Split a dataset into train and eval sets."""
-  xs, ys = dataset.get_all()
+  data = dataset.get_all()
+  xs, ys = data['xs'], data['ys']
+  if data.keys() != {'xs', 'ys'}:
+    raise NotImplementedError(
+        f'Splitting is only implemented for datasets with keys xs and ys. This'
+        f' one has keys {data.keys()}.'
+        ' If you need to split a dataset with other data, feel free to '
+        'implement this and send a CL!'
+    )
+
   n_sessions = xs.shape[1]
   train_sessions = np.ones(n_sessions, dtype=bool)
   if eval_offset < 0 or eval_offset > eval_every_n - 1:
@@ -688,7 +697,7 @@ def train_network(
   # If loaded from json, params might be a nested dict of lists. Convert to np.
   if params is not None:
     params = to_np(params)
-  sample_xs, _ = next(training_dataset)  # Get a sample input, for shape
+  sample_xs = next(training_dataset)['xs']  # Get a sample input, for shape
 
   # Haiku, step one: Define the batched network
   def unroll_network(xs):
@@ -849,10 +858,12 @@ def train_network(
   validation_loss = []
   l_validation = np.nan
 
-  xs_train, ys_train = next(training_dataset)
+  data = next(training_dataset)
+  xs_train, ys_train = data['xs'], data['ys']
 
   if validation_dataset is not None:
-    xs_eval, ys_eval = validation_dataset.get_all()
+    data = validation_dataset.get_all()
+    xs_eval, ys_eval = data['xs'], data['ys']
   else:
     xs_eval = None
     ys_eval = None
@@ -863,7 +874,8 @@ def train_network(
     )
     # If the training dataset uses batching, get a new batch
     if training_dataset.batch_mode != 'single':
-      xs_train, ys_train = next(training_dataset)
+      data = next(training_dataset)
+      xs_train, ys_train = data['xs'], data['ys']
 
     loss, params, opt_state = train_step(
         params, opt_state, xs_train, ys_train, subkey_train

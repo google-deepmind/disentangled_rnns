@@ -193,7 +193,7 @@ class MultisubjectDisrnnTest(absltest.TestCase):
 
   def test_multisubject_disrnn_output_shape(self):
     """Check that the output shapes of the multisubject disRNN are correct."""
-    xs, _ = self.multisubject_dataset.get_all()
+    xs = self.multisubject_dataset.get_all()['xs']
     n_batch, n_trials = xs.shape[:2]  # n_batch = n_subjects * n_sessions
 
     network_outputs, network_states = rnn_utils.eval_network(

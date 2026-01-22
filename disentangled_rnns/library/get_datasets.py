@@ -351,7 +351,8 @@ def dataset_list_to_multisubject(
   Returns:
     A single DatasetRNN containing data from all datasets in the list
   """
-  xs_dataset, ys_dataset = dataset_list[0].get_all()
+  data = dataset_list[0].get_all()
+  xs_dataset, ys_dataset = data['xs'], data['ys']
   x_names = dataset_list[0].x_names
   y_names = dataset_list[0].y_names
   y_type_str = dataset_list[0].y_type
@@ -399,7 +400,8 @@ def dataset_list_to_multisubject(
         f' {dataset_list[dataset_i].n_classes}'
     )
 
-    xs_dataset, ys_dataset = dataset_list[dataset_i].get_all()
+    data = dataset_list[dataset_i].get_all()
+    xs_dataset, ys_dataset = data['xs'], data['ys']
     n_sessions = np.shape(xs_dataset)[1]
     n_trials = np.shape(xs_dataset)[0]
     if add_subj_id:
