@@ -622,7 +622,7 @@ def train_network(
     opt_state: Optional[optax.OptState] = None,
     params: Optional[RnnParams] = None,
     n_steps: int = 1000,
-    max_grad_norm: float = 1e10,
+    max_grad_norm: float = 1,
     loss_param: dict[str, float] | float = 1.0,
     loss: Literal[
         'mse',
