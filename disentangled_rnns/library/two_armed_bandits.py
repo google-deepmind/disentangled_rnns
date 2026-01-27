@@ -1,4 +1,4 @@
-# Copyright 2024 DeepMind Technologies Limited.
+# Copyright 2025 DeepMind Technologies Limited.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,17 +14,71 @@
 
 """Two armed bandit experiments. Generate synthetic data, plot data."""
 
+import abc
 from collections.abc import Callable
-from typing import NamedTuple, Optional, Union
+from typing import Literal, NamedTuple, Optional, Union
+import warnings
 
 from disentangled_rnns.library import rnn_utils
 import haiku as hk
 import jax
 import matplotlib.pyplot as plt
 import numpy as np
+import seaborn as sns
+
+abstractmethod = abc.abstractmethod
+
+################
+# ENVIRONMENTS #
+################
 
 
-class EnvironmentBanditsDrift:
+class BaseEnvironment(abc.ABC):
+  """Base class for two-armed bandit environments.
+
+  Subclasses must implement the following methods:
+    - new_session()
+    - step(choice)
+
+  Attributes:
+    seed: The seed used to initialize the environment.
+    n_arms: The number of arms in the environment.
+  """
+
+  def __init__(self, seed: Optional[int] = None, n_arms: int = 2):
+    self._random_state = np.random.RandomState(seed)
+    self._n_arms = n_arms
+
+  @abstractmethod
+  def new_session(self):
+    """Starts a new session (e.g., resets environment parameters).
+
+    This method should be implemented by subclasses to initialize or
+    reset the environment's state at the beginning of a new session or episode.
+    """
+
+  @abstractmethod
+  def step(self, attempted_choice: int) -> tuple[int, float | int, int]:
+    """Executes a single step in the environment.
+
+    Args:
+      attempted_choice: The action chosen by the agent.
+
+    Returns:
+      choice: The action actually taken. May be different from the attempted
+        choice if the environment decides the choice should be instructed on
+        that trial.
+      reward: The reward received after taking the action.
+      instructed: 1 if the choice was instructed, 0 otherwise
+    """
+
+  @property
+  def n_arms(self) -> int:
+    """Returns the current reward probabilities for each arm."""
+    return self._n_arms
+
+
+class EnvironmentBanditsDrift(BaseEnvironment):
   """Environment for a drifting two-armed bandit task.
 
   Reward probabilities on each arm are sampled randomly between 0 and
@@ -34,59 +88,193 @@ class EnvironmentBanditsDrift:
   Attributes:
     sigma: A float, between 0 and 1, giving the magnitude of the drift
     reward_probs: Probability of reward associated with each action
+    n_arms: The number of arms in the environment.
   """
 
-  def __init__(self,
-               sigma: float,
-               seed: Optional[int] = None,
-               ):
+  def __init__(
+      self,
+      sigma: float,
+      p_instructed: float = 0.0,
+      seed: Optional[int] = None,
+      n_arms: int = 2,
+  ):
+    super().__init__(seed=seed, n_arms=n_arms)
 
     # Check inputs
     if sigma < 0:
-      msg = ('sigma was {}, but must be greater than 0')
+      msg = 'sigma was {}, but must be greater than 0'
       raise ValueError(msg.format(sigma))
+
     # Initialize persistent properties
     self._sigma = sigma
-    self._random_state = np.random.RandomState(seed)
+    self._p_instructed = p_instructed
 
     # Sample new reward probabilities
-    self.new_sess()
+    self.new_session()
 
-  def new_sess(self):
+  def new_session(self):
     # Pick new reward probabilities.
     # Sample randomly between 0 and 1
-    self._reward_probs = self._random_state.rand(2)
+    self._reward_probs = self._random_state.rand(self.n_arms)
 
-  def step(self,
-           choice: int) -> int:
+  def step(self, attempted_choice: int) -> tuple[int, float, int]:
     """Run a single trial of the task.
 
     Args:
-      choice: The choice made by the agent. 0 or 1
+      attempted_choice: The choice made by the agent. 0 or 1
 
     Returns:
+      choice: The action actually taken. May be different from the attempted
+        choice if the environment decides the choice should be instructed on
+        that trial.
       reward: The reward to be given to the agent. 0 or 1.
-
+      instructed: 1 if the choice was instructed, 0 otherwise
     """
+    if attempted_choice == -1:
+      choice = -1
+      reward = -1
+      instructed = -1
+      return choice, reward, instructed
+
     # Check inputs
-    if not np.logical_or(choice == 0, choice == 1):
-      msg = ('choice given was {}, but must be either 0 or 1')
-      raise ValueError(msg.format(choice))
+    if attempted_choice not in list(range(self.n_arms)):
+      msg = (
+          f'choice given was {attempted_choice}, but must be one of '
+          f'{list(range(self.n_arms))}.'
+      )
+      raise ValueError(msg)
+
+    # If choice was instructed, overrule it and decide randomly
+    instructed = self._random_state.rand() < self._p_instructed
+    if instructed:
+      choice = self._random_state.choice(self.n_arms)
+    else:
+      choice = attempted_choice
 
     # Sample reward with the probability of the chosen side
     reward = self._random_state.rand() < self._reward_probs[choice]
     # Add gaussian noise to reward probabilities
-    drift = self._random_state.normal(loc=0, scale=self._sigma, size=2)
+    drift = self._random_state.normal(
+        loc=0, scale=self._sigma, size=self.n_arms
+    )
     self._reward_probs += drift
 
     # Fix reward probs that've drifted below 0 or above 1
     self._reward_probs = np.clip(self._reward_probs, 0, 1)
 
-    return reward
+    return choice, float(reward), int(instructed)
 
   @property
   def reward_probs(self) -> np.ndarray:
     return self._reward_probs.copy()
+
+
+class NoMoreTrialsInSessionError(ValueError):
+  pass
+
+
+class NoMoreSessionsInDatasetError(ValueError):
+  pass
+
+
+class EnvironmentPayoutMatrix(BaseEnvironment):
+  """Environment for a two-armed bandit task with a specified payout matrix."""
+
+  def __init__(
+      self,
+      payout_matrix: np.ndarray,
+      instructed_matrix: Optional[np.ndarray] = None,
+  ):
+    """Initialize the environment.
+
+    Args:
+      payout_matrix: A numpy array of shape (n_sessions, n_trials, n_actions)
+        giving the reward for each session, action, and trial. These are
+        deterministic, i.e. for the same trial_num, session_num, and action, the
+        reward will always be the same. (If you'd like stochastic rewards you
+        can populate this matrix ahead of time).
+      instructed_matrix: A numpy array of shape (n_sessions, n_trials) giving
+        the choice that should be made, if any, for each session and trial.
+        Elements should be ints or nan. If nan, the choice is not instructed. If
+        None, no choices are instructed.
+    """
+    n_arms = payout_matrix.shape[2]
+    super().__init__(seed=None, n_arms=n_arms)
+
+    self._payout_matrix = payout_matrix
+    self._n_sessions = payout_matrix.shape[0]
+    self._n_trials = payout_matrix.shape[1]
+
+    if instructed_matrix is not None:
+      self._instructed_matrix = instructed_matrix
+    else:
+      self._instructed_matrix = np.full(
+          (self._n_sessions, self._n_trials), np.nan
+      )
+
+    self._current_session = -1
+    self._current_trial = 0
+
+  def new_session(self):
+    self._current_session += 1
+    if self._current_session >= self._n_sessions:
+      raise NoMoreSessionsInDatasetError(
+          'No more sessions in dataset. '
+          f'Current session {self._current_session} is out of range '
+          f'[0, {self._n_sessions - 1})'
+      )
+    self._current_trial = 0
+
+  def step(self, attempted_choice: int) -> tuple[int, float | int, int]:
+    # If agent choice is default empty value -1, return -1 for all outputs.
+    if attempted_choice == -1:
+      choice = -1
+      reward = -1
+      instructed = -1
+      return choice, reward, instructed
+
+    # Check inputted choice is valid.
+    if attempted_choice not in list(range(self.n_arms)):
+      msg = (
+          f'choice given was {attempted_choice}, but must be one of '
+          f'{list(range(self.n_arms))}.'
+      )
+      raise ValueError(msg)
+
+    if self._current_trial >= self._n_trials:
+      raise NoMoreTrialsInSessionError(
+          'No more trials in session. '
+          f'Current trial {self._current_trial} is out of range '
+          f'[0, {self._n_trials})'
+      )
+
+    # If choice was instructed, overrule and replace with the instructed choice
+    instruction = self._instructed_matrix[
+        self._current_session, self._current_trial
+    ]
+    instructed = not np.isnan(instruction)
+    if instructed:
+      choice = int(instruction)
+    else:
+      choice = attempted_choice
+
+    reward = self._payout_matrix[
+        self._current_session, self._current_trial, choice
+    ]
+    self._current_trial += 1
+    return choice, reward.item(), int(instructed)
+
+  @property
+  def payout(self) -> np.ndarray:
+    """Get possible payouts for current session, trial across actions."""
+    return self._payout_matrix[
+        self._current_session, self._current_trial, :
+    ].copy()
+
+
+##########
+# AGENTS #
+##########
 
 
 class AgentQ:
@@ -94,7 +282,6 @@ class AgentQ:
 
   Attributes:
     q: The agent's current estimate of the reward probability on each arm
-
   """
 
   def __init__(
@@ -110,15 +297,16 @@ class AgentQ:
     """
     self._alpha = alpha
     self._beta = beta
-    self.new_sess()
+    self.new_session()
 
-  def new_sess(self):
+  def new_session(self):
     """Reset the agent for the beginning of a new session."""
     self.q = 0.5 * np.ones(2)
 
   def get_choice_probs(self) -> np.ndarray:
     choice_probs = np.exp(self._beta * self.q) / np.sum(
-        np.exp(self._beta * self.q))
+        np.exp(self._beta * self.q)
+    )
     return choice_probs
 
   def get_choice(self) -> int:
@@ -128,9 +316,7 @@ class AgentQ:
     choice = np.random.choice(2, p=choice_probs)
     return choice
 
-  def update(self,
-             choice: int,
-             reward: int):
+  def update(self, choice: int, reward: float):
     """Update the agent after one step of the task.
 
     Args:
@@ -166,16 +352,15 @@ class AgentLeakyActorCritic:
     self._alpha_critic = alpha_critic
     self._alpha_actor_learn = alpha_actor_learn
     self._alpha_actor_forget = alpha_actor_forget
-    self.new_sess()
+    self.new_session()
 
-  def new_sess(self):
+  def new_session(self):
     """Reset the agent for the beginning of a new session."""
-    self.theta = 0. * np.ones(2)
+    self.theta = 0.0 * np.ones(2)
     self.v = 0.5
 
   def get_choice_probs(self) -> np.ndarray:
-    choice_probs = np.exp(self.theta) / np.sum(
-        np.exp(self.theta))
+    choice_probs = np.exp(self.theta) / np.sum(np.exp(self.theta))
     return choice_probs
 
   def get_choice(self) -> int:
@@ -185,7 +370,7 @@ class AgentLeakyActorCritic:
     choice = np.random.choice(2, p=choice_probs)
     return choice
 
-  def update(self, choice: int, reward: int):
+  def update(self, choice: int, reward: float):
     """Update the agent after one step of the task.
 
     Args:
@@ -199,9 +384,11 @@ class AgentLeakyActorCritic:
     choice_probs = self.get_choice_probs()
     rpe = reward - self.v
     self.theta[choice] = (1 - self._alpha_actor_forget) * self.theta[
-        choice] + self._alpha_actor_learn * rpe * (1 - choice_probs[choice])
+        choice
+    ] + self._alpha_actor_learn * rpe * (1 - choice_probs[choice])
     self.theta[unchosen] = (1 - self._alpha_actor_forget) * self.theta[
-        unchosen] - self._alpha_actor_learn * rpe * (choice_probs[unchosen])
+        unchosen
+    ] - self._alpha_actor_learn * rpe * (choice_probs[unchosen])
 
     # Critic learing: V moves towards reward
     self.v = (1 - self._alpha_critic) * self.v + self._alpha_critic * reward
@@ -215,9 +402,9 @@ class AgentNetwork:
     params: A set of Haiku parameters suitable for that architecture
   """
 
-  def __init__(self,
-               make_network: Callable[[], hk.RNNCore],
-               params: hk.Params):
+  def __init__(
+      self, make_network: Callable[[], hk.RNNCore], params: rnn_utils.RnnParams
+  ):
 
     def step_network(
         xs: np.ndarray, state: hk.State
@@ -236,12 +423,12 @@ class AgentNetwork:
 
     self._initial_state = rnn_state.apply(params)
     self._model_fun = jax.jit(
-        lambda xs, state: model.apply(params, xs, rnn_state)
+        lambda xs, state: model.apply(params, xs, state)
     )
     self._xs = np.zeros((1, 2))
-    self.new_sess()
+    self.new_session()
 
-  def new_sess(self):
+  def new_session(self):
     self._rnn_state = self._initial_state
 
   def get_choice_probs(self) -> np.ndarray:
@@ -269,9 +456,9 @@ class SessData(NamedTuple):
   n_trials: int
 
 
-def run_experiment(agent: Agent,
-                   environment: EnvironmentBanditsDrift,
-                   n_steps: int) -> SessData:
+def run_experiment(
+    agent: Agent, environment: BaseEnvironment, n_steps: int
+) -> SessData:
   """Runs a behavioral session from a given agent and environment.
 
   Args:
@@ -280,46 +467,49 @@ def run_experiment(agent: Agent,
     n_steps: The number of steps in the session you'd like to generate
 
   Returns:
-    experiment: A YMazeSession holding choices and rewards from the session
+    experiment: A SessData object holding choices and rewards from the session
   """
   choices = np.zeros(n_steps)
   rewards = np.zeros(n_steps)
-  reward_probs = np.zeros((n_steps, 2))
+  reward_probs = np.full((n_steps, environment.n_arms), np.nan)
 
   for step in np.arange(n_steps):
     # First record environment reward probs
-    reward_probs[step] = environment.reward_probs
+    if hasattr(environment, 'reward_probs'):
+      reward_probs[step] = environment.reward_probs
     # First agent makes a choice
-    choice = agent.get_choice()
+    attempted_choice = agent.get_choice()
     # Then environment computes a reward
-    reward = environment.step(choice)
+    choice, reward, _ = environment.step(attempted_choice)
     # Finally agent learns
     agent.update(choice, reward)
     # Log choice and reward
     choices[step] = choice
     rewards[step] = reward
 
-  experiment = SessData(choices=choices,
-                        rewards=rewards,
-                        n_trials=n_steps,
-                        reward_probs=reward_probs)
+  experiment = SessData(
+      choices=choices,
+      rewards=rewards,
+      n_trials=n_steps,
+      reward_probs=reward_probs,
+  )
   return experiment
 
 
-def create_dataset(agent: Agent,
-                   environment: EnvironmentBanditsDrift,
-                   n_steps_per_session: int,
-                   n_sessions: int,
-                   batch_size: int) -> rnn_utils.DatasetRNN:
+def create_dataset(
+    agent: Agent,
+    environment: BaseEnvironment,
+    n_steps_per_session: int,
+    n_sessions: int,
+) -> rnn_utils.DatasetRNN:
   """Generates a behavioral dataset from a given agent and environment.
 
   Args:
     agent: An agent object to generate choices
     environment: An environment object to generate rewards
-    n_steps_per_session: The number of trials in each behavioral session to
-      be generated
+    n_steps_per_session: The number of trials in each behavioral session to be
+      generated
     n_sessions: The number of sessions to generate
-    batch_size: The size of the batches to serve from the dataset
 
   Returns:
     rnn_utils.DatasetRNN object
@@ -328,6 +518,8 @@ def create_dataset(agent: Agent,
   ys = np.zeros((n_steps_per_session, n_sessions, 1))
 
   for sess_i in np.arange(n_sessions):
+    environment.new_session()
+    agent.new_session()
     experiment = run_experiment(agent, environment, n_steps_per_session)
     prev_choices = np.concatenate(([0], experiment.choices[0:-1]))
     prev_rewards = np.concatenate(([0], experiment.rewards[0:-1]))
@@ -343,61 +535,135 @@ def create_dataset(agent: Agent,
       y_names=['choice'],
       y_type='categorical',
       n_classes=2,
-      batch_size=batch_size,
   )
   return dataset
 
 
-def plot_sessdata(sessdata: SessData):
-  """Creates a figure showing data from a single behavioral session.
+def plot_2ab_sessdata(
+    choices: np.ndarray,
+    rewards: np.ndarray,
+    scalars: np.ndarray | None = None,
+    scalar_types: Literal['reward_probs', 'agent_states', 'other'] = 'other',
+    show_legend: bool = True,
+    left_color: str = 'rebeccapurple',
+    right_color: str = 'darkorange',
+):
+  """Creates a figure showing data from session of a two-armed binary bandit task.
 
   Args:
-    sessdata: A session of data to plot
+    choices: The choices made by the agent in the session
+    rewards: The rewards received by the agent in the session
+    scalars: Any scalars output by the agent in the session
+    scalar_types: Whether the scalars are reward probabilities or agent states
+    show_legend: Whether to show the legend of the scalars.
+    left_color: The color to use for the "left" arm (choice 0).
+    right_color: The color to use for the "right" arm (choice 1).
   """
 
-  choose_high = sessdata.choices == 1
-  choose_low = sessdata.choices == 0
-  rewarded = sessdata.rewards == 1
+  # Check that choices and rewards are both binary. Valid values are -1, 0,
+  # and 1
+  if not np.all(np.isin(choices, [-1, 0, 1])):
+    warnings.warn(
+        'Choices should be either -1, 0, or 1, but got choices: '
+        f'{np.unique(choices)}.'
+    )
+  if not np.all(np.isin(rewards, [-1, 0, 1])):
+    warnings.warn(
+        'Rewards should be either -1, 0, or 1, but got rewards: '
+        f'{np.unique(rewards)}.'
+    )
+
+  choose_high = choices == 1
+  choose_low = choices == 0
+  rewarded = rewards == 1
+
+  # Get the RdYlGn colormap
+  cmap = plt.cm.RdYlGn
+  # Get the RGBA values for reward (green) and omission (red) ticks
+  omission_color = cmap(0.1)  # A red that's near the bottom of the colormap
+  reward_color = cmap(0.9)  # A green that's near the top of the colormap
+
+  # Check whether we have scalars we'd like to plot.
+  if scalars is None:
+    scalar_names = []
+    scalars = []
+    ymax = 1
+    ymin = 0
+    scalar_colors = []
+    ylabel = ''
+  elif scalar_types == 'reward_probs':
+    scalar_names = ['p(reward|left)', 'p(reward|right)']
+    scalar_colors = [left_color, right_color]
+    ymax = 1
+    ymin = 0
+    ylabel = 'Reward Probability'
+  elif scalar_types == 'agent_states':
+    if scalars.ndim == 1:
+      scalars = np.expand_dims(scalars, 1)
+    scalar_names = [f'state {i}' for i in range(scalars.shape[1])]
+    scalar_colors = sns.color_palette('colorblind')
+    ymax = np.max(scalars)
+    ymin = np.min(scalars)
+    ylabel = 'Agent State'
+  elif scalar_types == 'other':
+    scalar_names = []
+    scalars = []
+    ymax = np.max(scalars)
+    ymin = np.min(scalars)
+    scalar_colors = []
+    ylabel = ''
+  else:
+    raise ValueError(
+        'scalar_types must be one of "reward_probs", "agent_states", or '
+        f'"other", but got {scalar_types}'
+    )
 
   # Make the plot
   plt.subplots(figsize=(10, 3))
-  plt.plot(sessdata.reward_probs)
+  # Plot the scalars
+  for scalar_i in range(len(scalar_names)):
+    plt.plot(
+        scalars[:, scalar_i], color=scalar_colors[scalar_i % len(scalar_colors)]
+    )
+  if show_legend:
+    plt.legend(scalar_names)
 
-  # Rewarded high
+  # Rewarded high: Long green ticks on top
+  top = ymax + 0.1 * (ymax - ymin)
+  bottom = ymin - 0.1 * (ymax - ymin)
   plt.scatter(
       np.argwhere(choose_high & rewarded),
-      1.1 * np.ones(np.sum(choose_high & rewarded)),
-      color='green',
-      marker=3)
-  plt.scatter(
-      np.argwhere(choose_high & rewarded),
-      1.1 * np.ones(np.sum(choose_high & rewarded)),
-      color='green',
-      marker='|')
-  # Omission high
+      np.ones(np.sum(choose_high & rewarded)) * top,
+      color=reward_color,
+      marker='|',
+  )
+
+  # Omission high: Short red ticks on top
   plt.scatter(
       np.argwhere(choose_high & 1 - rewarded),
-      1.1 * np.ones(np.sum(choose_high & 1 - rewarded)),
-      color='red',
-      marker='|')
+      np.ones(np.sum(choose_high & 1 - rewarded)) * top,
+      color=omission_color,
+      marker='|',
+  )
 
-  # Rewarded low
+  # Rewarded low: Green ticks on bottom
   plt.scatter(
       np.argwhere(choose_low & rewarded),
-      -0.1 * np.ones(np.sum(choose_low & rewarded)),
-      color='green',
-      marker='|')
-  plt.scatter(
-      np.argwhere(choose_low & rewarded),
-      -0.1 * np.ones(np.sum(choose_low & rewarded)),
-      color='green',
-      marker=2)
-  # Omission Low
+      np.ones(np.sum(choose_low & rewarded)) * bottom,
+      color=reward_color,
+      marker='|',
+  )
+
+  # Omission Low: Red ticks on bottom
   plt.scatter(
       np.argwhere(choose_low & 1 - rewarded),
-      -0.1 * np.ones(np.sum(choose_low & 1 - rewarded)),
-      color='red',
-      marker='|')
+      np.ones(np.sum(choose_low & 1 - rewarded)) * bottom,
+      color=omission_color,
+      marker='|',
+  )
 
   plt.xlabel('Trial')
-  plt.ylabel('Probability')
+  plt.xlim([0, len(choices)])
+  plt.ylabel(ylabel)
+  if ylabel == 'Reward Probability':
+    plt.yticks([0, 0.5, 1], ['0%', '50%', '100%'])
