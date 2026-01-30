@@ -17,7 +17,7 @@
 from collections.abc import Callable
 import json
 import sys
-from typing import Any, Literal, Mapping, Optional
+from typing import Any, Literal, Mapping
 import warnings
 
 from absl import logging
@@ -624,11 +624,11 @@ def compute_penalty(
 def train_network(
     make_network: Callable[[], hk.RNNCore],
     training_dataset: DatasetRNN,
-    validation_dataset: Optional[DatasetRNN],
+    validation_dataset: DatasetRNN | None,
     opt: optax.GradientTransformation = optax.adam(1e-3),
-    random_key: Optional[chex.PRNGKey] = None,
-    opt_state: Optional[optax.OptState] = None,
-    params: Optional[RnnParams] = None,
+    random_key: chex.PRNGKey | None = None,
+    opt_state: optax.OptState | None = None,
+    params: RnnParams | None = None,
     n_steps: int = 1000,
     max_grad_norm: float = 1,
     loss_param: dict[str, float] | float = 1.0,
@@ -643,7 +643,7 @@ def train_network(
     log_losses_every: int = 10,
     do_plot: bool = False,
     report_progress_by: Literal['print', 'log', 'wandb', 'none'] = 'print',
-    wandb_run: Optional[Any] = None,
+    wandb_run: Any | None = None,
     wandb_step_offset: int = 0,
 ) -> tuple[RnnParams, optax.OptState, dict[str, np.ndarray]]:
   """Trains a Haiku recurrent neural network.
@@ -1069,7 +1069,7 @@ def step_network(
 
 def get_initial_state(
     make_network: Callable[[], hk.RNNCore],
-    params: Optional[RnnParams] = None,
+    params: RnnParams | None = None,
     batch_size: int = 1,
     seed: int = 0,
 ) -> Any:
@@ -1112,7 +1112,7 @@ def get_initial_state(
 def get_new_params(
     make_network: Callable[..., hk.RNNCore],
     input_size: int,
-    random_key: Optional[jax.Array] = None,
+    random_key: jax.Array | None = None,
 ) -> RnnParams:
   """Get a new set of random parameters for a network architecture.
 

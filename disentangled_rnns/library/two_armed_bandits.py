@@ -16,7 +16,7 @@
 
 import abc
 from collections.abc import Callable
-from typing import Literal, NamedTuple, Optional, Union
+from typing import Literal, NamedTuple, Union
 import warnings
 
 from disentangled_rnns.library import rnn_utils
@@ -45,7 +45,7 @@ class BaseEnvironment(abc.ABC):
     n_arms: The number of arms in the environment.
   """
 
-  def __init__(self, seed: Optional[int] = None, n_arms: int = 2):
+  def __init__(self, seed: int | None = None, n_arms: int = 2):
     self._random_state = np.random.RandomState(seed)
     self._n_arms = n_arms
 
@@ -95,7 +95,7 @@ class EnvironmentBanditsDrift(BaseEnvironment):
       self,
       sigma: float,
       p_instructed: float = 0.0,
-      seed: Optional[int] = None,
+      seed: int | None = None,
       n_arms: int = 2,
   ):
     super().__init__(seed=seed, n_arms=n_arms)
@@ -183,7 +183,7 @@ class EnvironmentPayoutMatrix(BaseEnvironment):
   def __init__(
       self,
       payout_matrix: np.ndarray,
-      instructed_matrix: Optional[np.ndarray] = None,
+      instructed_matrix: np.ndarray | None = None,
   ):
     """Initialize the environment.
 

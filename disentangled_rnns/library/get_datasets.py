@@ -16,7 +16,7 @@
 
 import json
 import os
-from typing import Optional, Literal, cast
+from typing import Literal, cast
 import urllib.request
 
 from disentangled_rnns.library import pclicks
@@ -475,7 +475,7 @@ def dataset_list_to_multisubject(
 def get_q_learning_multisubject_dataset(
     n_trials: int = 200,
     n_sessions: int = 300,
-    alphas: Optional[list[float]] = None,
+    alphas: list[float] | None = None,
     np_rng_seed: float = 0,
 ) -> rnn_utils.DatasetRNN:
   """Returns a multisubject dataset for the Q-learning task."""

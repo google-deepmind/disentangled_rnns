@@ -17,7 +17,6 @@
 from collections.abc import Callable
 import copy
 import dataclasses
-from typing import Optional
 
 from disentangled_rnns.library import disrnn
 from disentangled_rnns.library import plotting
@@ -238,7 +237,7 @@ def plot_neural_activity_rules(
     params: rnn_utils.RnnParams,
     disrnn_config: DisRnnWNeuralActivityConfig,
     axis_lim: float = 2.1,
-) -> Optional[plt.Figure]:
+) -> plt.Figure | None:
   """Plots the neural_activity rule of a DisRNN with neural_activity prediction.
 
   This function visualizes how the predicted neural_activity level changes based
@@ -440,7 +439,7 @@ def plot_choice_rule(
     params: rnn_utils.RnnParams,
     disrnn_config: DisRnnWNeuralActivityConfig,
     axis_lim: float = 2.1,
-) -> Optional[plt.Figure]:
+) -> plt.Figure | None:
   """Plots the choice rule of a DisRNN with neural_activity prediction."""
 
   params = {
@@ -456,7 +455,7 @@ def plot_update_rules(
     params: rnn_utils.RnnParams,
     disrnn_config: DisRnnWNeuralActivityConfig,
     axis_lim: float = 2.1,
-) -> Optional[plt.Figure]:
+) -> plt.Figure | None:
   """Plots the update rules of a DisRNN with neural_activity prediction."""
   params = {
       key.replace('hk_neuro_disentangled_rnn', 'hk_disentangled_rnn'): value
