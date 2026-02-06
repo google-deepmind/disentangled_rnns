@@ -87,7 +87,7 @@ class NeuroDisrnnTest(absltest.TestCase):
 
   def test_neuro_disrnn_output_shape(self):
     """Check that the output shapes of the disRNN with neural_activity are correct."""
-    xs, _ = self.q_dataset.get_all()
+    xs = self.q_dataset.get_all()['xs']
     n_sessions, n_trials = xs.shape[:2]
 
     network_outputs, network_states = rnn_utils.eval_network(

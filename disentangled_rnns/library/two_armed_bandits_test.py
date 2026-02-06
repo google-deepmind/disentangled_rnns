@@ -16,6 +16,30 @@ from absl.testing import absltest
 from absl.testing import parameterized
 from disentangled_rnns.library import rnn_utils
 from disentangled_rnns.library import two_armed_bandits
+import haiku as hk
+import numpy as np
+
+
+N_HIDDEN = 5
+
+
+def make_gru_network():
+  return hk.DeepRNN([hk.GRU(N_HIDDEN), hk.Linear(output_size=2)])
+
+
+def get_agent_network():
+  params, _, _ = rnn_utils.train_network(
+      make_gru_network,
+      training_dataset=rnn_utils.DatasetRNN(
+          xs=np.zeros((10, 1, 2)),
+          ys=np.zeros((10, 1, 1)),
+          y_type='categorical',
+          n_classes=2,
+      ),
+      validation_dataset=None,
+      n_steps=0,
+  )
+  return two_armed_bandits.AgentNetwork(make_gru_network, params)
 
 
 named_agents_list = [
@@ -33,8 +57,7 @@ class TwoArmedBanditsTest(parameterized.TestCase):
 
   @parameterized.named_parameters(named_agents_list)
   def test_update(self, agent):
-    """Checks that agent increases its choice probability after getting a reward.
-    """
+    """Checks that agent increases its choice probability after getting a reward."""
 
     choice_probs_pre = agent.get_choice_probs()
     agent.update(choice=0, reward=1)
@@ -82,6 +105,49 @@ class TwoArmedBanditsTest(parameterized.TestCase):
     )
 
     self.assertIsInstance(dataset, rnn_utils.DatasetRNN)
+
+  def test_run_experiment_and_create_dataset_smoke_test(self):
+    """Smoke test for run_experiment and create_dataset with different agents and environments."""
+    n_steps = 10
+    n_sessions = 2
+    agents = [
+        two_armed_bandits.AgentQ(alpha=0.3, beta=3),
+        two_armed_bandits.AgentLeakyActorCritic(
+            alpha_critic=0.2, alpha_actor_learn=0.2, alpha_actor_forget=0.05
+        ),
+        get_agent_network(),
+    ]
+    environments_builders = [
+        lambda: two_armed_bandits.EnvironmentBanditsDrift(sigma=0.01),
+        lambda: two_armed_bandits.EnvironmentPayoutMatrix(
+            payout_matrix=np.array(
+                [np.tile([0, 1], (n_steps, 1)), np.tile([1, 0], (n_steps, 1))]
+            )
+        ),
+    ]
+
+    for agent in agents:
+      for env_builder in environments_builders:
+        # Test run_experiment
+        environment = env_builder()
+        agent.new_session()
+        environment.new_session()
+        experiment = two_armed_bandits.run_experiment(
+            agent, environment, n_steps
+        )
+        self.assertIsInstance(experiment, two_armed_bandits.SessData)
+        if not hasattr(environment, 'reward_probs'):
+          self.assertTrue(np.all(np.isnan(experiment.reward_probs)))
+        else:
+          self.assertFalse(np.any(np.isnan(experiment.reward_probs)))
+
+        # Test create_dataset
+        dataset_environment = env_builder()
+        agent.new_session()
+        dataset = two_armed_bandits.create_dataset(
+            agent, dataset_environment, n_steps, n_sessions
+        )
+        self.assertIsInstance(dataset, rnn_utils.DatasetRNN)
 
 
 if __name__ == '__main__':

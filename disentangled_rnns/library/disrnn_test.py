@@ -115,7 +115,7 @@ class DisrnnTest(absltest.TestCase):
     plotting.plot_choice_rule(self.disrnn_params, self.disrnn_config)
 
   def test_disrnn_output_shape(self):
-    xs, _ = self.q_dataset.get_all()
+    xs = self.q_dataset.get_all()['xs']
     n_sessions, n_trials = xs.shape[:2]
 
     network_outputs, network_states = rnn_utils.eval_network(

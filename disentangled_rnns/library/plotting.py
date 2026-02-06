@@ -15,7 +15,6 @@
 """Plotting functions for inspecting Disentangled RNNs."""
 
 import copy
-from typing import Optional
 
 from disentangled_rnns.library import disrnn
 from disentangled_rnns.library import multisubject_disrnn
@@ -38,7 +37,7 @@ plt.rcParams['svg.fonttype'] = 'none'
 
 
 def plot_bottlenecks(
-    params: hk.Params,
+    params: rnn_utils.RnnParams,
     disrnn_config: disrnn.DisRnnConfig,
     sort_latents: bool = True,
 ) -> plt.Figure:
@@ -202,9 +201,9 @@ def plot_bottlenecks(
 
 
 def plot_update_rules(
-    params: hk.Params,
+    params: rnn_utils.RnnParams,
     disrnn_config: disrnn.DisRnnConfig,
-    subj_ind: Optional[int] = None,
+    subj_ind: int | None = None,
     axis_lim: float = 2.1,
 ) -> list[plt.Figure]:
   """Generates visualizations of the update rules of a HkDisentangledRNN."""
@@ -437,11 +436,11 @@ def plot_update_rules(
 
 
 def plot_choice_rule(
-    params: hk.Params,
+    params: rnn_utils.RnnParams,
     disrnn_config: disrnn.DisRnnConfig,
-    subj_embedding: Optional[np.ndarray] = None,
+    subj_embedding: np.ndarray | None = None,
     axis_lim: float = 2.1,
-) -> Optional[plt.Figure]:
+) -> plt.Figure | None:
   """Plots the choice rule of a DisRNN.
 
   Args:

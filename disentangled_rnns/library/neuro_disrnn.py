@@ -17,7 +17,6 @@
 from collections.abc import Callable
 import copy
 import dataclasses
-from typing import Optional
 
 from disentangled_rnns.library import disrnn
 from disentangled_rnns.library import plotting
@@ -162,7 +161,7 @@ class HkNeuroDisentangledRNN(disrnn.HkDisentangledRNN):
 
 
 def plot_bottlenecks(
-    params: hk.Params,
+    params: rnn_utils.RnnParams,
     disrnn_w_neural_activity_config: DisRnnWNeuralActivityConfig,
     sort_latents: bool = True,
 ) -> plt.Figure:
@@ -235,10 +234,10 @@ def plot_bottlenecks(
 
 
 def plot_neural_activity_rules(
-    params: hk.Params,
+    params: rnn_utils.RnnParams,
     disrnn_config: DisRnnWNeuralActivityConfig,
     axis_lim: float = 2.1,
-) -> Optional[plt.Figure]:
+) -> plt.Figure | None:
   """Plots the neural_activity rule of a DisRNN with neural_activity prediction.
 
   This function visualizes how the predicted neural_activity level changes based
@@ -288,7 +287,7 @@ def plot_neural_activity_rules(
   neural_activity_multipliers = params_disrnn['neural_activity_net_multipliers']
 
   # Identify influential latents (sigmas < 0.5).
-  influential_latents = np.where(neural_activity_sigmas[:latent_size] < 0.1)[0]
+  influential_latents = np.where(neural_activity_sigmas[:latent_size] < 0.5)[0]
   n_influential_latents = len(influential_latents)
 
   if n_influential_latents == 0:
@@ -325,7 +324,7 @@ def plot_neural_activity_rules(
   }
 
   # Plotting logic.
-  fig, axes = plt.subplots(
+  fig, _ = plt.subplots(
       2, 2, figsize=(10, 8), sharex=True, sharey=True, constrained_layout=True
   )
   small = 8
@@ -437,10 +436,10 @@ def plot_neural_activity_rules(
 
 
 def plot_choice_rule(
-    params: hk.Params,
+    params: rnn_utils.RnnParams,
     disrnn_config: DisRnnWNeuralActivityConfig,
     axis_lim: float = 2.1,
-) -> Optional[plt.Figure]:
+) -> plt.Figure | None:
   """Plots the choice rule of a DisRNN with neural_activity prediction."""
 
   params = {
@@ -453,10 +452,10 @@ def plot_choice_rule(
 
 
 def plot_update_rules(
-    params: hk.Params,
+    params: rnn_utils.RnnParams,
     disrnn_config: DisRnnWNeuralActivityConfig,
     axis_lim: float = 2.1,
-) -> Optional[plt.Figure]:
+) -> plt.Figure | None:
   """Plots the update rules of a DisRNN with neural_activity prediction."""
   params = {
       key.replace('hk_neuro_disentangled_rnn', 'hk_disentangled_rnn'): value
@@ -468,12 +467,16 @@ def plot_update_rules(
 
 
 def log_bottlenecks(
-    params: hk.Params,
+    params: rnn_utils.RnnParams,
     open_thresh: float = 0.1,
     partially_open_thresh: float = 0.25,
     closed_thresh: float = 0.9,
 ) -> dict[str, int]:
   """Computes info about bottlenecks."""
+  params = {
+      key.replace('hk_neuro_disentangled_rnn', 'hk_disentangled_rnn'): value
+      for key, value in params.items()
+  }
   bnecks = disrnn.log_bottlenecks(
       params, open_thresh, partially_open_thresh, closed_thresh
   )
@@ -512,6 +515,10 @@ def log_bottlenecks(
 def get_total_sigma(params):
   """Get sum of reparameterized sigmas of a DisRNN."""
 
+  params = {
+      key.replace('hk_neuro_disentangled_rnn', 'hk_disentangled_rnn'): value
+      for key, value in params.items()
+  }
   prev_sigma_total = disrnn.get_total_sigma(params)
 
   params_disrnn = params['hk_disentangled_rnn']
@@ -524,13 +531,14 @@ def get_total_sigma(params):
 
 
 def get_auxiliary_metrics(
-    params: hk.Params,
+    params: rnn_utils.RnnParams,
     make_model_fn: Callable[[], hk.RNNCore],
     dataset_train: rnn_utils.DatasetRNN,
     dataset_eval: rnn_utils.DatasetRNN,
 ) -> dict[str, np.ndarray]:
   """Compute auxiliary metrics for DisRNN with Neural Activity."""
-  xs, ys = dataset_train.get_all()
+  data = dataset_train.get_all()
+  xs, ys = data['xs'], data['ys']
   network_outputs, _ = rnn_utils.eval_network(
       make_model_fn,
       params,
@@ -544,7 +552,8 @@ def get_auxiliary_metrics(
       ys, y_hats, likelihood_weight=0.0
   )
 
-  xs, ys = dataset_eval.get_all()
+  data = dataset_eval.get_all()
+  xs, ys = data['xs'], data['ys']
   network_outputs, _ = rnn_utils.eval_network(
       make_model_fn,
       params,

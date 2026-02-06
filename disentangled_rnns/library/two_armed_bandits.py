@@ -16,7 +16,7 @@
 
 import abc
 from collections.abc import Callable
-from typing import Literal, NamedTuple, Optional, Union
+from typing import Literal, NamedTuple, Union
 import warnings
 
 from disentangled_rnns.library import rnn_utils
@@ -45,7 +45,7 @@ class BaseEnvironment(abc.ABC):
     n_arms: The number of arms in the environment.
   """
 
-  def __init__(self, seed: Optional[int] = None, n_arms: int = 2):
+  def __init__(self, seed: int | None = None, n_arms: int = 2):
     self._random_state = np.random.RandomState(seed)
     self._n_arms = n_arms
 
@@ -95,7 +95,7 @@ class EnvironmentBanditsDrift(BaseEnvironment):
       self,
       sigma: float,
       p_instructed: float = 0.0,
-      seed: Optional[int] = None,
+      seed: int | None = None,
       n_arms: int = 2,
   ):
     super().__init__(seed=seed, n_arms=n_arms)
@@ -183,7 +183,7 @@ class EnvironmentPayoutMatrix(BaseEnvironment):
   def __init__(
       self,
       payout_matrix: np.ndarray,
-      instructed_matrix: Optional[np.ndarray] = None,
+      instructed_matrix: np.ndarray | None = None,
   ):
     """Initialize the environment.
 
@@ -212,7 +212,7 @@ class EnvironmentPayoutMatrix(BaseEnvironment):
           (self._n_sessions, self._n_trials), np.nan
       )
 
-    self._current_session = 0
+    self._current_session = -1
     self._current_trial = 0
 
   def new_session(self):
@@ -402,7 +402,9 @@ class AgentNetwork:
     params: A set of Haiku parameters suitable for that architecture
   """
 
-  def __init__(self, make_network: Callable[[], hk.RNNCore], params: hk.Params):
+  def __init__(
+      self, make_network: Callable[[], hk.RNNCore], params: rnn_utils.RnnParams
+  ):
 
     def step_network(
         xs: np.ndarray, state: hk.State
@@ -421,7 +423,7 @@ class AgentNetwork:
 
     self._initial_state = rnn_state.apply(params)
     self._model_fun = jax.jit(
-        lambda xs, state: model.apply(params, xs, rnn_state)
+        lambda xs, state: model.apply(params, xs, state)
     )
     self._xs = np.zeros((1, 2))
     self.new_session()
@@ -455,7 +457,7 @@ class SessData(NamedTuple):
 
 
 def run_experiment(
-    agent: Agent, environment: EnvironmentBanditsDrift, n_steps: int
+    agent: Agent, environment: BaseEnvironment, n_steps: int
 ) -> SessData:
   """Runs a behavioral session from a given agent and environment.
 
@@ -469,11 +471,12 @@ def run_experiment(
   """
   choices = np.zeros(n_steps)
   rewards = np.zeros(n_steps)
-  reward_probs = np.zeros((n_steps, 2))
+  reward_probs = np.full((n_steps, environment.n_arms), np.nan)
 
   for step in np.arange(n_steps):
     # First record environment reward probs
-    reward_probs[step] = environment.reward_probs
+    if hasattr(environment, 'reward_probs'):
+      reward_probs[step] = environment.reward_probs
     # First agent makes a choice
     attempted_choice = agent.get_choice()
     # Then environment computes a reward
@@ -495,11 +498,9 @@ def run_experiment(
 
 def create_dataset(
     agent: Agent,
-    environment: EnvironmentBanditsDrift,
+    environment: BaseEnvironment,
     n_steps_per_session: int,
     n_sessions: int,
-    batch_size: int | None = None,
-    batch_mode: Literal['single', 'rolling', 'random'] = 'single',
 ) -> rnn_utils.DatasetRNN:
   """Generates a behavioral dataset from a given agent and environment.
 
@@ -509,9 +510,6 @@ def create_dataset(
     n_steps_per_session: The number of trials in each behavioral session to be
       generated
     n_sessions: The number of sessions to generate
-    batch_size: The size of the batches to serve from the dataset
-    batch_mode: Batch mode to pass to DatasetRNN. Must be a type that is
-      supported by DatasetRNN.
 
   Returns:
     rnn_utils.DatasetRNN object
@@ -537,8 +535,6 @@ def create_dataset(
       y_names=['choice'],
       y_type='categorical',
       n_classes=2,
-      batch_size=batch_size,
-      batch_mode=batch_mode,
   )
   return dataset
 

@@ -14,8 +14,9 @@
 
 """Disentangled RNN and plotting functions."""
 import dataclasses
-from typing import Optional, Callable, Any, Sequence
+from typing import Callable, Any, Sequence
 
+from disentangled_rnns.library import rnn_utils
 import haiku as hk
 import jax
 import jax.numpy as jnp
@@ -25,7 +26,7 @@ import numpy as np
 def information_bottleneck(
     inputs: jnp.ndarray,
     sigmas: jnp.ndarray,
-    multipliers: Optional[jnp.ndarray] = None,
+    multipliers: jnp.ndarray | None = None,
     noiseless_mode: bool = False,
 ) -> tuple[jnp.ndarray, jnp.ndarray]:
   r"""Output from an information bottleneck given a vector of means and std devs.
@@ -151,8 +152,8 @@ class DisRnnConfig:
 
   max_latent_value: float = 2.
 
-  x_names: Optional[list[str]] = None
-  y_names: Optional[list[str]] = None
+  x_names: list[str] | None = None
+  y_names: list[str] | None = None
 
   def __post_init__(self):
     """Checks that the configuration is valid."""
@@ -386,7 +387,7 @@ class HkDisentangledRNN(hk.RNNCore):
         )
     )
 
-  def initial_state(self, batch_size: Optional[int]) -> Any:
+  def initial_state(self, batch_size: int | None) -> Any:
     # (batch_size, latent_size)
     latents = jnp.ones([batch_size, self._latent_size]) * self._latent_inits
     return latents
@@ -638,7 +639,7 @@ def get_total_sigma(params):
   )
 
 
-def get_auxiliary_metrics(params: hk.Params) -> dict[str, Any]:
+def get_auxiliary_metrics(params: rnn_utils.RnnParams) -> dict[str, Any]:
   """Computes auxiliary metrics for the base DisRNN.
 
   Args:

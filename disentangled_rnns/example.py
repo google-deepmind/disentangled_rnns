@@ -53,7 +53,6 @@ def main(_) -> None:
       environment,
       n_steps_per_session=FLAGS.n_steps_per_session,
       n_sessions=FLAGS.n_sessions,
-      batch_size=FLAGS.n_sessions,
   )
 
   # Second synthetic dataset for evaluation
@@ -62,7 +61,6 @@ def main(_) -> None:
       environment,
       n_steps_per_session=FLAGS.n_steps_per_session,
       n_sessions=FLAGS.n_sessions,
-      batch_size=FLAGS.n_sessions,
   )
 
   # Define the disRNN architecture
@@ -144,7 +142,7 @@ def main(_) -> None:
   # Eval disRNN on unseen data #
   ##############################
   # Use the wamrup disrnn, so that there will be no noise
-  xs, _ = next(dataset_eval)
+  xs = next(dataset_eval)["xs"]
   # pylint: disable-next=unused-variable
   _, network_states = rnn_utils.eval_network(make_disrnn_warmup, params, xs)
 

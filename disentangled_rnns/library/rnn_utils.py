@@ -17,7 +17,7 @@
 from collections.abc import Callable
 import json
 import sys
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Mapping
 import warnings
 
 from absl import logging
@@ -30,6 +30,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import optax
 
+RnnParams = Mapping[str, Mapping[str, Any]]
 
 # If we're running on colab, try to import IPython.display so we can display
 # progress that way. Otherwise, we will just print.
@@ -56,38 +57,42 @@ class DatasetRNN:
       xs: np.typing.NDArray[np.number],
       ys: np.typing.NDArray[np.number],
       y_type: Literal['categorical', 'scalar', 'mixed'] = 'categorical',
-      n_classes: Optional[int] = None,
-      x_names: Optional[list[str]] = None,
-      y_names: Optional[list[str]] = None,
-      batch_size: Optional[int] = None,
-      batch_mode: Literal['single', 'rolling', 'random'] = 'single',
+      batch_mode: Literal['single', 'rolling', 'random'] = 'random',
+      batch_size: int | None = 1024,
+      n_classes: int | None = None,
+      x_names: list[str] | None = None,
+      y_names: list[str] | None = None,
+      rng: np.random.Generator | None = None,
   ):
-    """Do error checking and bin up the dataset into batches.
+    """Do error checking and define properties.
 
     Args:
       xs: Values to become inputs to the network. Should have dimensionality
         [timestep, episode, feature]. Must be numeric, will be cast to float32.
       ys: Values to become output targets for the RNN. Should have
         dimensionality [timestep, episode, feature].
-      y_type: The type of the target variable(s). Can be 'categorical',
-        'scalar', or 'mixed'. - 'categorical': Targets must be integers
-        representing classes. - 'scalar': Targets must be numeric and will be
-        cast to float32. - 'mixed': Assumes the first target feature is
-        categorical and the rest are scalar.
+      y_type: The type of the target variable(s). Options are:
+        'categorical': Targets must be integers representing classes.
+        'scalar': Targets must be numeric and will be cast to float32.
+        'mixed': Assumes the first target feature is categorical and the rest
+          are scalar.
+      batch_mode: How to batch the dataset. Options are:
+        'random' [default]: Batches are formed by sampling episodes randomly
+           with replacement.
+        'rolling': Batches are formed by taking consecutive episodes in time,
+           wrapping around at the end of the dataset.
+        'single': All episodes are served together in a single batch.
+      batch_size: The size of the batch (number of episodes) to serve up each
+        time next() is called. If batch_mode is 'single', this is ignored and
+        all episodes are served together in a single batch.
       n_classes: The number of classes in the categorical targets. If not
         specified, will be inferred from the data.
       x_names: A list of names for the features in xs. If not supplied, will be
         generated automatically.
       y_names: A list of names for the features in ys. If not supplied, will be
         generated automatically.
-      batch_size: The size of the batch (number of episodes) to serve up each
-        time next() is called. If not specified, all episodes in the dataset
-        will be served
-      batch_mode: How to batch the dataset. Options are 'single', 'rolling', and
-        'random'. In 'single' mode, all episodes are served together. In
-        'rolling' mode, a new batch is formed by rolling the episodes forward in
-        time. In 'random' mode, a new batch is formed by randomly sampling
-        episodes. If not specified, will default to 'single'.
+      rng: A numpy random number generator. If not supplied, a new one will be
+        created.
     """
     ##################
     # Error checking #
@@ -183,14 +188,11 @@ class DatasetRNN:
     ####################
     # Property setting #
     ####################
-    # If batch size not specified, use all episodes in a single batch
+    # If batch size is None, set it to the number of episodes.
     if batch_size is None:
-      batch_size = xs.shape[1]
-    # In single-batch mode, batch size must match dataset size
-    if batch_mode == 'single' and batch_size != xs.shape[1]:
-      raise ValueError(
-          'In single batch mode, match size must be equal to dataset size, or',
-          f'must be None. Instead, is {batch_size}'
+      assert batch_mode not in ['rolling', 'random'], (
+          f'batch_mode was {batch_mode}, which requires batch_size to be'
+          f' specified. Instead, batch_size was {batch_size}.'
       )
 
     self.x_names = x_names
@@ -204,16 +206,17 @@ class DatasetRNN:
     self._n_timesteps = self._xs.shape[0]
     self.batch_mode = batch_mode
     self._current_start_index = 0  # For batch_mode='rolling'
+    self.rng = rng if rng is not None else np.random.default_rng()
 
   def __iter__(self):
     return self
 
   def get_all(self):
-    """Returns all the data in the dataset."""
-    return self._xs, self._ys
+    """Returns all the data in the dataset. Use this for evaluation."""
+    return {'xs': self._xs, 'ys': self._ys}
 
   def __next__(self):
-    """Return a batch of data, including both xs and ys."""
+    """Return a batch of data. Use this for training."""
 
     if self.batch_size == 0:
       # Return empty arrays with correct number of dimensions
@@ -224,7 +227,7 @@ class DatasetRNN:
           (self._n_timesteps, 0, self._ys.shape[2]), dtype=self._ys.dtype
       )
       warnings.warn('DatasetRNN batch_size is 0. Returning an empty batch.')
-      return empty_xs, empty_ys
+      return {'xs': empty_xs, 'ys': empty_ys}
 
     if self.batch_mode == 'single':
       return self.get_all()
@@ -243,11 +246,11 @@ class DatasetRNN:
       self._current_start_index = (
           self._current_start_index + self.batch_size
       ) % self._n_episodes
-      return xs_batch, ys_batch
+      return {'xs': xs_batch, 'ys': ys_batch}
 
     elif self.batch_mode == 'random':
-      inds_to_get = np.random.choice(self._n_episodes, size=self.batch_size)
-      return self._xs[:, inds_to_get], self._ys[:, inds_to_get]
+      inds_to_get = self.rng.choice(self._n_episodes, size=self.batch_size)
+      return {'xs': self._xs[:, inds_to_get], 'ys': self._ys[:, inds_to_get]}
 
     else:
       raise ValueError(
@@ -260,7 +263,16 @@ def split_dataset(
     dataset: DatasetRNN, eval_every_n: int, eval_offset: int = 1
 ) -> tuple[DatasetRNN, DatasetRNN]:
   """Split a dataset into train and eval sets."""
-  xs, ys = dataset.get_all()
+  data = dataset.get_all()
+  xs, ys = data['xs'], data['ys']
+  if data.keys() != {'xs', 'ys'}:
+    raise NotImplementedError(
+        f'Splitting is only implemented for datasets with keys xs and ys. This'
+        f' one has keys {data.keys()}.'
+        ' If you need to split a dataset with other data, feel free to '
+        'implement this and send a CL!'
+    )
+
   n_sessions = xs.shape[1]
   train_sessions = np.ones(n_sessions, dtype=bool)
   if eval_offset < 0 or eval_offset > eval_every_n - 1:
@@ -271,11 +283,6 @@ def split_dataset(
   train_sessions[np.arange(eval_offset, n_sessions, eval_every_n)] = False
   eval_sessions = np.logical_not(train_sessions)
 
-  if dataset.batch_mode == 'single':
-    batch_size = None
-  else:
-    batch_size = dataset.batch_size
-
   dataset_train = DatasetRNN(
       xs[:, train_sessions, :],
       ys[:, train_sessions, :],
@@ -283,8 +290,9 @@ def split_dataset(
       y_names=dataset.y_names,
       y_type=dataset.y_type,
       n_classes=dataset.n_classes,
-      batch_size=batch_size,
+      batch_size=dataset.batch_size,
       batch_mode=dataset.batch_mode,
+      rng=dataset.rng,
   )
   dataset_eval = DatasetRNN(
       xs[:, eval_sessions, :],
@@ -293,14 +301,15 @@ def split_dataset(
       y_names=dataset.y_names,
       y_type=dataset.y_type,
       n_classes=dataset.n_classes,
-      batch_size=None,
+      batch_size=dataset.batch_size,
       batch_mode=dataset.batch_mode,
+      rng=dataset.rng,
   )
   return dataset_train, dataset_eval
 
 
 def nan_in_dict(d: np.ndarray | dict[str, Any]):
-  """Check a nested dict (e.g. hk.params) for nans."""
+  """Check a nested dict (e.g. RnnParams) for nans."""
   if not isinstance(d, dict):
     return np.any(np.isnan(d))
   else:
@@ -346,7 +355,9 @@ def mse(ys: np.ndarray, y_hats: np.ndarray) -> float:
 
 @jax.jit
 def categorical_neg_log_likelihood(
-    labels: np.ndarray, output_logits: np.ndarray
+    labels: np.ndarray,
+    output_logits: np.ndarray,
+    valid_actions_mask: np.ndarray | None = None,
 ) -> tuple[float, int]:
   """Compute total log-likelihood of a set of labels given a set of logits.
 
@@ -358,6 +369,9 @@ def categorical_neg_log_likelihood(
       categorical labels. Negative values are treated as masked.
     output_logits: An array of shape (n_timesteps, n_episodes, n_classes)
       containing the logits output by the network.
+    valid_actions_mask: An array of shape (n_timesteps, n_episodes, n_classes)
+      containing a binary mask for the logits. If None, all logits are
+      considered valid actions.
 
   Returns:
     A tuple containing:
@@ -366,7 +380,7 @@ def categorical_neg_log_likelihood(
   """
   # Mask any errors for which label is negative
   mask = jnp.logical_not(labels < 0)
-  log_probs = jax.nn.log_softmax(output_logits)
+  log_probs = jax.nn.log_softmax(output_logits, where=valid_actions_mask)
   if labels.shape[2] != 1:
     raise ValueError(
         'Categorical loss function requires targets to be of dimensionality'
@@ -508,6 +522,69 @@ def normalized_likelihood(
   return normlik
 
 
+def avg_nll_and_log_mse(
+    ys: np.ndarray,
+    y_hats: np.ndarray,
+    likelihood_weight: float = 0.5,
+    n_categorical_targets: int = 2,
+    n_continuous_targets: int = 1,
+) -> float:
+  """Computes a scale-normalized weighted sum of avg NLL and log(MSE).
+
+  This loss is suitable for joint training on heterogeneous objectives
+  (categorical + continuous) by putting both losses on the same log scale.
+  The log(MSE) formulation helps keep the gradients from the MSE term from
+  dominating the overall gradient.
+
+  By convention, for mixed targets:
+  - `ys` contains categorical targets at index 0 and continuous targets at
+    indices [1, 1 + n_continuous_targets).
+  - `y_hats` contains logits for categorical targets at indices
+    [0, n_categorical_targets) and predictions for continuous targets at indices
+    [n_categorical_targets, n_categorical_targets + n_continuous_targets).
+
+  Args:
+    ys: Ground truth targets.
+    y_hats: Network predictions (logits for categorical, values for continuous).
+    likelihood_weight: The weight for the average NLL. The log(MSE) is weighted
+      by (1 - likelihood_weight). Default is 0.5 for equal weighting.
+    n_categorical_targets: The number of output logits for the categorical
+      target.
+    n_continuous_targets: The number of continuous targets.
+
+  Returns:
+    The weighted sum of average NLL and log(MSE + eps).
+  """
+  categorical_y_hats = y_hats[:, :, 0:n_categorical_targets]
+  categorical_ys = ys[:, :, 0:1]
+
+  mask = jnp.logical_not(categorical_ys < 0)
+  continuous_y_hats = y_hats[
+      :, :, n_categorical_targets : n_categorical_targets + n_continuous_targets
+  ]
+  continuous_ys = ys[:, :, 1 : 1 + n_continuous_targets]
+  continuous_ys = jnp.where(mask, continuous_ys, jnp.nan)
+
+  nll, n_unmasked_samples = categorical_neg_log_likelihood(
+      categorical_ys, categorical_y_hats
+  )
+  avg_nll = nll / n_unmasked_samples
+
+  mse_val = mse(continuous_ys, continuous_y_hats)
+
+  # This is a trick to scale the gradients from the mse as:
+  # derivative(log(1+mse)) = 1 / (1 + mse) * derivative(1+mse)
+  # So early in the training when mse is large, the gradient is damped, later
+  # when mse is small, the gradient is almost the same as the original gradient.
+  # Note that log(mse) is follows the same monotonic trend as mse, so this
+  # transform will lead to a similar optimization as the original mse.
+  log_mse_val = jnp.log(1.0 + mse_val)
+
+  # Likelihood weight should ideally be set to 0.5, but can be used as a toggle
+  # to train on just one objective at a time (e.g. likelihood or mse).
+  return avg_nll * likelihood_weight + log_mse_val * (1 - likelihood_weight)
+
+
 @jax.jit
 def compute_penalty(
     targets: np.ndarray, outputs: np.ndarray
@@ -547,13 +624,13 @@ def compute_penalty(
 def train_network(
     make_network: Callable[[], hk.RNNCore],
     training_dataset: DatasetRNN,
-    validation_dataset: Optional[DatasetRNN],
+    validation_dataset: DatasetRNN | None,
     opt: optax.GradientTransformation = optax.adam(1e-3),
-    random_key: Optional[chex.PRNGKey] = None,
-    opt_state: Optional[optax.OptState] = None,
-    params: Optional[hk.Params] = None,
+    random_key: chex.PRNGKey | None = None,
+    opt_state: optax.OptState | None = None,
+    params: RnnParams | None = None,
     n_steps: int = 1000,
-    max_grad_norm: float = 1e10,
+    max_grad_norm: float = 1,
     loss_param: dict[str, float] | float = 1.0,
     loss: Literal[
         'mse',
@@ -566,9 +643,9 @@ def train_network(
     log_losses_every: int = 10,
     do_plot: bool = False,
     report_progress_by: Literal['print', 'log', 'wandb', 'none'] = 'print',
-    wandb_run: Optional[Any] = None,
+    wandb_run: Any | None = None,
     wandb_step_offset: int = 0,
-) -> tuple[hk.Params, optax.OptState, dict[str, np.ndarray]]:
+) -> tuple[RnnParams, optax.OptState, dict[str, np.ndarray]]:
   """Trains a Haiku recurrent neural network.
 
   Args:
@@ -583,9 +660,9 @@ def train_network(
     opt_state: An optax.OptState object containing an optimizer state suitable
       for the optimizer specified in opt. If None, will initialize an optimizer
       state from scratch.
-    params:  An hk.Params object containing a set of parameters suitable for the
-      network given by make_network. If not specified, will randomly
-      initialize new parameters.
+    params:  An RnnParams object containing a set of parameters suitable for the
+      network given by make_network. If not specified, will randomly initialize
+      new parameters.
     n_steps: An integer giving the number of steps you'd like to train for.
     max_grad_norm:  Gradient clipping. Default to a very high ceiling.
     loss_param: Parameters to pass to the loss function. Can be a dictionary for
@@ -593,21 +670,22 @@ def train_network(
       {'penalty_scale': 0.1, 'likelihood_weight': 0.8}) or a single float for
       simpler losses.
     loss: The loss function to use. Options are 'mse', 'penalized_mse',
-      'categorical', 'penalized_categorical', 'hybrid', 'penalized_hybrid'.
+      'categorical', 'penalized_categorical', 'hybrid', 'penalized_hybrid',
+      'penalized_log_hybrid'.
     log_losses_every: How many training steps between each time we check for
       errors and log the loss.
     do_plot: Boolean that controls whether a learning curve is plotted.
     report_progress_by: Mode for reporting real-time progress. Options are
       'print' for printing to the console, 'log' for using absl logging, 'wandb'
-       for both W&B logging and printing, and 'none' for no output.
+      for both W&B logging and printing, and 'none' for no output.
     wandb_run: Optional W&B run object used for logging metrics during train.
-       W&B logging occurs only if both wandb_run is provided and
-       report_progress_by is 'wandb'.
+      W&B logging occurs only if both wandb_run is provided and
+      report_progress_by is 'wandb'.
     wandb_step_offset: Integer used to shift the W&B step count, if necessary
-       (e.g. to include warmup steps logged beforehand in the same W&B run).
+      (e.g. to include warmup steps logged beforehand in the same W&B run).
 
   Returns:
-    params: hk.Params object containing the trained parameters. Typically this
+    params: RnnParams object containing the trained parameters. Typically this
       can be treated as a nested dictionary with a format that depends on the
       structure of the network.
     opt_state: optax.OptState object containing the optimizer state at the end
@@ -616,7 +694,10 @@ def train_network(
       mapping to numpy arrays containing a timeseries of losses on each
       dataset. Losses are recorded every log_losses_every steps.
   """
-  sample_xs, _ = next(training_dataset)  # Get a sample input, for shape
+  # If loaded from json, params might be a nested dict of lists. Convert to np.
+  if params is not None:
+    params = to_np(params)
+  sample_xs = next(training_dataset)['xs']  # Get a sample input, for shape
 
   # Haiku, step one: Define the batched network
   def unroll_network(xs):
@@ -715,24 +796,35 @@ def train_network(
   def penalized_hybrid_loss(
       params, xs, ys, random_key, loss_param=loss_param_dict
   ) -> float:
-    """A hybrid loss with a penalty."""
+    """A hybrid loss with a penalty.
+
+    Useful for jointly training on categorical and continuous targets. Uses a
+    log of MSE loss for the continuous targets, so that the loss is similar
+    units as the categorical loss.
+
+    Args:
+      params: The network parameters.
+      xs: The input data.
+      ys: The target data.
+      random_key: A JAX random key.
+      loss_param: Parameters for the loss function, potentially including
+        'penalty_scale' and 'likelihood_weight'.
+
+    Returns:
+      The computed penalized hybrid loss.
+    """
 
     penalty_scale = get_loss_param(loss_param, 'penalty_scale', 1.0)
     model_output = model.apply(params, random_key, xs)
 
-    # model_output has the continuous and categorical targets first followed by
-    # the penalty. The likelihood_and_sse functions handles
-    # ignoring the penalty, hence we don't need to do anything special here.
     y_hats = model_output
-    likelihood_weight = get_loss_param(loss_param, 'likelihood_weight', 1.0)
-    supervised_loss = likelihood_and_sse(
+    likelihood_weight = get_loss_param(loss_param, 'likelihood_weight', 0.5)
+    supervised_loss = avg_nll_and_log_mse(
         ys, y_hats, likelihood_weight=likelihood_weight
     )
-    # Supervised loss here is a sum not an average, so use the raw penalty
-    # without dividing by n_unmasked_samples
-    # TODO(siddhantjain): Evaluate whether we should use averaging here too.
-    penalty, _ = compute_penalty(ys, y_hats)
-    loss = supervised_loss + penalty_scale * penalty
+    penalty, n_unmasked_samples = compute_penalty(ys, y_hats)
+    avg_penalty = penalty / n_unmasked_samples
+    loss = supervised_loss + penalty_scale * avg_penalty
     return loss
 
   losses = {
@@ -766,10 +858,12 @@ def train_network(
   validation_loss = []
   l_validation = np.nan
 
-  xs_train, ys_train = next(training_dataset)
+  data = next(training_dataset)
+  xs_train, ys_train = data['xs'], data['ys']
 
   if validation_dataset is not None:
-    xs_eval, ys_eval = validation_dataset.get_all()
+    data = validation_dataset.get_all()
+    xs_eval, ys_eval = data['xs'], data['ys']
   else:
     xs_eval = None
     ys_eval = None
@@ -780,7 +874,8 @@ def train_network(
     )
     # If the training dataset uses batching, get a new batch
     if training_dataset.batch_mode != 'single':
-      xs_train, ys_train = next(training_dataset)
+      data = next(training_dataset)
+      xs_train, ys_train = data['xs'], data['ys']
 
     loss, params, opt_state = train_step(
         params, opt_state, xs_train, ys_train, subkey_train
@@ -849,12 +944,12 @@ def train_network(
 
   if training_loss and np.isnan(training_loss[-1]):
     raise ValueError('NaN in loss')
-  return params, opt_state, losses
+  return params, opt_state, losses  # pytype: disable=bad-return-type
 
 
 def eval_network(
     make_network: Callable[[], hk.RNNCore],
-    params: hk.Params,
+    params: RnnParams,
     xs: np.ndarray,
 ) -> tuple[np.ndarray, Any]:
   """Runs an RNN and returns its outputs and all internal states.
@@ -872,9 +967,11 @@ def eval_network(
       element will be the penalty attributable to that timestep. Previous
       elements will reflect predicted targets -- logits in the case of
       categorical targets and means in the case of continuous targets.
-    states: Network states at each timestep. A numpy array of shape
-      [timesteps, episodes, hidden_size].
+      states: Network states at each timestep. A numpy array of shape
+        [timesteps, episodes, hidden_size].
   """
+  # If loaded from json, params might be a nested dict of lists. Convert to np.
+  params = to_np(params)
 
   def unroll_network(xs):
     core = make_network()
@@ -931,10 +1028,11 @@ def get_apply(
 
 def step_network(
     make_network: Callable[[], hk.RNNCore],
-    params: hk.Params,
+    params: RnnParams,
     state: Any,
     xs: Any,
     apply: Any = None,
+    convert_params_to_np: bool = True,
 ) -> tuple[Any, Any, Any]:
   """Run an RNN for just a single step on a single input, with batching.
 
@@ -946,6 +1044,9 @@ def step_network(
       `[batch_size, n_features]`.
     apply: A jitted function that applies the network to a single input. If not
       supplied, will be generated from the network architecture.
+    convert_params_to_np: Whether to convert params to np. This is helpful if
+      the params are loaded from json, but will cause issues if `step_network`
+      is jitted.
 
   Returns:
     A tuple containing:
@@ -954,6 +1055,9 @@ def step_network(
       - new_state: The new RNN state.
       - apply: The (possibly newly created) jitted apply function.
   """
+  # If loaded from json, params might be a nested dict of lists. Convert to np.
+  if convert_params_to_np:
+    params = to_np(params)
 
   if apply is None:
     apply = get_apply(make_network)
@@ -965,7 +1069,7 @@ def step_network(
 
 def get_initial_state(
     make_network: Callable[[], hk.RNNCore],
-    params: Optional[Any] = None,
+    params: RnnParams | None = None,
     batch_size: int = 1,
     seed: int = 0,
 ) -> Any:
@@ -982,6 +1086,9 @@ def get_initial_state(
   Returns:
     initial_state: An initial state from that network
   """
+  # If loaded from json, params might be a nested dict of lists. Convert to np.
+  if params is not None:
+    params = to_np(params)
 
   def unroll_network():
     core = make_network()
@@ -1004,37 +1111,45 @@ def get_initial_state(
 
 def get_new_params(
     make_network: Callable[..., hk.RNNCore],
-    random_key: Optional[jax.Array] = None,
-) -> Any:
+    input_size: int,
+    random_key: jax.Array | None = None,
+) -> RnnParams:
   """Get a new set of random parameters for a network architecture.
 
   Args:
     make_network: A Haiku function that defines a network architecture
+    input_size: The dimensionality of the input features. This is needed because
+      in some networks, the number of params depends on this and is not
+      inferrable from the network architecture alone.
     random_key: a Jax random key
 
   Returns:
     params: A set of parameters suitable for the architecture
   """
 
-  # If no key has been supplied, pick a random one.
+  # If no key has been supplied, initialize a fixed key.
   if random_key is None:
-    random_key = jax.random.PRNGKey(np.random.randint(2**32))
+    random_key = jax.random.PRNGKey(0)
 
-  def unroll_network():
+  def unroll_network(xs):
     core = make_network()
-    state = core.initial_state(batch_size=1)
-
-    return state
+    batch_size = xs.shape[1]
+    state = core.initial_state(batch_size=batch_size)
+    ys, _ = hk.dynamic_unroll(core, xs, state)
+    return ys
 
   model = hk.transform(unroll_network)
+
+  dummy_input = jnp.zeros((1, 1, input_size))
+
   init = jax.jit(model.init)
-  params = init(random_key)
+  params = init(random_key, dummy_input)
 
   return params
 
 
 def eval_feedforward_network(
-    make_network: Callable[..., Any], params: hk.Params, xs: np.ndarray
+    make_network: Callable[..., Any], params: RnnParams, xs: np.ndarray
 ) -> np.ndarray:
   """Runs a feedforward network with specified parameters and inputs.
 
@@ -1046,6 +1161,8 @@ def eval_feedforward_network(
   Returns:
     The network outputs with shape `[batch_size, n_outputs]`.
   """
+  # If loaded from json, params might be a nested dict of lists. Convert to np.
+  params = to_np(params)
 
   def forward(xs):
     net = make_network()
@@ -1060,13 +1177,13 @@ def eval_feedforward_network(
   return np.array(y_hats)
 
 
-def to_np(list_dict: dict[str, Any]):
+def to_np(list_dict: dict[str, Any] | RnnParams):
   """Converts all numerical lists in a dict to np arrays.
 
   Elements that are convertible to numpy are converted. Elements that are dicts
   are recursively unpacked in the same way. Other elements are left unchanged.
   The intended use case is reconstructing a dict from json that was saved with
-  NpEncoder and has had all its np arrays converted to lists.
+  NpJnpJsonEncoder and has had all its np arrays converted to lists.
 
   Args:
     list_dict: A dict or hierarchical tree of dicts

@@ -24,6 +24,20 @@ To release a new version (e.g. from `1.0.0` -> `2.0.0`):
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-01-22
+
+- Modify default behavior of DatasetRNN to use random batching, and allow
+  passing a random number generator for reproducibility.
+- Modify DatasetRNN to return a dict instead of a tuple. This paves the way for
+  generalizations with fields other than just inputs and targets.
+
+## [0.1.3] - 2026-01-15
+
+- Fix a bug which prevented some two_armed_bandit agents and environments from working correctly to generate synthetic datasets
+- Add a new loss for jointly training on continuous and categorical targets. The intended use-case is NeuroDisRNN.
+- Improve typing for rnn params
+- Fix plotting functions for NeuroDisRNN
+
 ## [0.1.2] - 2025-11-17
 
 - Validate input types to DatasetRNN
@@ -45,3 +59,5 @@ a release and act as a baseline for future releases.
 [Unreleased]: https://github.com/google-deepmind/disentangled_rnns/compare/v0.1.1...HEAD
 [0.1.1]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.1
 [0.1.2]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.2
+[0.1.3]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.3
+[0.1.4]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.4
