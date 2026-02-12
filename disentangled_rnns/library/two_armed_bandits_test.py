@@ -1,4 +1,4 @@
-# Copyright 2025 DeepMind Technologies Limited.
+# Copyright 2026 DeepMind Technologies Limited.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,10 +30,9 @@ def make_gru_network():
 def get_agent_network():
   params, _, _ = rnn_utils.train_network(
       make_gru_network,
-      training_dataset=rnn_utils.DatasetRNN(
+      training_dataset=rnn_utils.DatasetRNNCategorical(
           xs=np.zeros((10, 1, 2)),
-          ys=np.zeros((10, 1, 1)),
-          y_type='categorical',
+          ys=np.zeros((10, 1, 1), dtype=np.int32),
           n_classes=2,
       ),
       validation_dataset=None,

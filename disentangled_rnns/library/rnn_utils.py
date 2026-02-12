@@ -1,4 +1,4 @@
-# Copyright 2025 DeepMind Technologies Limited.
+# Copyright 2026 DeepMind Technologies Limited.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 
 """Functions to train, evaluate, and examine Haiku RNNs."""
 
+import abc
 from collections.abc import Callable
 import json
 import sys
@@ -45,18 +46,29 @@ else:
   _display_available = False
 
 
-class DatasetRNN:
+class DatasetRNN(abc.ABC):
   """Holds a dataset for training an RNN, consisting of inputs and targets.
 
   Both inputs and targets are stored as [timestep, episode, feature]
   Serves them up in batches
   """
+  x_names: list[str]
+  y_names: list[str]
+  n_classes: int | None
+  batch_size: int | None
+  _xs: np.typing.NDArray[np.number]
+  _ys: np.typing.NDArray[np.number]
+  _n_episodes: int
+  _n_timesteps: int
+  batch_mode: Literal['single', 'rolling', 'random']
+  _current_start_index: int  # For batch_mode='rolling'
+  rng: np.random.Generator
 
+  @abc.abstractmethod
   def __init__(
       self,
-      xs: np.typing.NDArray[np.number],
+      xs: np.typing.NDArray[np.float32],
       ys: np.typing.NDArray[np.number],
-      y_type: Literal['categorical', 'scalar', 'mixed'] = 'categorical',
       batch_mode: Literal['single', 'rolling', 'random'] = 'random',
       batch_size: int | None = 1024,
       n_classes: int | None = None,
@@ -71,11 +83,6 @@ class DatasetRNN:
         [timestep, episode, feature]. Must be numeric, will be cast to float32.
       ys: Values to become output targets for the RNN. Should have
         dimensionality [timestep, episode, feature].
-      y_type: The type of the target variable(s). Options are:
-        'categorical': Targets must be integers representing classes.
-        'scalar': Targets must be numeric and will be cast to float32.
-        'mixed': Assumes the first target feature is categorical and the rest
-          are scalar.
       batch_mode: How to batch the dataset. Options are:
         'random' [default]: Batches are formed by sampling episodes randomly
            with replacement.
@@ -97,53 +104,6 @@ class DatasetRNN:
     ##################
     # Error checking #
     ##################
-
-    if y_type not in ['categorical', 'scalar', 'mixed']:
-      raise ValueError(
-          f'y_type {y_type} must be either "categorical","scalar" or "mixed".'
-      )
-
-    if y_type == 'categorical':
-      # Check validity and determine the number of classes
-      if ys.shape[-1] != 1:
-        raise NotImplementedError(
-            'Categorical targets are assumed to have dimensionality'
-            f'(n_timesteps, n_episodes, 1). Got {ys.shape} instead. If you need'
-            'multiple distinct types of categorical targets, feel free to '
-            'implement this and send a CL'
-        )
-      # For categorical ys, ensure they are integers or close to integers
-      uniques = np.unique(ys)
-      if not np.all(np.isclose(uniques, np.round(uniques))):
-        raise ValueError(
-            'For y_type="categorical", ys must be integers or floats close to'
-            f' integers. Got unique values: {uniques}'
-        )
-
-    if y_type in ['categorical', 'mixed']:
-      # By convention, for y_type=='mixed' the first element of the target
-      # is assumed to be categorical.
-      categorical_index = 0
-      categorical_ys = ys[:, :, categorical_index]
-      uniques = np.unique(categorical_ys)
-      if not np.all(np.isclose(uniques, np.round(uniques))):
-        raise ValueError(
-            f'Categorical targets must be integers. Got {uniques} instead'
-        )
-      # Infer or check the number of classes. It should be equal to or greater
-      # than the number of unique nonnegative values
-      n_classes_expected = np.sum(uniques >= 0)
-      if n_classes is None:
-        n_classes = n_classes_expected
-      else:
-        if n_classes < n_classes_expected:
-          raise ValueError(
-              f'Based on unique y values {uniques}, expected n_classes to be at'
-              f' least {n_classes_expected}. Instead it is {n_classes}'
-          )
-    else:
-      # If not categorical, n_classes is not defined
-      n_classes = None
 
     # Do xs and ys have the same number of timesteps?
     if xs.shape[0] != ys.shape[0]:
@@ -185,23 +145,23 @@ class DatasetRNN:
             f' features in ys {ys.shape[-1]}.'
         )
 
-    ####################
-    # Property setting #
-    ####################
-    # If batch size is None, set it to the number of episodes.
+    # Ensure batch_size is specified when required
     if batch_size is None:
       assert batch_mode not in ['rolling', 'random'], (
           f'batch_mode was {batch_mode}, which requires batch_size to be'
           f' specified. Instead, batch_size was {batch_size}.'
       )
 
+    ####################
+    # Property setting #
+    ####################
+
     self.x_names = x_names
     self.y_names = y_names
-    self.y_type = y_type
     self.n_classes = n_classes
     self.batch_size = batch_size
     self._xs = xs.astype(np.float32)
-    self._ys = ys.astype(np.float32)
+    self._ys = ys
     self._n_episodes = self._xs.shape[1]
     self._n_timesteps = self._xs.shape[0]
     self.batch_mode = batch_mode
@@ -259,6 +219,172 @@ class DatasetRNN:
       )
 
 
+class DatasetRNNCategorical(DatasetRNN):
+  """DatasetRNN with categorical targets."""
+
+  def __init__(
+      self,
+      xs: np.typing.NDArray[np.float32],
+      ys: np.typing.NDArray[np.int32],
+      *,
+      batch_mode: Literal['single', 'rolling', 'random'] = 'random',
+      batch_size: int | None = 1024,
+      n_classes: int | None = None,
+      x_names: list[str] | None = None,
+      y_names: list[str] | None = None,
+      rng: np.random.Generator | None = None,
+  ):
+    # Check validity and determine the number of classes
+    if ys.shape[-1] != 1:
+      raise NotImplementedError(
+          'Categorical targets are assumed to have dimensionality'
+          f'(n_timesteps, n_episodes, 1). Got {ys.shape} instead. If you need'
+          'multiple distinct types of categorical targets, feel free to '
+          'implement this and send a CL'
+      )
+    # For categorical ys, ensure they are integers
+    if not np.issubdtype(ys.dtype, np.integer):
+      raise ValueError(
+          'For DatasetRNNCategorical, ys must be integers. Got type'
+          f' {ys.dtype} instead.'
+      )
+    # Infer or check the number of classes. It should be equal to or greater
+    # than the number of unique nonnegative values
+    uniques = np.unique(ys)
+    n_classes_expected = np.sum(uniques >= 0)
+    if n_classes is None:
+      n_classes = n_classes_expected
+    else:
+      if n_classes < n_classes_expected:
+        raise ValueError(
+            f'Based on unique y values {uniques}, expected n_classes to be at'
+            f' least {n_classes_expected}. Instead it is {n_classes}'
+        )
+    super().__init__(
+        xs=xs,
+        ys=ys,
+        batch_mode=batch_mode,
+        batch_size=batch_size,
+        n_classes=n_classes,
+        x_names=x_names,
+        y_names=y_names,
+        rng=rng,
+    )
+
+
+class DatasetRNNScalar(DatasetRNN):
+  """DatasetRNN with scalar targets."""
+
+  def __init__(
+      self,
+      xs: np.typing.NDArray[np.float32],
+      ys: np.typing.NDArray[np.float32],
+      batch_mode: Literal['single', 'rolling', 'random'] = 'random',
+      batch_size: int | None = 1024,
+      n_classes: int | None = None,
+      x_names: list[str] | None = None,
+      y_names: list[str] | None = None,
+      rng: np.random.Generator | None = None,
+  ):
+    super().__init__(
+        xs=xs,
+        ys=ys,
+        batch_mode=batch_mode,
+        batch_size=batch_size,
+        n_classes=n_classes,
+        x_names=x_names,
+        y_names=y_names,
+        rng=rng,
+    )
+
+
+class DatasetRNNMixed(DatasetRNN):
+  """DatasetRNN with mixed targets."""
+
+  def __init__(
+      self,
+      xs: np.typing.NDArray[np.float32],
+      ys: np.typing.NDArray[np.float32],
+      batch_mode: Literal['single', 'rolling', 'random'] = 'random',
+      batch_size: int | None = 1024,
+      n_classes: int | None = None,
+      x_names: list[str] | None = None,
+      y_names: list[str] | None = None,
+      rng: np.random.Generator | None = None,
+  ):
+    # By convention, for y_type=='mixed' the first element of the target
+    # is assumed to be categorical.
+    # TODO(b/478851015): Add support for explicitly separating categorical and
+    # continuous targets.
+    categorical_index = 0
+    categorical_ys = ys[:, :, categorical_index]
+    uniques = np.unique(categorical_ys)
+    if not np.all(np.isclose(uniques, np.round(uniques))):
+      raise ValueError(
+          f'Categorical targets must be integers. Got {uniques} instead'
+      )
+    # Infer or check the number of classes. It should be equal to or greater
+    # than the number of unique nonnegative values
+    n_classes_expected = np.sum(uniques >= 0)
+    if n_classes is None:
+      n_classes = n_classes_expected
+    else:
+      if n_classes < n_classes_expected:
+        raise ValueError(
+            f'Based on unique y values {uniques}, expected n_classes to be at'
+            f' least {n_classes_expected}. Instead it is {n_classes}'
+        )
+    super().__init__(
+        xs=xs,
+        ys=ys,
+        batch_mode=batch_mode,
+        batch_size=batch_size,
+        n_classes=n_classes,
+        x_names=x_names,
+        y_names=y_names,
+        rng=rng,
+    )
+
+
+def datasets_are_compatible(
+    ds1: DatasetRNN, ds2: DatasetRNN
+) -> bool:
+  """Checks if two DatasetRNN objects are compatible for merging.
+
+  Compatible means they are of the same type and all attributes match, except
+  for attributes holding data ('_xs', '_ys', '_n_episodes') and attributes that
+  are safe to override ('rng', 'batch_mode', 'batch_size').
+
+  Args:
+    ds1: First dataset.
+    ds2: Second dataset.
+
+  Returns:
+    True if datasets are compatible, False otherwise.
+  """
+
+  # Datasets must be of the same type to be compatible.
+  if type(ds1) is not type(ds2):
+    return False
+
+  def _get_comparable_attrs(dataset: DatasetRNN) -> dict[str, Any]:
+    """Gets a dict of all attributes that must match for datasets to be compatible."""
+    data_keys = ['_xs', '_ys', '_n_episodes', '_n_timesteps']
+    safe_to_override_keys = ['rng', 'batch_mode', 'batch_size']
+    # Get a dict of all attributes
+    attrs = dataset.__dict__.copy()
+    # Remove attributes that do not need to match
+    for key in data_keys + safe_to_override_keys:
+      if key in attrs:
+        attrs.pop(key)
+    return attrs
+
+  attrs1 = _get_comparable_attrs(ds1)
+  attrs2 = _get_comparable_attrs(ds2)
+
+  return attrs1 == attrs2
+
+
 def split_dataset(
     dataset: DatasetRNN, eval_every_n: int, eval_offset: int = 1
 ) -> tuple[DatasetRNN, DatasetRNN]:
@@ -283,28 +409,38 @@ def split_dataset(
   train_sessions[np.arange(eval_offset, n_sessions, eval_every_n)] = False
   eval_sessions = np.logical_not(train_sessions)
 
-  dataset_train = DatasetRNN(
+  if type(dataset) not in [
+      DatasetRNNCategorical,
+      DatasetRNNScalar,
+      DatasetRNNMixed,
+  ]:
+    # This is out of an abundance of caution. The logic below assumes data
+    # fields xs and ys. We anticipate new classes which generalize this but we
+    # will need to update this function to support them.
+    raise NotImplementedError(
+        f'Dataset type {type(dataset)} not recognized. Cannot split.'
+    )
+
+  dataset_train = dataset.__class__(
       xs[:, train_sessions, :],
       ys[:, train_sessions, :],
       x_names=dataset.x_names,
       y_names=dataset.y_names,
-      y_type=dataset.y_type,
       n_classes=dataset.n_classes,
       batch_size=dataset.batch_size,
       batch_mode=dataset.batch_mode,
       rng=dataset.rng,
-  )
-  dataset_eval = DatasetRNN(
+  )  # pytype: disable=not-instantiable
+  dataset_eval = dataset.__class__(
       xs[:, eval_sessions, :],
       ys[:, eval_sessions, :],
       x_names=dataset.x_names,
       y_names=dataset.y_names,
-      y_type=dataset.y_type,
       n_classes=dataset.n_classes,
       batch_size=dataset.batch_size,
       batch_mode=dataset.batch_mode,
       rng=dataset.rng,
-  )
+  )  # pytype: disable=not-instantiable
   return dataset_train, dataset_eval
 
 

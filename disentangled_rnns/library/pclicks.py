@@ -1,4 +1,4 @@
-# Copyright 2025 DeepMind Technologies Limited.
+# Copyright 2026 DeepMind Technologies Limited.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -132,7 +132,7 @@ def drift_diffusion_model(
   )
   first_bound_crossing = np.argmax(crossed_bound, axis=0)
 
-  decisions = np.zeros(n_trials)
+  decisions = np.zeros(n_trials, dtype=int)
   for trial_i in range(n_trials):
     if first_bound_crossing[trial_i] > 0:
       decision_variable[first_bound_crossing[trial_i] :, trial_i] = (

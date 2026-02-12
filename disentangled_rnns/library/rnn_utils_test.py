@@ -1,4 +1,4 @@
-# Copyright 2025 DeepMind Technologies Limited.
+# Copyright 2026 DeepMind Technologies Limited.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -75,10 +75,9 @@ class TestRNNUtils(absltest.TestCase):
     self.assertTrue(np.all(np.logical_or(ys == 1, ys == 0)))
 
   def test_dataset_rnn_batch_size(self):
-    dataset = rnn_utils.DatasetRNN(
+    dataset = rnn_utils.DatasetRNNCategorical(
         xs=np.zeros((n_steps_per_session, n_sessions, 2)),
-        ys=np.zeros((n_steps_per_session, n_sessions, 1)),
-        y_type='categorical',
+        ys=np.zeros((n_steps_per_session, n_sessions, 1), dtype=int),
         batch_size=10)
     xs = next(dataset)['xs']
     self.assertEqual(np.shape(xs), (n_steps_per_session, 10, 2))
@@ -96,10 +95,9 @@ class TestRNNUtils(absltest.TestCase):
       xs_data[:, i, 0] = i
     ys_data = np.zeros((n_timesteps, n_episodes, n_features))
 
-    dataset = rnn_utils.DatasetRNN(
+    dataset = rnn_utils.DatasetRNNScalar(
         xs=xs_data,
         ys=ys_data,
-        y_type='scalar',
         batch_size=batch_s,
         batch_mode='rolling',
     )
@@ -131,10 +129,9 @@ class TestRNNUtils(absltest.TestCase):
       xs_data[:, i, 0] = i
     ys_data = np.zeros((n_timesteps, n_episodes, n_features))
 
-    dataset = rnn_utils.DatasetRNN(
+    dataset = rnn_utils.DatasetRNNScalar(
         xs=xs_data,
         ys=ys_data,
-        y_type='scalar',
         batch_size=batch_s,
         batch_mode='rolling',
     )
@@ -164,10 +161,9 @@ class TestRNNUtils(absltest.TestCase):
       xs_data[:, i, 0] = i
     ys_data = np.zeros((n_timesteps, n_episodes, n_features))
 
-    dataset = rnn_utils.DatasetRNN(
+    dataset = rnn_utils.DatasetRNNScalar(
         xs=xs_data,
         ys=ys_data,
-        y_type='scalar',
         batch_size=batch_s,
         batch_mode='rolling',
     )
@@ -380,14 +376,80 @@ class TestRNNUtils(absltest.TestCase):
     # Empty dataset (n_episodes = 0) should raise ValueError on init
     for batch_mode in ['single', 'rolling', 'random']:
       with self.assertRaises(ValueError):
-        _ = rnn_utils.DatasetRNN(
+        _ = rnn_utils.DatasetRNNScalar(
             xs=xs_empty,
             ys=ys_empty,
-            y_type='scalar',
             batch_size=0,
             batch_mode=batch_mode,
         )
 
+  def test_check_datasets_are_compatible(self):
+    n_steps = 10
+    n_x_features = 1
+    dataset1 = rnn_utils.DatasetRNNCategorical(
+        xs=np.zeros((n_steps, 1, n_x_features)),
+        ys=np.zeros((n_steps, 1, 1), dtype=int),
+        batch_size=10,
+        batch_mode='random',
+        n_classes=2,
+        rng=np.random.default_rng(0),
+    )
+    dataset_compatible = rnn_utils.DatasetRNNCategorical(
+        xs=np.ones((n_steps + 1, 2, n_x_features)),
+        ys=np.ones((n_steps + 1, 2, 1), dtype=int),
+        batch_size=5,
+        batch_mode='single',
+        n_classes=2,
+        rng=np.random.default_rng(1),
+    )
+    dataset_incompatible_x_names = rnn_utils.DatasetRNNCategorical(
+        xs=np.zeros((n_steps, 1, n_x_features)),
+        ys=np.zeros((n_steps, 1, 1), dtype=int),
+        x_names=['x1'],
+        n_classes=2,
+    )
+    dataset_incompatible_y_names = rnn_utils.DatasetRNNCategorical(
+        xs=np.zeros((n_steps, 1, n_x_features)),
+        ys=np.zeros((n_steps, 1, 1), dtype=int),
+        y_names=['y2'],
+        n_classes=2,
+    )
+    dataset_incompatible_n_classes = rnn_utils.DatasetRNNCategorical(
+        xs=np.zeros((n_steps, 1, n_x_features)),
+        ys=np.zeros((n_steps, 1, 1), dtype=int),
+        n_classes=3,
+    )
+    dataset_incompatible_n_features = rnn_utils.DatasetRNNCategorical(
+        xs=np.zeros((n_steps, 1, n_x_features + 1)),
+        ys=np.zeros((n_steps, 1, 1), dtype=int),
+        n_classes=2,
+    )
+    # Compatible datasets
+    self.assertTrue(
+        rnn_utils.datasets_are_compatible(dataset1, dataset_compatible)
+    )
+
+    # Incompatible datasets
+    self.assertFalse(
+        rnn_utils.datasets_are_compatible(
+            dataset1, dataset_incompatible_x_names
+        )
+    )
+    self.assertFalse(
+        rnn_utils.datasets_are_compatible(
+            dataset1, dataset_incompatible_y_names
+        )
+    )
+    self.assertFalse(
+        rnn_utils.datasets_are_compatible(
+            dataset1, dataset_incompatible_n_classes
+        )
+    )
+    self.assertFalse(
+        rnn_utils.datasets_are_compatible(
+            dataset1, dataset_incompatible_n_features
+        )
+    )
 
 if __name__ == '__main__':
   absltest.main()

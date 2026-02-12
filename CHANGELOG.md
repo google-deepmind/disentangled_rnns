@@ -24,6 +24,10 @@ To release a new version (e.g. from `1.0.0` -> `2.0.0`):
 
 ## [Unreleased]
 
+- Refactor DatasetRNN to be subclassable for different target types and
+  introduce subclasses for the existing target types. DatasetRNN can no longer
+  be used directly.
+
 ## [0.1.4] - 2026-01-22
 
 - Modify default behavior of DatasetRNN to use random batching, and allow

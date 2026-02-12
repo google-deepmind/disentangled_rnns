@@ -1,4 +1,4 @@
-# Copyright 2025 DeepMind Technologies Limited.
+# Copyright 2026 DeepMind Technologies Limited.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -160,7 +160,7 @@ def create_dataset(
     n_steps_per_session: int,
     n_sessions: int,
     batch_size: int,
-) -> rnn_utils.DatasetRNN:
+) -> rnn_utils.DatasetRNNMixed:
   """Generates a behavioral dataset from a given agent and environment.
 
   Args:
@@ -192,12 +192,11 @@ def create_dataset(
         np.concatenate(([experiment.choices], [prev_rpes]), axis=0), 0, 1
     )
 
-  dataset = rnn_utils.DatasetRNN(
+  dataset = rnn_utils.DatasetRNNMixed(
       xs=xs,
       ys=ys,
       x_names=['prev choice', 'prev reward'],
       y_names=['choice', 'dopamine'],
-      y_type='mixed',
       n_classes=2,
       batch_size=batch_size,
   )
@@ -209,7 +208,7 @@ def get_q_learning_with_dopamine_dataset(
     alpha: float = 0.3,
     beta: float = 3,
     n_trials: int = 500,
-) -> rnn_utils.DatasetRNN:
+) -> rnn_utils.DatasetRNNMixed:
   """Generates synthetic dataset of behavior and dopamine from Q-Learning agent."""
   np.random.seed(0)
   agent = AgentQ(alpha=alpha, beta=beta)
@@ -229,7 +228,7 @@ def get_reward_seeking_with_dopamine_dataset(
     alpha: float = 0.3,
     beta: float = 3,
     n_trials: int = 500,
-) -> rnn_utils.DatasetRNN:
+) -> rnn_utils.DatasetRNNMixed:
   """Generates synthetic dataset of behavior and dopamine from a reward-seeking agent."""
   np.random.seed(0)
   agent = AgentRewardSeeking(alpha=alpha, beta=beta)

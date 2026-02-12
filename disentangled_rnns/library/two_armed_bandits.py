@@ -1,4 +1,4 @@
-# Copyright 2025 DeepMind Technologies Limited.
+# Copyright 2026 DeepMind Technologies Limited.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -469,7 +469,7 @@ def run_experiment(
   Returns:
     experiment: A SessData object holding choices and rewards from the session
   """
-  choices = np.zeros(n_steps)
+  choices = np.zeros(n_steps, dtype=int)
   rewards = np.zeros(n_steps)
   reward_probs = np.full((n_steps, environment.n_arms), np.nan)
 
@@ -501,7 +501,8 @@ def create_dataset(
     environment: BaseEnvironment,
     n_steps_per_session: int,
     n_sessions: int,
-) -> rnn_utils.DatasetRNN:
+    rng: np.random.Generator | None = None,
+) -> rnn_utils.DatasetRNNCategorical:
   """Generates a behavioral dataset from a given agent and environment.
 
   Args:
@@ -510,12 +511,13 @@ def create_dataset(
     n_steps_per_session: The number of trials in each behavioral session to be
       generated
     n_sessions: The number of sessions to generate
+    rng: A numpy random number generator
 
   Returns:
     rnn_utils.DatasetRNN object
   """
   xs = np.zeros((n_steps_per_session, n_sessions, 2))
-  ys = np.zeros((n_steps_per_session, n_sessions, 1))
+  ys = np.zeros((n_steps_per_session, n_sessions, 1), dtype=int)
 
   for sess_i in np.arange(n_sessions):
     environment.new_session()
@@ -528,13 +530,13 @@ def create_dataset(
     )
     ys[:, sess_i] = np.expand_dims(experiment.choices, 1)
 
-  dataset = rnn_utils.DatasetRNN(
+  dataset = rnn_utils.DatasetRNNCategorical(
       xs=xs,
       ys=ys,
       x_names=['prev choice', 'prev reward'],
       y_names=['choice'],
-      y_type='categorical',
       n_classes=2,
+      rng=rng,
   )
   return dataset
 
