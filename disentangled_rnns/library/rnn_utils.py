@@ -654,6 +654,8 @@ def normalized_likelihood(
   total_nll, n_unmasked_samples = categorical_neg_log_likelihood(
       labels, output_logits
   )
+  if n_unmasked_samples == 0:
+    return np.nan
   normlik = np.exp((-1 * total_nll) / (n_unmasked_samples))
   return normlik
 
