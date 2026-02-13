@@ -386,7 +386,11 @@ def datasets_are_compatible(
 
 
 def split_dataset(
-    dataset: DatasetRNN, eval_every_n: int, eval_offset: int = 1
+    dataset: DatasetRNN,
+    eval_every_n: int | None,
+    eval_offset: int | None = 1,
+    train_sessions: np.ndarray | None = None,
+    eval_sessions: np.ndarray | None = None,
 ) -> tuple[DatasetRNN, DatasetRNN]:
   """Split a dataset into train and eval sets."""
   data = dataset.get_all()
@@ -399,15 +403,37 @@ def split_dataset(
         'implement this and send a CL!'
     )
 
-  n_sessions = xs.shape[1]
-  train_sessions = np.ones(n_sessions, dtype=bool)
-  if eval_offset < 0 or eval_offset > eval_every_n - 1:
+  if train_sessions is not None and eval_sessions is not None:
+    if eval_every_n is not None or eval_offset is not None:
+      raise ValueError(
+          'If train_sessions and eval_sessions are provided, eval_every_n and'
+          ' eval_offset must be None.'
+      )
+    if train_sessions.ndim != 1 or eval_sessions.ndim != 1:
+      raise ValueError(
+          'If train_sessions and eval_sessions are provided, they must be 1D'
+          ' arrays.'
+      )
+  elif train_sessions is not None or eval_sessions is not None:
     raise ValueError(
-        f'eval_offset {eval_offset} must be between 0 and {eval_every_n - 1}.'
-        f' Got {eval_offset} instead.'
+        'If one of train_sessions or eval_sessions is provided, the other must'
+        ' also be provided.'
     )
-  train_sessions[np.arange(eval_offset, n_sessions, eval_every_n)] = False
-  eval_sessions = np.logical_not(train_sessions)
+  elif eval_every_n is None or eval_offset is None:
+    raise ValueError(
+        'If train_sessions and eval_sessions are not provided, eval_every_n and'
+        ' eval_offset must be provided.'
+    )
+  else:
+    n_sessions = xs.shape[1]
+    train_sessions = np.ones(n_sessions, dtype=bool)
+    if eval_offset < 0 or eval_offset > eval_every_n - 1:
+      raise ValueError(
+          f'eval_offset {eval_offset} must be between 0 and {eval_every_n - 1}.'
+          f' Got {eval_offset} instead.'
+      )
+    train_sessions[np.arange(eval_offset, n_sessions, eval_every_n)] = False
+    eval_sessions = np.logical_not(train_sessions)
 
   if type(dataset) not in [
       DatasetRNNCategorical,
