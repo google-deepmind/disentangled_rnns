@@ -873,42 +873,43 @@ def train_network(
   ############################################
   # Define possible losses and training step #
   ###########################################
-  def mse_loss(params, xs, ys, random_key) -> float:
-    y_hats = model.apply(params, random_key, xs)
-    loss = mse(ys, y_hats)
+  def mse_loss(params, batch, random_key) -> float:
+    y_hats = model.apply(params, random_key, batch['xs'])
+    loss = mse(batch['ys'], y_hats)
     return loss
 
   def penalized_mse_loss(
-      params, xs, ys, random_key, loss_param=loss_param_dict
+      params, batch, random_key, loss_param=loss_param_dict
   ) -> float:
     """Treats the last element of the model outputs as a penalty."""
     # (n_steps, n_episodes, n_targets+1)
-    model_output = model.apply(params, random_key, xs)
+    model_output = model.apply(params, random_key, batch['xs'])
     y_hats = model_output[:, :, :-1]
-    penalty, n_unmasked_samples = compute_penalty(ys, model_output)
+    penalty, n_unmasked_samples = compute_penalty(batch['ys'], model_output)
     penalty_scale = get_loss_param(loss_param, 'penalty_scale', 1.0)
-    loss = mse(ys, y_hats) + penalty_scale * penalty / n_unmasked_samples
+    loss = (
+        mse(batch['ys'], y_hats) + penalty_scale * penalty / n_unmasked_samples
+    )
     return loss
 
-  def categorical_loss(
-      params, xs: np.ndarray, labels: np.ndarray, random_key
-  ) -> float:
-    output_logits = model.apply(params, random_key, xs)
+  def categorical_loss(params, batch, random_key) -> float:
+    output_logits = model.apply(params, random_key, batch['xs'])
     nll, n_unmasked_samples = categorical_neg_log_likelihood(
-        labels, output_logits
+        batch['ys'],
+        output_logits,
     )
     return nll / n_unmasked_samples
 
   def penalized_categorical_loss(
-      params, xs, targets, random_key, loss_param=loss_param_dict
+      params, batch, random_key, loss_param=loss_param_dict
   ) -> float:
     """Treats the last element of the model outputs as a penalty."""
     # (n_steps, n_episodes, n_targets)
-    model_output = model.apply(params, random_key, xs)
+    model_output = model.apply(params, random_key, batch['xs'])
     output_logits = model_output[:, :, :-1]
-    penalty, _ = compute_penalty(targets, model_output)
+    penalty, _ = compute_penalty(batch['ys'], model_output)
     nll, n_unmasked_samples = categorical_neg_log_likelihood(
-        targets, output_logits
+        batch['ys'], output_logits
     )
     penalty_scale = get_loss_param(loss_param, 'penalty_scale', 1.0)
     avg_nll = nll / n_unmasked_samples
@@ -917,20 +918,20 @@ def train_network(
     return loss
 
   def hybrid_loss(
-      params, xs, ys, random_key, loss_param=loss_param_dict
+      params, batch, random_key, loss_param=loss_param_dict
   ) -> float:
     """A loss that combines categorical and continuous targets."""
 
-    model_output = model.apply(params, random_key, xs)
+    model_output = model.apply(params, random_key, batch['xs'])
     y_hats = model_output
     likelihood_weight = get_loss_param(loss_param, 'likelihood_weight', 1.0)
     loss = jax.jit(likelihood_and_sse)(
-        ys, y_hats, likelihood_weight=likelihood_weight
+        batch['ys'], y_hats, likelihood_weight=likelihood_weight
     )
     return loss
 
   def penalized_hybrid_loss(
-      params, xs, ys, random_key, loss_param=loss_param_dict
+      params, batch, random_key, loss_param=loss_param_dict
   ) -> float:
     """A hybrid loss with a penalty.
 
@@ -940,8 +941,7 @@ def train_network(
 
     Args:
       params: The network parameters.
-      xs: The input data.
-      ys: The target data.
+      batch: The input data.
       random_key: A JAX random key.
       loss_param: Parameters for the loss function, potentially including
         'penalty_scale' and 'likelihood_weight'.
@@ -951,14 +951,14 @@ def train_network(
     """
 
     penalty_scale = get_loss_param(loss_param, 'penalty_scale', 1.0)
-    model_output = model.apply(params, random_key, xs)
+    model_output = model.apply(params, random_key, batch['xs'])
 
     y_hats = model_output
     likelihood_weight = get_loss_param(loss_param, 'likelihood_weight', 0.5)
     supervised_loss = avg_nll_and_log_mse(
-        ys, y_hats, likelihood_weight=likelihood_weight
+        batch['ys'], y_hats, likelihood_weight=likelihood_weight
     )
-    penalty, n_unmasked_samples = compute_penalty(ys, y_hats)
+    penalty, n_unmasked_samples = compute_penalty(batch['ys'], y_hats)
     avg_penalty = penalty / n_unmasked_samples
     loss = supervised_loss + penalty_scale * avg_penalty
     return loss
@@ -975,11 +975,11 @@ def train_network(
 
   @jax.jit
   def train_step(
-      params, opt_state, xs, ys, random_key
+      params, opt_state, batch, random_key
   ) -> tuple[float, Any, Any]:
     """One training step."""
     loss, grads = jax.value_and_grad(compute_loss, argnums=0)(
-        params, xs, ys, random_key
+        params, batch, random_key
     )
     grads, opt_state = opt.update(grads, opt_state)
     clipped_grads = optimizers.clip_grads(grads, max_grad_norm)
@@ -994,15 +994,13 @@ def train_network(
   validation_loss = []
   l_validation = np.nan
 
-  data = next(training_dataset)
-  xs_train, ys_train = data['xs'], data['ys']
+  train_batch = next(training_dataset)
 
   if validation_dataset is not None:
-    data = validation_dataset.get_all()
-    xs_eval, ys_eval = data['xs'], data['ys']
+    eval_batch = validation_dataset.get_all()
   else:
-    xs_eval = None
-    ys_eval = None
+    eval_batch = None
+
   # Train the network!
   for step in range(n_steps):
     random_key, subkey_train, subkey_validation = jax.random.split(
@@ -1010,11 +1008,10 @@ def train_network(
     )
     # If the training dataset uses batching, get a new batch
     if training_dataset.batch_mode != 'single':
-      data = next(training_dataset)
-      xs_train, ys_train = data['xs'], data['ys']
+      train_batch = next(training_dataset)
 
     loss, params, opt_state = train_step(
-        params, opt_state, xs_train, ys_train, subkey_train
+        params, opt_state, train_batch, subkey_train
     )
 
     # Check for errors and report progress
@@ -1028,7 +1025,7 @@ def train_network(
 
       # Test on validation data
       if validation_dataset is not None:
-        l_validation = compute_loss(params, xs_eval, ys_eval, subkey_validation)
+        l_validation = compute_loss(params, eval_batch, subkey_validation)
 
       validation_loss.append(float(l_validation))
       training_loss.append(float(loss))
