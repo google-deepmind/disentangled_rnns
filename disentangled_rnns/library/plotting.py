@@ -266,7 +266,7 @@ def plot_update_rules(
   initial_state = np.array(rnn_utils.get_initial_state(make_network))
   reference_state = np.zeros(initial_state.shape)
 
-  def plot_update_1d(update_dict, params, unit_i, observations, titles):
+  def plot_update_1d(params, unit_i, observations, titles):
     state_bins = np.linspace(-axis_lim, axis_lim, 20)
     colormap = mpl.colormaps['viridis'].resampled(3)
     colors = colormap.colors
@@ -683,7 +683,7 @@ def compute_update_rules(
   initial_state = np.array(rnn_utils.get_initial_state(make_network))
   reference_state = np.zeros(initial_state.shape)
 
-  def plot_update_1d(params, unit_i, observations, titles):
+  def plot_update_1d(update_dict, params, unit_i, observations, titles):
     state_bins = np.linspace(-axis_lim, axis_lim, 20)
     colormap = mpl.colormaps['viridis'].resampled(3)
     colors = colormap.colors
