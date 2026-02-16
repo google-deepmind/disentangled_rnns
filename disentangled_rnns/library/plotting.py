@@ -712,7 +712,7 @@ def compute_update_rules(
         next_state = np.array(next_state)
         delta_states[s_i] = next_state[0, unit_i] - state_bins[s_i]
 
-      update_dict[observation] ={
+      update_dict[observation_i] ={
         'state_bins':state_bins,
         'delta_states':delta_states
       }  
