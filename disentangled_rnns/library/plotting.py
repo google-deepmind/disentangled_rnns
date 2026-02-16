@@ -620,6 +620,7 @@ def compute_update_rules(
     params: rnn_utils.RnnParams,
     disrnn_config: disrnn.DisRnnConfig,
     subj_ind: int | None = None,
+    axis_lim: float = 2.1,
 ):
   """Generates visualizations of the update rules of a HkDisentangledRNN."""
 
