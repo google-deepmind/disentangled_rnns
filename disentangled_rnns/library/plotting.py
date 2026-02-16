@@ -836,9 +836,6 @@ def compute_update_rules(
       )
       if not latent_sensitive.size:  # Depends on no other latents
         fig, latent_dict = plot_update_1d(latent_dict, params, latent_i, observations, titles)
-        print(latent_i)
-        print(observations)
-        print(titles)
       else:  # It depends on latents other than itself.
         fig = plot_update_2d(
             params,
