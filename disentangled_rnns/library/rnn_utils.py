@@ -186,7 +186,7 @@ class DatasetRNN(abc.ABC):
       empty_ys = np.empty(
           (self._n_timesteps, 0, self._ys.shape[2]), dtype=self._ys.dtype
       )
-      warnings.warn('DatasetRNN batch_size is 0. Returning an empty batch.')
+      warnings.warn('batch_size is 0. Returning an empty batch.')
       return {'xs': empty_xs, 'ys': empty_ys}
 
     if self.batch_mode == 'single':
@@ -346,6 +346,145 @@ class DatasetRNNMixed(DatasetRNN):
     )
 
 
+class DatasetRNNCategoricalWithActionMasks(DatasetRNNCategorical):
+  """DatasetRNN with categorical targets and action masks."""
+
+  def __init__(
+      self,
+      xs: np.typing.NDArray[np.float32],
+      ys: np.typing.NDArray[np.int32],
+      valid_actions_masks: np.typing.NDArray[np.bool],
+      *,
+      batch_mode: Literal['single', 'rolling', 'random'] = 'random',
+      batch_size: int | None = 1024,
+      n_classes: int | None = None,
+      x_names: list[str] | None = None,
+      y_names: list[str] | None = None,
+      rng: np.random.Generator | None = None,
+  ):
+    super().__init__(
+        xs=xs,
+        ys=ys,
+        batch_mode=batch_mode,
+        batch_size=batch_size,
+        n_classes=n_classes,
+        x_names=x_names,
+        y_names=y_names,
+        rng=rng,
+    )
+    ##################
+    # Error checking #
+    ##################
+
+    # Check the shape of valid actions masks.
+    if valid_actions_masks.shape != (
+        self._n_timesteps,
+        self._n_episodes,
+        self.n_classes,
+    ):
+      raise ValueError(
+          'Valid actions masks must have shape (n_timesteps, n_episodes,'
+          f' n_classes). Got {valid_actions_masks.shape} instead.'
+      )
+
+    # Check that the values of the valid actions masks are always "True" for the
+    # output targets, except when the target is negative (which indicates a
+    # masked timestep). The valid actions masks should never indicate that a
+    # true, non-negative action is not valid.
+    timestep_indices, episode_indices = np.indices(
+        (self._n_timesteps, self._n_episodes)
+    )
+    ys_indices = ys[:, :, 0]
+    mask_at_ys = valid_actions_masks[
+        timestep_indices, episode_indices, ys_indices
+    ]
+    # We only care about cases where ys is non-negative.
+    non_negative_ys_mask = ys_indices >= 0
+
+    if np.any(~mask_at_ys & non_negative_ys_mask):
+      raise ValueError(
+          'Valid actions masks must have True for all non-negative output'
+          ' targets.'
+      )
+
+    ####################
+    # Property setting #
+    ####################
+
+    self._valid_actions_masks = valid_actions_masks
+
+  def get_all(self):
+    """Returns all the data in the dataset. Use this for evaluation."""
+    return {
+        'xs': self._xs,
+        'ys': self._ys,
+        'valid_actions_masks': self._valid_actions_masks,
+    }
+
+  def __next__(self):
+    """Return a batch of data. Use this for training."""
+
+    if self.batch_size == 0:
+      # Return empty arrays with correct number of dimensions
+      empty_xs = np.empty(
+          (self._n_timesteps, 0, self._xs.shape[2]), dtype=self._xs.dtype
+      )
+      empty_ys = np.empty(
+          (self._n_timesteps, 0, self._ys.shape[2]), dtype=self._ys.dtype
+      )
+      empty_valid_actions_masks = np.empty(
+          (self._n_timesteps, 0, self._valid_actions_masks.shape[2]),
+          dtype=self._valid_actions_masks.dtype,
+      )
+      warnings.warn('batch_size is 0. Returning an empty batch.')
+      return {
+          'xs': empty_xs,
+          'ys': empty_ys,
+          'valid_actions_masks': empty_valid_actions_masks,
+      }
+
+    if self.batch_mode == 'single':
+      return self.get_all()
+
+    elif self.batch_mode == 'rolling':
+      # Generate indices starting from the current index, wrapping using modulo
+      indices = np.arange(
+          self._current_start_index,
+          self._current_start_index + self.batch_size,
+      )
+      batch_inds = indices % self._n_episodes
+
+      # Get the chunks of data
+      xs_batch, ys_batch, valid_actions_masks_batch = (
+          self._xs[:, batch_inds],
+          self._ys[:, batch_inds],
+          self._valid_actions_masks[:, batch_inds],
+      )
+      # Update the starting index for the next batch, wrapping around
+      self._current_start_index = (
+          self._current_start_index + self.batch_size
+      ) % self._n_episodes
+      return {
+          'xs': xs_batch,
+          'ys': ys_batch,
+          'valid_actions_masks': valid_actions_masks_batch,
+      }
+
+    elif self.batch_mode == 'random':
+      inds_to_get = self.rng.choice(self._n_episodes, size=self.batch_size)
+      return {
+          'xs': self._xs[:, inds_to_get],
+          'ys': self._ys[:, inds_to_get],
+          'valid_actions_masks': self._valid_actions_masks[:, inds_to_get],
+      }
+
+    else:
+      raise ValueError(
+          f'Batch mode {self.batch_mode} not recognized. Must be one of'
+          ' "single", "rolling", or "random".'
+      )
+
+
 def datasets_are_compatible(
     ds1: DatasetRNN, ds2: DatasetRNN
 ) -> bool:
@@ -391,13 +530,7 @@ def split_dataset(
   """Split a dataset into train and eval sets."""
   data = dataset.get_all()
   xs, ys = data['xs'], data['ys']
-  if data.keys() != {'xs', 'ys'}:
-    raise NotImplementedError(
-        f'Splitting is only implemented for datasets with keys xs and ys. This'
-        f' one has keys {data.keys()}.'
-        ' If you need to split a dataset with other data, feel free to '
-        'implement this and send a CL!'
-    )
+  valid_actions_masks = data.get('valid_actions_masks', None)
 
   n_sessions = xs.shape[1]
   train_sessions = np.ones(n_sessions, dtype=bool)
@@ -413,6 +546,7 @@ def split_dataset(
       DatasetRNNCategorical,
       DatasetRNNScalar,
       DatasetRNNMixed,
+      DatasetRNNCategoricalWithActionMasks,
   ]:
     # This is out of an abundance of caution. The logic below assumes data
     # fields xs and ys. We anticipate new classes which generalize this but we
@@ -421,26 +555,50 @@ def split_dataset(
         f'Dataset type {type(dataset)} not recognized. Cannot split.'
     )
 
-  dataset_train = dataset.__class__(
-      xs[:, train_sessions, :],
-      ys[:, train_sessions, :],
-      x_names=dataset.x_names,
-      y_names=dataset.y_names,
-      n_classes=dataset.n_classes,
-      batch_size=dataset.batch_size,
-      batch_mode=dataset.batch_mode,
-      rng=dataset.rng,
-  )  # pytype: disable=not-instantiable
-  dataset_eval = dataset.__class__(
-      xs[:, eval_sessions, :],
-      ys[:, eval_sessions, :],
-      x_names=dataset.x_names,
-      y_names=dataset.y_names,
-      n_classes=dataset.n_classes,
-      batch_size=dataset.batch_size,
-      batch_mode=dataset.batch_mode,
-      rng=dataset.rng,
-  )  # pytype: disable=not-instantiable
+  if isinstance(dataset, DatasetRNNCategoricalWithActionMasks):
+    dataset_train = dataset.__class__(
+        xs[:, train_sessions, :],
+        ys[:, train_sessions, :],
+        valid_actions_masks[:, train_sessions, :],
+        x_names=dataset.x_names,
+        y_names=dataset.y_names,
+        n_classes=dataset.n_classes,
+        batch_size=dataset.batch_size,
+        batch_mode=dataset.batch_mode,
+        rng=dataset.rng,
+    )  # pytype: disable=not-instantiable
+    dataset_eval = dataset.__class__(
+        xs[:, eval_sessions, :],
+        ys[:, eval_sessions, :],
+        valid_actions_masks[:, eval_sessions, :],
+        x_names=dataset.x_names,
+        y_names=dataset.y_names,
+        n_classes=dataset.n_classes,
+        batch_size=dataset.batch_size,
+        batch_mode=dataset.batch_mode,
+        rng=dataset.rng,
+    )  # pytype: disable=not-instantiable
+  else:
+    dataset_train = dataset.__class__(
+        xs[:, train_sessions, :],
+        ys[:, train_sessions, :],
+        x_names=dataset.x_names,
+        y_names=dataset.y_names,
+        n_classes=dataset.n_classes,
+        batch_size=dataset.batch_size,
+        batch_mode=dataset.batch_mode,
+        rng=dataset.rng,
+    )  # pytype: disable=not-instantiable
+    dataset_eval = dataset.__class__(
+        xs[:, eval_sessions, :],
+        ys[:, eval_sessions, :],
+        x_names=dataset.x_names,
+        y_names=dataset.y_names,
+        n_classes=dataset.n_classes,
+        batch_size=dataset.batch_size,
+        batch_mode=dataset.batch_mode,
+        rng=dataset.rng,
+    )  # pytype: disable=not-instantiable
   return dataset_train, dataset_eval
 
 
@@ -493,7 +651,7 @@ def mse(ys: np.ndarray, y_hats: np.ndarray) -> float:
 def categorical_neg_log_likelihood(
     labels: np.ndarray,
     output_logits: np.ndarray,
-    valid_actions_mask: np.ndarray | None = None,
+    valid_actions_masks: np.ndarray | None = None,
 ) -> tuple[float, int]:
   """Compute total log-likelihood of a set of labels given a set of logits.
 
@@ -505,7 +663,7 @@ def categorical_neg_log_likelihood(
       categorical labels. Negative values are treated as masked.
     output_logits: An array of shape (n_timesteps, n_episodes, n_classes)
       containing the logits output by the network.
-    valid_actions_mask: An array of shape (n_timesteps, n_episodes, n_classes)
+    valid_actions_masks: An array of shape (n_timesteps, n_episodes, n_classes)
       containing a binary mask for the logits. If None, all logits are
       considered valid actions.
 
@@ -516,7 +674,7 @@ def categorical_neg_log_likelihood(
   """
   # Mask any errors for which label is negative
   mask = jnp.logical_not(labels < 0)
-  log_probs = jax.nn.log_softmax(output_logits, where=valid_actions_mask)
+  log_probs = jax.nn.log_softmax(output_logits, where=valid_actions_masks)
   if labels.shape[2] != 1:
     raise ValueError(
         'Categorical loss function requires targets to be of dimensionality'
@@ -897,6 +1055,7 @@ def train_network(
     nll, n_unmasked_samples = categorical_neg_log_likelihood(
         batch['ys'],
         output_logits,
+        valid_actions_masks=batch.get('valid_actions_masks', None),
     )
     return nll / n_unmasked_samples
 
