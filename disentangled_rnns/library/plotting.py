@@ -432,9 +432,6 @@ def plot_update_rules(
       figs.append(fig)
       fig.tight_layout()
 
-  return update_dict
-
-
 def plot_choice_rule(
     params: rnn_utils.RnnParams,
     disrnn_config: disrnn.DisRnnConfig,
@@ -839,6 +836,9 @@ def compute_update_rules(
       )
       if not latent_sensitive.size:  # Depends on no other latents
         fig, latent_dict = plot_update_1d(latent_dict, params, latent_i, observations, titles)
+        print(latent_i)
+        print(observations)
+        print(titles)
       else:  # It depends on latents other than itself.
         fig = plot_update_2d(
             params,
