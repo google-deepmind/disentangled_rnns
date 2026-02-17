@@ -810,15 +810,15 @@ def compute_update_rules(
         if obs1_sensitive and obs2_sensitive:
             observations = ([0, 0], [0, 1], [1, 0], [1, 1],[2,0])
             titles = (
-                obs_names[0] + ': 0\n' + obs_names[1] + ': 0',
-                obs_names[0] + ': 0\n' + obs_names[1] + ': 1',
-                obs_names[0] + ': 1\n' + obs_names[1] + ': 0',
-                obs_names[0] + ': 1\n' + obs_names[1] + ': 1',
+                obs_names[0] + ': L\n' + obs_names[1] + ': 0',
+                obs_names[0] + ': L\n' + obs_names[1] + ': 1',
+                obs_names[0] + ': R\n' + obs_names[1] + ': 0',
+                obs_names[0] + ': R\n' + obs_names[1] + ': 1',
                 obs_names[0] + ': ignore\n' + obs_names[1] + ': 0'
             )
         elif obs1_sensitive:
             observations = ([0, 0], [1, 0], [2,0])
-            titles = (obs_names[0] + ': 0', obs_names[0] + ': 1',obs_names[0] + ": ignore")
+            titles = (obs_names[0] + ': L', obs_names[0] + ': R',obs_names[0] + ": ignore")
         elif obs2_sensitive:
             observations = ([0, 0], [0, 1])
             titles = (obs_names[1] + ': 0', obs_names[1] + ': 1')
@@ -829,14 +829,14 @@ def compute_update_rules(
         if obs1_sensitive and obs2_sensitive:
             observations = ([0, 0], [0, 1], [1, 0], [1, 1])
             titles = (
-                obs_names[0] + ': 0\n' + obs_names[1] + ': 0',
-                obs_names[0] + ': 0\n' + obs_names[1] + ': 1',
-                obs_names[0] + ': 1\n' + obs_names[1] + ': 0',
-                obs_names[0] + ': 1\n' + obs_names[1] + ': 1',
+                obs_names[0] + ': L\n' + obs_names[1] + ': 0',
+                obs_names[0] + ': L\n' + obs_names[1] + ': 1',
+                obs_names[0] + ': R\n' + obs_names[1] + ': 0',
+                obs_names[0] + ': R\n' + obs_names[1] + ': 1',
             )
         elif obs1_sensitive:
             observations = ([0, 0], [1, 0])
-            titles = (obs_names[0] + ': 0', obs_names[0] + ': 1')
+            titles = (obs_names[0] + ': L', obs_names[0] + ': R')
         elif obs2_sensitive:
             observations = ([0, 0], [0, 1])
             titles = (obs_names[1] + ': 0', obs_names[1] + ': 1')
