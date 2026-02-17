@@ -898,3 +898,18 @@ def plot_update_dict(latent_dict,latent_num):
     ax.legend()
     fig.tight_layout()
     return fig
+
+def fit_linear(update_dict):
+    for latent_dict in update_dict.keys():
+        for observation in update_dict[latent_dict].keys():
+            coefficients = np.polyfit(
+                update_dict[latent_dict][observation]['state_bins'], 
+                update_dict[latent_dict][observation]['delta_states'], 
+                1
+                )
+            update_dict[latent_dict][observation]['slope'] = coefficients[0]
+            update_dict[latent_dict][observation]['intercept'] = coefficients[1]
+    return update_dict
+
+#def print_linear(update_dict):
+    
