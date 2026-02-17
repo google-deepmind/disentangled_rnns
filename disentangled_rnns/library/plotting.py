@@ -857,16 +857,22 @@ def compute_update_rules(
 
 def plot_update_dict(latent_dict,latent_num):
     axis_lim = 2.1
-    fig, ax = plt.subplots()
-    ax.plot((-axis_lim, axis_lim), (0, 0), color='black')
+    plt.figure()
+    ax = plt.gca()
+    fig = plt.gcf()
+    plt.plot((-axis_lim, axis_lim), (0, 0), color='black',alpha=.1)
+    plt.plot((0,0),(-axis_lim, axis_lim), color='black',alpha=.1)
+
     for observation in latent_dict.keys():
         obs = latent_dict[observation]
-        ax.plot(obs['state_bins'], obs['delta_states'], label=observation)
+        plt.plot(obs['state_bins'], obs['delta_states'], label=observation)
     ax.set_xlim(-axis_lim, axis_lim)
+    ax.set_ylim(-axis_lim, axis_lim)
     ax.set_xlabel(
       'Latent ' + str(latent_num)+ ' Activity', fontsize=medium
     )
-    ax.set_aspect('equal')
+    ax.set_ylabel('Δ Activity', fontsize=medium)
+    ax.set_aspect('equal','box')
     ax.tick_params(axis='both', labelsize=small)
     ax.legend()
     fig.tight_layout()
