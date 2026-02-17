@@ -814,11 +814,11 @@ def compute_update_rules(
                 obs_names[0] + ': 0\n' + obs_names[1] + ': 1',
                 obs_names[0] + ': 1\n' + obs_names[1] + ': 0',
                 obs_names[0] + ': 1\n' + obs_names[1] + ': 1',
-                obs_names[0] + ': 2\n' + obs_names[1] + ': 0'
+                obs_names[0] + ': ignore\n' + obs_names[1] + ': 0'
             )
         elif obs1_sensitive:
             observations = ([0, 0], [1, 0], [2,0])
-            titles = (obs_names[0] + ': 0', obs_names[0] + ': 1',obs_names[0] + ":0")
+            titles = (obs_names[0] + ': 0', obs_names[0] + ': 1',obs_names[0] + ": ignore")
         elif obs2_sensitive:
             observations = ([0, 0], [0, 1])
             titles = (obs_names[1] + ': 0', obs_names[1] + ': 1')
