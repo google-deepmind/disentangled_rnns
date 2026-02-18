@@ -958,8 +958,8 @@ def plot_update_rules_new(
 ) -> tuple[dict,dict]:
     # TODO, add doc string
     # No assurances observation_types are valid inputs
-    # TODO, make sure this works with obs_size > 2
-    # Running a network with extra input, should create a test case
+    # Didn't exhaustively check obs_size > 3
+    # TODO list, when latent_sensitivity > 2, we should deal with that better
  
     # If not specified, add 5% buffer of maximum latent value
     if axis_lim is None:
