@@ -616,7 +616,7 @@ def plot_choice_rule(
 def compute_update_rules(
     params: rnn_utils.RnnParams,
     disrnn_config: disrnn.DisRnnConfig,
-    observation_types: list = None
+    observation_types: list = None,
     subj_ind: int | None = None,
     axis_lim: float = 2.1,
 ):
