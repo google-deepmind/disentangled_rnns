@@ -917,6 +917,7 @@ def plot_latent_update(update_dict, latent_num, axis_lim=2.1):
           delta_vals = sorted(delta_dict.keys())
           colormap = mpl.colormaps['viridis'].resampled(len(delta_vals))
           colors = colormap.colors
+          legend_elements = []
           for delta_i, delta_val in enumerate(delta_vals):
             delta_states = delta_dict[delta_val]
             lines = ax.plot(state_bins, delta_states, color=colors[delta_i])
