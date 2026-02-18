@@ -780,14 +780,6 @@ def compute_update_rules(
       )
   )
 
-  # TODO(kevinjmiller): Generalize to allow different observation length
-  # TODO, I should be able to remove this
-  if disrnn_config.obs_size != 2:
-    raise NotImplementedError(
-        'Plot update rules currently assumes that there are exactly two'
-        f' observations. Instead founc observarions {obs_names}'
-    )
-
   latent_order = np.argsort(latent_sigmas)
 
   # Loop over latents. Plot update rules
@@ -799,12 +791,14 @@ def compute_update_rules(
 
       # Which of its input bottlenecks are open?
       update_net_inputs = np.argwhere(update_sigmas[latent_i] < 0.5)
-      print(np.shape(update_sigmas[latent_i]))
-      print(update_sigmas[latent_i])
-      print(np.shape(update_net_inputs))
-      print(update_net_inputs)
+      obs_sensitive = np.array([False]*disrnn_config.obs_size)
+      for i in range(disrnn_config.obs_size):
+        obs_sensitive[i] = np.any(update_net_inputs == subj_embedding_size + i)
       obs1_sensitive = np.any(update_net_inputs == subj_embedding_size)
       obs2_sensitive = np.any(update_net_inputs == subj_embedding_size + 1)
+      print(obs_sensitive)
+      print(obs1_sensitive)
+      print(obs2_sensitive)
 
       # Choose which observations to use based on input bottlenecks
       if include_ignores:
