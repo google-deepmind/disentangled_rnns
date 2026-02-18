@@ -716,13 +716,16 @@ def compute_update_rules(
 
     return update_dict
 
-  def plot_update_2d(params, unit_i, unit_input, observations, titles):
+  def compute_update_2d(params, unit_i, unit_input, observations, titles):
 
     state_bins = np.linspace(-axis_lim, axis_lim, 50)
     state_bins_input = np.linspace(-axis_lim/2, axis_lim/2, 5)
+    
+    #TODO, remove when done
     colormap = mpl.colormaps['viridis'].resampled(len(state_bins_input))
     colors = colormap.colors
 
+    # TODO, remove when done
     fig, axes = plt.subplots(
         1,
         len(observations),
@@ -739,7 +742,7 @@ def compute_update_rules(
       if subj_ind is not None:
         observation = [subj_ind] + observation
       legend_elements = []
-      ax = axes[observation_i]
+      ax = axes[observation_i] #TODO, remove when done
       for si_i in np.arange(len(state_bins_input)):
         delta_states = np.zeros(shape=(len(state_bins), 1))
         for s_i in np.arange(len(state_bins)):
@@ -751,13 +754,16 @@ def compute_update_rules(
           next_state = np.array(next_state)
           delta_states[s_i] = next_state[0, unit_i] - state_bins[s_i]
 
+        # TODO, remove when done
         lines = ax.plot(state_bins, delta_states, color=colors[si_i])
         legend_elements.append(lines[0])
 
+        # TODO, remove when done
         if observation_i == 0:
           legend_labels = [f'{num:.1f}' for num in state_bins_input]  # pylint: disable=bad-whitespace
           ax.legend(legend_elements, legend_labels, fontsize=small)
 
+      # TODO, remove when done
       ax.plot((-axis_lim, axis_lim), (0, 0), color='black')
       ax.set_title(titles[observation_i], fontsize=large)
       ax.set_xlim(-axis_lim, axis_lim)
@@ -793,6 +799,7 @@ def compute_update_rules(
 
       # Which of its input bottlenecks are open?
       update_net_inputs = np.argwhere(update_sigmas[latent_i] < 0.5)
+      print(np.shape(update_net_inputs))
       obs1_sensitive = np.any(update_net_inputs == subj_embedding_size)
       obs2_sensitive = np.any(update_net_inputs == subj_embedding_size + 1)
 
@@ -849,7 +856,7 @@ def compute_update_rules(
       if not latent_sensitive.size:  # Depends on no other latents
         latent_dict = compute_update_1d(latent_dict, params, latent_i, observations, titles)
       else:  # It depends on latents other than itself.
-        fig = plot_update_2d(
+        fig = compute_update_2d(
             params,
             latent_i,
             latent_sensitive[0],
