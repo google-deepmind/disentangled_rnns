@@ -863,7 +863,7 @@ def compute_update_rules(
         latent_dict = compute_update_1d(latent_dict, params, latent_i, observations, titles)
       else:  # It depends on latents other than itself.
         latent_dict = compute_update_2d(
-            latent_dict
+            latent_dict,
             params,
             latent_i,
             latent_sensitive[0],
