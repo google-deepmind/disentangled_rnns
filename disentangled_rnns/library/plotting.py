@@ -992,6 +992,7 @@ def plot_update_rules_new(
         subj_ind = subj_ind,
         axis_lim = axis_lim,
         )
+    return update_dict # TODO REMOVE
 
     # plot each active latent, either combined or in separate axes for each observation
     figs = {}
