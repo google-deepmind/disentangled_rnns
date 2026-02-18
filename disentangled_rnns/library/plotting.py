@@ -796,7 +796,7 @@ def compute_update_rules(
     if len(observation_names) != disrnn_config.obs_size:
         raise ValueError('Observation Names doesn\'t match the size of observations to network')
     for obs_i in range(disrnn_config.obs_size):
-       if not all(key in observation_names[obs_i] for key in np.unique(observation_types[:,obs_i]))
+       if not all(key in observation_names[obs_i] for key in np.unique(observation_types[:,obs_i])):
             raise ValueError('Observation Names must contain a key for all observation types, {}'.format(obs_i)) 
 
   # Loop over latents. Plot update rules
