@@ -617,7 +617,6 @@ def compute_update_rules(
     params: rnn_utils.RnnParams,
     disrnn_config: disrnn.DisRnnConfig,
     observation_types: list = None
-    include_ignores=False,
     subj_ind: int | None = None,
     axis_lim: float = 2.1,
 ):
@@ -824,48 +823,6 @@ def compute_update_rules(
           titles = tuple(titles)
       observations = tuple(latent_obs)
 
-      #obs1_sensitive = np.any(update_net_inputs == subj_embedding_size)
-      #obs2_sensitive = np.any(update_net_inputs == subj_embedding_size + 1)
-
-      ## Choose which observations to use based on input bottlenecks
-      #if include_ignores:
-      #  if obs1_sensitive and obs2_sensitive:
-      #      observations = ([0, 0], [0, 1], [1, 0], [1, 1],[2,0])
-      #      titles = (
-      #          obs_names[0] + ': L\n' + obs_names[1] + ': 0',
-      #          obs_names[0] + ': L\n' + obs_names[1] + ': 1',
-      #          obs_names[0] + ': R\n' + obs_names[1] + ': 0',
-      #          obs_names[0] + ': R\n' + obs_names[1] + ': 1',
-      #          obs_names[0] + ': ignore\n' + obs_names[1] + ': 0'
-      #      )
-      #  elif obs1_sensitive:
-      #      observations = ([0, 0], [1, 0], [2,0])
-      #      titles = (obs_names[0] + ': L', obs_names[0] + ': R',obs_names[0] + ": ignore")
-      #  elif obs2_sensitive:
-      #      observations = ([0, 0], [0, 1])
-      #      titles = (obs_names[1] + ': 0', obs_names[1] + ': 1')
-      #  else:
-      #      observations = ([0, 0],)
-      #      titles = ('All Trials',)
-      #else:
-      #  if obs1_sensitive and obs2_sensitive:
-      #      observations = ([0, 0], [0, 1], [1, 0], [1, 1])
-      #      titles = (
-      #          obs_names[0] + ': L\n' + obs_names[1] + ': 0',
-      #          obs_names[0] + ': L\n' + obs_names[1] + ': 1',
-      #          obs_names[0] + ': R\n' + obs_names[1] + ': 0',
-      #          obs_names[0] + ': R\n' + obs_names[1] + ': 1',
-      #      )
-      #  elif obs1_sensitive:
-      #      observations = ([0, 0], [1, 0])
-      #      titles = (obs_names[0] + ': L', obs_names[0] + ': R')
-      #  elif obs2_sensitive:
-      #      observations = ([0, 0], [0, 1])
-      #      titles = (obs_names[1] + ': 0', obs_names[1] + ': 1')
-      #  else:
-      #      observations = ([0, 0],)
-      #      titles = ('All Trials',)
-
       # Choose which other latents to condition on, based on input bottlenecks
       start_idx_of_latents = subj_embedding_size + disrnn_config.obs_size
       is_latent_input_mask = update_net_inputs >= start_idx_of_latents
@@ -983,6 +940,7 @@ def plot_latent_update_combined(update_dict,latent_num,axis_lim=2.1):
 def plot_update_rules_new(
     params: rnn_utils.RnnParams,
     disrnn_config: disrnn.DisRnnConfig,
+    observation_types: list = None
     subj_ind: int | None = None,
     axis_lim: float = None,
     plot_combined: bool = False
@@ -998,6 +956,7 @@ def plot_update_rules_new(
     update_dict = compute_update_rules(
         params = params,
         disrnn_config = disrnn_config,
+        observation_types = observation_types,
         subj_ind = subj_ind,
         axis_lim = axis_lim,
         )
