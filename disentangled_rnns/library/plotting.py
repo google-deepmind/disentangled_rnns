@@ -899,15 +899,16 @@ def plot_latent_update(update_dict, latent_num, axis_lim=2.1):
       axes = [axes]
     axes[0].set_ylabel('Δ Activity',fontsize=medium)
 
-    # Set up color map
-    colormap = mpl.colormaps['viridis'].resampled(3)
-    colors = colormap.colors
+
 
     # plot each observation's update rule
     for index, observation in enumerate(latent_dict.keys()):
       ax = axes[index]
       ax.plot((-axis_lim, axis_lim), (0, 0), color='black')
       if 'delta_states' in latent_dict[observation]:
+          # Set up color map
+          colormap = mpl.colormaps['viridis'].resampled(3)
+          colors = colormap.colors
           state_bins = latent_dict[observation]['state_bins']
           delta_states = latent_dict[observation]['delta_states']
           ax.plot(state_bins, delta_states, color=colors[1])
@@ -916,6 +917,8 @@ def plot_latent_update(update_dict, latent_num, axis_lim=2.1):
           state_bins = latent_dict[observation]['state_bins']
           delta_dict = latent_dict[observation][key]
           delta_vals = sorted(delta_dict.keys())
+          colormap = mpl.colormaps['viridis'].resampled(len(delta_vals))
+          colors = colormap.colors
           for delta_i, delta_val in enumerate(delta_vals):
             delta_states = delta_dict[delta_val]
             ax.plot(state_bins, delta_states, color=colors[delta_i])
