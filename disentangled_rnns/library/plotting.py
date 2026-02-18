@@ -799,6 +799,7 @@ def compute_update_rules(
 
       # Which of its input bottlenecks are open?
       update_net_inputs = np.argwhere(update_sigmas[latent_i] < 0.5)
+      print(np.shape(update_sigmas[latent_i]))
       print(update_sigmas[latent_i])
       print(np.shape(update_net_inputs))
       print(update_net_inputs)
