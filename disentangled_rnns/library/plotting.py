@@ -717,12 +717,12 @@ def compute_update_rules(
 
     return update_dict
 
-  def compute_update_2d(params, unit_i, unit_input, observations, titles):
+  def compute_update_2d(update_dict, params, unit_i, unit_input, observations, titles):
 
     state_bins = np.linspace(-axis_lim, axis_lim, 50)
     state_bins_input = np.linspace(-axis_lim/2, axis_lim/2, 5)
-    print(state_bins) # TODO REMOVE
-    print(state_bins_input) # TODO REMOVE
+    print(unit_i) # TODO REMOVE
+    print(unit_input)
     
     #TODO, remove when done
     colormap = mpl.colormaps['viridis'].resampled(len(state_bins_input))
@@ -746,6 +746,8 @@ def compute_update_rules(
         observation = [subj_ind] + observation
       legend_elements = []
       ax = axes[observation_i] #TODO, remove when done
+    
+      delta_states_dict = {}
       for si_i in np.arange(len(state_bins_input)):
         delta_states = np.zeros(shape=(len(state_bins), 1))
         for s_i in np.arange(len(state_bins)):
@@ -756,7 +758,7 @@ def compute_update_rules(
           _, next_state = step_hk(params, key, observation, state)
           next_state = np.array(next_state)
           delta_states[s_i] = next_state[0, unit_i] - state_bins[s_i]
-
+        delta_states_dict[unit_input] = delta_states
         # TODO, remove when done
         print(np.shape(delta_states))
         lines = ax.plot(state_bins, delta_states, color=colors[si_i])
@@ -767,6 +769,11 @@ def compute_update_rules(
           legend_labels = [f'{num:.1f}' for num in state_bins_input]  # pylint: disable=bad-whitespace
           ax.legend(legend_elements, legend_labels, fontsize=small)
 
+      update_dict[titles[observation_i]] ={
+        'state_bins':state_bins,
+        'delta_states':delta_states_dict
+      } 
+
       # TODO, remove when done
       ax.plot((-axis_lim, axis_lim), (0, 0), color='black')
       ax.set_title(titles[observation_i], fontsize=large)
@@ -776,7 +783,7 @@ def compute_update_rules(
       )
       ax.tick_params(axis='both', labelsize=small)
 
-    return fig
+    return update_dict
 
   latent_sigmas = np.array(
       disrnn.reparameterize_sigma(
@@ -855,7 +862,8 @@ def compute_update_rules(
       if not latent_sensitive.size:  # Depends on no other latents
         latent_dict = compute_update_1d(latent_dict, params, latent_i, observations, titles)
       else:  # It depends on latents other than itself.
-        fig = compute_update_2d(
+        latent_dict = compute_update_2d(
+            latent_dict
             params,
             latent_i,
             latent_sensitive[0],
