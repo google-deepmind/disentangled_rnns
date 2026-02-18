@@ -904,6 +904,9 @@ def plot_latent_update(update_dict, latent_num, axis_lim=2.1):
       axes = [axes]
     axes[0].set_ylabel('Δ Activity',fontsize=medium)
 
+    colormap = mpl.colormaps['viridis'].resampled(3)
+    colors = colormap.colors
+
     for index, observation in enumerate(latent_dict.keys()):
       ax = axes[index]
       ax.plot((-axis_lim, axis_lim), (0, 0), color='black')
