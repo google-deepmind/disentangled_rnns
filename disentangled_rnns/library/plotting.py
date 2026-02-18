@@ -617,6 +617,7 @@ def compute_update_rules(
     params: rnn_utils.RnnParams,
     disrnn_config: disrnn.DisRnnConfig,
     observation_types: list = None,
+    observation_names: list = None,
     subj_ind: int | None = None,
     axis_lim: float = 2.1,
 ):
@@ -790,6 +791,14 @@ def compute_update_rules(
   if np.shape(observation_types)[1] != disrnn_config.obs_size:
     raise ValueError('Observation Types doesn\'t match the size of observations to network')
 
+  # Check if observation names are valid
+  if observation_names is not None:
+    if len(observation_names) != disrnn_config.obs_size:
+        raise ValueError('Observation Names doesn\'t match the size of observations to network')
+    for obs_i in range(disrnn_config.obs_size):
+       if not all(key in observation_names[obs_i] for key in np.unique(observation_types[:,obs_i]))
+            raise ValueError('Observation Names must contain a key for all observation types, {}'.format(obs_i)) 
+
   # Loop over latents. Plot update rules
   for latent_i in latent_order:
     latent_dict = {}
@@ -820,7 +829,11 @@ def compute_update_rules(
              if obs_sensitive[obs_i]:
                 for i in range(len(titles)):
                    titles[i] = titles[i] + obs_names[obs_i] + ': {}\n'.format(latent_obs[i][obs_i]) 
-      
+
+      # Update titles with human readable values     
+      #if observation_names is not None:
+        
+ 
       # Cast to tuples for immutability and backwards compatability
       titles = tuple(titles)
       observations = tuple(latent_obs)
@@ -943,11 +956,13 @@ def plot_update_rules_new(
     params: rnn_utils.RnnParams,
     disrnn_config: disrnn.DisRnnConfig,
     observation_types: list = None,
+    observation_names: list = None,
     subj_ind: int | None = None,
     axis_lim: float = None,
     plot_combined: bool = False
 ) -> tuple[dict,dict]:
     # TODO, add doc string
+    # No assurances observation_types are valid inputs
     # TODO, make sure all this works for 2D
  
     # If not specified, add 5% buffer of maximum latent value
@@ -959,6 +974,7 @@ def plot_update_rules_new(
         params = params,
         disrnn_config = disrnn_config,
         observation_types = observation_types,
+        observation_names = observation_names,
         subj_ind = subj_ind,
         axis_lim = axis_lim,
         )
