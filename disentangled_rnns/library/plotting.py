@@ -800,6 +800,7 @@ def compute_update_rules(
       # Which of its input bottlenecks are open?
       update_net_inputs = np.argwhere(update_sigmas[latent_i] < 0.5)
       print(np.shape(update_net_inputs))
+      print(update_net_inputs)
       obs1_sensitive = np.any(update_net_inputs == subj_embedding_size)
       obs2_sensitive = np.any(update_net_inputs == subj_embedding_size + 1)
 
