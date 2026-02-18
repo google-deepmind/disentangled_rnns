@@ -616,6 +616,7 @@ def plot_choice_rule(
 def compute_update_rules(
     params: rnn_utils.RnnParams,
     disrnn_config: disrnn.DisRnnConfig,
+    observation_types: list = None
     include_ignores=False,
     subj_ind: int | None = None,
     axis_lim: float = 2.1,
@@ -782,6 +783,14 @@ def compute_update_rules(
 
   latent_order = np.argsort(latent_sigmas)
 
+  # check input observation types are good
+  if observation_types is None:
+    # This is what was hard coded originally
+    observation_types = [[0,0],[0,1],[1,0],[1,1]]
+  observation_types = np.array(observation_types)
+  if np.shape(observation_types)[1] != disrnn_config.obs_size:
+    raise ValueError('Observation Types doesn\'t match the size of observations to network')
+
   # Loop over latents. Plot update rules
   for latent_i in latent_order:
     latent_dict = {}
@@ -794,50 +803,68 @@ def compute_update_rules(
       obs_sensitive = np.array([False]*disrnn_config.obs_size)
       for i in range(disrnn_config.obs_size):
         obs_sensitive[i] = np.any(update_net_inputs == subj_embedding_size + i)
-      obs1_sensitive = np.any(update_net_inputs == subj_embedding_size)
-      obs2_sensitive = np.any(update_net_inputs == subj_embedding_size + 1)
-      print(obs_sensitive)
-      print(obs1_sensitive)
-      print(obs2_sensitive)
+      
+      # Filter list of observation types based on sensitivity of this latent
+      latent_obs = observation_types.copy()
+      default_vals = observation_types[0]
+      for obs_i in range(disrnn_config.obs_size):
+        if not obs_sensitive[obs_i]:
+            latent_obs[:,obs_i] = default_vals[obs_i]
+      latent_obs = np.unique(latent_obs,axis=0)
 
-      # Choose which observations to use based on input bottlenecks
-      if include_ignores:
-        if obs1_sensitive and obs2_sensitive:
-            observations = ([0, 0], [0, 1], [1, 0], [1, 1],[2,0])
-            titles = (
-                obs_names[0] + ': L\n' + obs_names[1] + ': 0',
-                obs_names[0] + ': L\n' + obs_names[1] + ': 1',
-                obs_names[0] + ': R\n' + obs_names[1] + ': 0',
-                obs_names[0] + ': R\n' + obs_names[1] + ': 1',
-                obs_names[0] + ': ignore\n' + obs_names[1] + ': 0'
-            )
-        elif obs1_sensitive:
-            observations = ([0, 0], [1, 0], [2,0])
-            titles = (obs_names[0] + ': L', obs_names[0] + ': R',obs_names[0] + ": ignore")
-        elif obs2_sensitive:
-            observations = ([0, 0], [0, 1])
-            titles = (obs_names[1] + ': 0', obs_names[1] + ': 1')
-        else:
-            observations = ([0, 0],)
-            titles = ('All Trials',)
+      # Build titles for each observation, based on sensitivity of this latent
+      titles = ['']*np.shape(latent_obs)[0]
+      if np.shape(latent_obs)[0] == 1:
+        titles = ('All Trials')
       else:
-        if obs1_sensitive and obs2_sensitive:
-            observations = ([0, 0], [0, 1], [1, 0], [1, 1])
-            titles = (
-                obs_names[0] + ': L\n' + obs_names[1] + ': 0',
-                obs_names[0] + ': L\n' + obs_names[1] + ': 1',
-                obs_names[0] + ': R\n' + obs_names[1] + ': 0',
-                obs_names[0] + ': R\n' + obs_names[1] + ': 1',
-            )
-        elif obs1_sensitive:
-            observations = ([0, 0], [1, 0])
-            titles = (obs_names[0] + ': L', obs_names[0] + ': R')
-        elif obs2_sensitive:
-            observations = ([0, 0], [0, 1])
-            titles = (obs_names[1] + ': 0', obs_names[1] + ': 1')
-        else:
-            observations = ([0, 0],)
-            titles = ('All Trials',)
+          for obs_i in range(disrnn_config.obs_size):
+             if obs_sensitive[obs_i]:
+                for i in range(len(titles)):
+                   titles[i] = titles[i] + obs_names[obs_i] + ': {}\n'.format(latent_obs[i][obs_i]) 
+          titles = tuple(titles)
+      observations = tuple(latent_obs)
+
+      #obs1_sensitive = np.any(update_net_inputs == subj_embedding_size)
+      #obs2_sensitive = np.any(update_net_inputs == subj_embedding_size + 1)
+
+      ## Choose which observations to use based on input bottlenecks
+      #if include_ignores:
+      #  if obs1_sensitive and obs2_sensitive:
+      #      observations = ([0, 0], [0, 1], [1, 0], [1, 1],[2,0])
+      #      titles = (
+      #          obs_names[0] + ': L\n' + obs_names[1] + ': 0',
+      #          obs_names[0] + ': L\n' + obs_names[1] + ': 1',
+      #          obs_names[0] + ': R\n' + obs_names[1] + ': 0',
+      #          obs_names[0] + ': R\n' + obs_names[1] + ': 1',
+      #          obs_names[0] + ': ignore\n' + obs_names[1] + ': 0'
+      #      )
+      #  elif obs1_sensitive:
+      #      observations = ([0, 0], [1, 0], [2,0])
+      #      titles = (obs_names[0] + ': L', obs_names[0] + ': R',obs_names[0] + ": ignore")
+      #  elif obs2_sensitive:
+      #      observations = ([0, 0], [0, 1])
+      #      titles = (obs_names[1] + ': 0', obs_names[1] + ': 1')
+      #  else:
+      #      observations = ([0, 0],)
+      #      titles = ('All Trials',)
+      #else:
+      #  if obs1_sensitive and obs2_sensitive:
+      #      observations = ([0, 0], [0, 1], [1, 0], [1, 1])
+      #      titles = (
+      #          obs_names[0] + ': L\n' + obs_names[1] + ': 0',
+      #          obs_names[0] + ': L\n' + obs_names[1] + ': 1',
+      #          obs_names[0] + ': R\n' + obs_names[1] + ': 0',
+      #          obs_names[0] + ': R\n' + obs_names[1] + ': 1',
+      #      )
+      #  elif obs1_sensitive:
+      #      observations = ([0, 0], [1, 0])
+      #      titles = (obs_names[0] + ': L', obs_names[0] + ': R')
+      #  elif obs2_sensitive:
+      #      observations = ([0, 0], [0, 1])
+      #      titles = (obs_names[1] + ': 0', obs_names[1] + ': 1')
+      #  else:
+      #      observations = ([0, 0],)
+      #      titles = ('All Trials',)
 
       # Choose which other latents to condition on, based on input bottlenecks
       start_idx_of_latents = subj_embedding_size + disrnn_config.obs_size
