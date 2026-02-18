@@ -959,7 +959,9 @@ def plot_update_rules_new(
     # TODO, add doc string
     # No assurances observation_types are valid inputs
     # Didn't exhaustively check obs_size > 3
-    # TODO list, when latent_sensitivity > 2, we should deal with that better
+    # when latent_sensitivity > 2, we should deal with that better
+    # Linting
+    # Rename old function to old, and new function to base
  
     # If not specified, add 5% buffer of maximum latent value
     if axis_lim is None:
