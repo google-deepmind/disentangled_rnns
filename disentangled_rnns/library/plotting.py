@@ -820,7 +820,9 @@ def compute_update_rules(
              if obs_sensitive[obs_i]:
                 for i in range(len(titles)):
                    titles[i] = titles[i] + obs_names[obs_i] + ': {}\n'.format(latent_obs[i][obs_i]) 
-          titles = tuple(titles)
+      
+      # Cast to tuples for immutability and backwards compatability
+      titles = tuple(titles)
       observations = tuple(latent_obs)
 
       # Choose which other latents to condition on, based on input bottlenecks
@@ -944,7 +946,7 @@ def plot_update_rules_new(
     subj_ind: int | None = None,
     axis_lim: float = None,
     plot_combined: bool = False
-) -> tuple[dict,list[plt.Figure]]:
+) -> tuple[dict,dict]:
     # TODO, add doc string
     # TODO, make sure all this works for 2D
  
@@ -962,12 +964,12 @@ def plot_update_rules_new(
         )
 
     # plot each active latent, either combined or in separate axes for each observation
-    figs = []
+    figs = {}
     for latent in update_dict:
         if plot_combined:
-            figs.append(plot_latent_update_combined(update_dict, latent,axis_lim))
+            figs[latent] = plot_latent_update_combined(update_dict, latent,axis_lim)
         else:
-            figs.append(plot_latent_update(update_dict, latent,axis_lim))
+            figs[latent] = plot_latent_update(update_dict, latent,axis_lim)
 
     return (update_dict, figs)
 
