@@ -798,6 +798,8 @@ def compute_update_rules(
     for obs_i in range(disrnn_config.obs_size):
        if not all(key in observation_names[obs_i] for key in np.unique(observation_types[:,obs_i])):
             raise ValueError('Observation Names must contain a key for all observation types, {}'.format(obs_i)) 
+  else:
+    observation_names = [{}]*disrnn_config.obs_size
 
   # Loop over latents. Plot update rules
   for latent_i in latent_order:
@@ -827,12 +829,9 @@ def compute_update_rules(
       else:
           for obs_i in range(disrnn_config.obs_size):
              if obs_sensitive[obs_i]:
+                names = observation_names[obs_i]
                 for i in range(len(titles)):
-                   titles[i] = titles[i] + obs_names[obs_i] + ': {}\n'.format(latent_obs[i][obs_i]) 
-
-      # Update titles with human readable values     
-      #if observation_names is not None:
-        
+                   titles[i] = titles[i] + obs_names[obs_i] + ': {}\n'.format(names.get(latent_obs[i][obs_i],latent_obs[i][obs_i])) 
  
       # Cast to tuples for immutability and backwards compatability
       titles = tuple(titles)
