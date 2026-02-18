@@ -962,7 +962,8 @@ def plot_update_rules_new(
 ) -> tuple[dict,dict]:
     # TODO, add doc string
     # No assurances observation_types are valid inputs
-    # TODO, make sure all this works for 2D
+    # TODO, make sure all this works for 2D update rules
+    # TODO, make sure this works with obs_size > 2
  
     # If not specified, add 5% buffer of maximum latent value
     if axis_lim is None:
