@@ -925,7 +925,7 @@ def plot_latent_update(update_dict, latent_num, axis_lim=2.1):
           # TODO, remove when done
           if index == 0:
             legend_labels = [f'{num:.1f}' for num in delta_vals]  # pylint: disable=bad-whitespace
-            ax.legend(legend_elements, legend_labels, fontsize=small)
+            ax.legend(legend_elements, legend_labels, fontsize=small,title=key)
 
       ax.set_title(observation, fontsize=large)
       ax.set_xlim(-axis_lim, axis_lim)
