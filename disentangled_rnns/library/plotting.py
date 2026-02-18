@@ -928,6 +928,9 @@ def plot_latent_update_combined(update_dict,latent_num,axis_lim=2.1):
     # plot update rule for each observation
     for observation in latent_dict.keys():
         obs = latent_dict[observation]
+        if 'delta_states' not in obs:
+            print('Cannot plot 2D update rules in a combined plot')
+            return fig
         plt.plot(obs['state_bins'], obs['delta_states'], label=observation)
 
     # Clean up plot
