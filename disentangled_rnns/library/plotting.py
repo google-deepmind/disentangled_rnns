@@ -892,7 +892,34 @@ def compute_update_rules(
 
   return update_dict
 
-def plot_update_dict(update_dict,latent_num,axis_lim=2.1):
+def plot_latent_update(update_dict, latent_num, axis_lim=2.1):
+    latent_dict = update_dict[str(latent_num)]
+
+    observations = latent_dict.keys()
+    fig, axes = plt.subplots(
+        1, len(observations), figsize=(len(observations) * 4, 5.5), sharey=True
+    )
+    # Ensure axes is always an array for consistent indexing
+    if len(observations) == 1:
+      axes = [axes]
+    axes[0].set_ylabel('Δ Activity',fontsize=medium)
+
+    for observation in latent_dict:
+      ax.plot((-axis_lim, axis_lim), (0, 0), color='black')
+      state_bins = latent_dict[observation]['state_bins']
+      delta_states = latent_dict[observation]['delta_states']
+      ax.plot(state_bins, delta_states, color=colors[1])
+      ax.set_title(observation, fontsize=large)
+      ax.set_xlim(-axis_lim, axis_lim)
+      ax.set_xlabel(
+          'Latent ' + str(latent_num) + ' Activity', fontsize=medium
+      )
+      ax.set_aspect('equal')
+      ax.tick_params(axis='both', labelsize=small)
+
+    return fig
+
+def plot_latent_update_combined(update_dict,latent_num,axis_lim=2.1):
     latent_dict = update_dict[str(latent_num)]
     plt.figure()
     ax = plt.gca()
