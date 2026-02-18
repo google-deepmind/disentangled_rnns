@@ -721,6 +721,8 @@ def compute_update_rules(
 
     state_bins = np.linspace(-axis_lim, axis_lim, 50)
     state_bins_input = np.linspace(-axis_lim/2, axis_lim/2, 5)
+    print(state_bins) # TODO REMOVE
+    print(state_bins_input) # TODO REMOVE
     
     #TODO, remove when done
     colormap = mpl.colormaps['viridis'].resampled(len(state_bins_input))
@@ -756,6 +758,7 @@ def compute_update_rules(
           delta_states[s_i] = next_state[0, unit_i] - state_bins[s_i]
 
         # TODO, remove when done
+        print(np.shape(delta_states))
         lines = ax.plot(state_bins, delta_states, color=colors[si_i])
         legend_elements.append(lines[0])
 
@@ -831,7 +834,8 @@ def compute_update_rules(
              if obs_sensitive[obs_i]:
                 names = observation_names[obs_i]
                 for i in range(len(titles)):
-                   titles[i] = titles[i] + obs_names[obs_i] + ': {}\n'.format(names.get(latent_obs[i][obs_i],latent_obs[i][obs_i])) 
+                   titles[i] = titles[i] + obs_names[obs_i] + \
+                        ': {}\n'.format(names.get(latent_obs[i][obs_i],latent_obs[i][obs_i])) 
  
       # Cast to tuples for immutability and backwards compatability
       titles = tuple([x.rstrip() for x in titles]) # remove whitespace
@@ -963,13 +967,15 @@ def plot_update_rules_new(
     # TODO, add doc string
     # No assurances observation_types are valid inputs
     # TODO, make sure all this works for 2D update rules
+    # Running a network with low beta, should create a test case
     # TODO, make sure this works with obs_size > 2
+    # Running a network with extra input, should create a test case
  
     # If not specified, add 5% buffer of maximum latent value
     if axis_lim is None:
         axis_lim = 1.05*disrnn_config.max_latent_value
 
-    # TODO, use kwargs here
+    # Compute update rules, and return dictionary
     update_dict = compute_update_rules(
         params = params,
         disrnn_config = disrnn_config,
