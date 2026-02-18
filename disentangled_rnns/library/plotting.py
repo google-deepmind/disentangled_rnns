@@ -893,8 +893,11 @@ def compute_update_rules(
   return update_dict
 
 def plot_latent_update(update_dict, latent_num, axis_lim=2.1):
+    
+    # Get this latent
     latent_dict = update_dict[str(latent_num)]
 
+    # Set up figure
     observations = latent_dict.keys()
     fig, axes = plt.subplots(
         1, len(observations), figsize=(len(observations) * 4, 5.5), sharey=True
@@ -904,9 +907,11 @@ def plot_latent_update(update_dict, latent_num, axis_lim=2.1):
       axes = [axes]
     axes[0].set_ylabel('Δ Activity',fontsize=medium)
 
+    # Set up color map
     colormap = mpl.colormaps['viridis'].resampled(3)
     colors = colormap.colors
 
+    # plot each observation's update rule
     for index, observation in enumerate(latent_dict.keys()):
       ax = axes[index]
       ax.plot((-axis_lim, axis_lim), (0, 0), color='black')
@@ -925,15 +930,22 @@ def plot_latent_update(update_dict, latent_num, axis_lim=2.1):
 
 def plot_latent_update_combined(update_dict,latent_num,axis_lim=2.1):
     latent_dict = update_dict[str(latent_num)]
+
+    # Set up figure
     plt.figure()
     ax = plt.gca()
     fig = plt.gcf()
+
+    # plot horizontal and vertical lines for clarity
     plt.plot((-axis_lim, axis_lim), (0, 0), color='black',alpha=.1)
     plt.plot((0,0),(-axis_lim, axis_lim), color='black',alpha=.1)
 
+    # plot update rule for each observation
     for observation in latent_dict.keys():
         obs = latent_dict[observation]
         plt.plot(obs['state_bins'], obs['delta_states'], label=observation)
+
+    # Clean up plot
     ax.set_xlim(-axis_lim, axis_lim)
     ax.set_ylim(-axis_lim, axis_lim)
     ax.set_xlabel(
@@ -944,6 +956,7 @@ def plot_latent_update_combined(update_dict,latent_num,axis_lim=2.1):
     ax.tick_params(axis='both', labelsize=small)
     ax.legend()
     fig.tight_layout()
+
     return fig
 
 def plot_update_rules_new(
@@ -954,7 +967,6 @@ def plot_update_rules_new(
     plot_combined: bool = False
 ) -> tuple[dict,list[plt.Figure]]:
     # TODO, add doc string
-    # TODO, plot_update_dict should take an option to plot together or separate
  
     # If not specified, add 5% buffer of maximum latent value
     if axis_lim is None:
@@ -967,6 +979,8 @@ def plot_update_rules_new(
         subj_ind = subj_ind,
         axis_lim = axis_lim,
         )
+
+    # plot each active latent, either combined or in separate axes for each observation
     figs = []
     for latent in update_dict:
         if plot_combined:
