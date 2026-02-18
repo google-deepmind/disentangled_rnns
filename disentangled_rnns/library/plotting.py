@@ -922,7 +922,6 @@ def plot_latent_update(update_dict, latent_num, axis_lim=2.1):
             delta_states = delta_dict[delta_val]
             lines = ax.plot(state_bins, delta_states, color=colors[delta_i])
             legend_elements.append(lines[0])
-          # TODO, remove when done
           if index == 0:
             legend_labels = [f'{num:.1f}' for num in delta_vals]  # pylint: disable=bad-whitespace
             ax.legend(legend_elements, legend_labels, fontsize=small,title=key)
@@ -1007,7 +1006,6 @@ def plot_update_rules_new(
         subj_ind = subj_ind,
         axis_lim = axis_lim,
         )
-    return update_dict # TODO REMOVE
 
     # plot each active latent, either combined or in separate axes for each observation
     figs = {}
