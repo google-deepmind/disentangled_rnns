@@ -692,17 +692,6 @@ def compute_update_rules(
         titles, titles for each input observation
     '''
     state_bins = np.linspace(-axis_lim, axis_lim, 20)
-    colormap = mpl.colormaps['viridis'].resampled(3) # TODO, remove after finished
-    colors = colormap.colors # TODO, remove after finished
-
-    # TODO, remove after finished
-    fig, axes = plt.subplots(
-        1, len(observations), figsize=(len(observations) * 4, 5.5), sharey=True
-    )
-    # Ensure axes is always an array for consistent indexing
-    if len(observations) == 1:
-      axes = [axes]
-    axes[0].set_ylabel('Δ Activity')
 
     for observation_i in range(len(observations)):
       observation = observations[observation_i]
@@ -726,19 +715,7 @@ def compute_update_rules(
         'delta_states':delta_states
       } 
 
-      # TODO, remove after finishing 
-      ax.plot((-axis_lim, axis_lim), (0, 0), color='black')
-      ax.plot(state_bins, delta_states, color=colors[1])
-      ax.set_title(titles[observation_i], fontsize=large)
-      ax.set_xlim(-axis_lim, axis_lim)
-      ax.set_xlabel(
-          'Latent ' + str(unit_i + 1) + ' Activity', fontsize=medium
-      )
-      ax.set_aspect('equal')
-      ax.tick_params(axis='both', labelsize=small)
-
-    # TODO, remove fig
-    return fig, update_dict
+    return update_dict
 
   def plot_update_2d(params, unit_i, unit_input, observations, titles):
 
@@ -807,7 +784,6 @@ def compute_update_rules(
     )
 
   latent_order = np.argsort(latent_sigmas)
-  figs = [] # TODO, remove after finishing
 
   # Loop over latents. Plot update rules
   for latent_i in latent_order:
@@ -872,7 +848,7 @@ def compute_update_rules(
           update_net_input_latents, update_net_input_latents == latent_i
       )
       if not latent_sensitive.size:  # Depends on no other latents
-        fig, latent_dict = compute_update_1d(latent_dict, params, latent_i, observations, titles)
+        latent_dict = compute_update_1d(latent_dict, params, latent_i, observations, titles)
       else:  # It depends on latents other than itself.
         fig = plot_update_2d(
             params,
@@ -886,13 +862,19 @@ def compute_update_rules(
             'WARNING: This update rule depends on more than one '
             'other latent. Plotting just one of them'
         )
-      figs.append(fig)
-      fig.tight_layout()
       update_dict[str(latent_i+1)] = latent_dict
 
   return update_dict
 
 def plot_latent_update(update_dict, latent_num, axis_lim=2.1):
+    '''
+    Plots all update rules for this latent on separate axes
+    update_dict, a dictionary of update rules for all latents
+    latent_num (str), the latent to plot in 1-based indexing
+    axis_lim (float): the limits of the axis to plot
+
+    observations to plot will be the keys of the update_dict[latent_num]
+    '''
     
     # Get this latent
     latent_dict = update_dict[str(latent_num)]
@@ -929,6 +911,15 @@ def plot_latent_update(update_dict, latent_num, axis_lim=2.1):
     return fig
 
 def plot_latent_update_combined(update_dict,latent_num,axis_lim=2.1):
+    '''
+    Plots all update rules for this latent on a single axis
+    update_dict, a dictionary of update rules for all latents
+    latent_num (str), the latent to plot in 1-based indexing
+    axis_lim (float): the limits of the axis to plot
+
+    observations to plot will be the keys of the update_dict[latent_num]
+    '''
+    
     latent_dict = update_dict[str(latent_num)]
 
     # Set up figure
@@ -967,6 +958,7 @@ def plot_update_rules_new(
     plot_combined: bool = False
 ) -> tuple[dict,list[plt.Figure]]:
     # TODO, add doc string
+    # TODO, make sure all this works for 2D
  
     # If not specified, add 5% buffer of maximum latent value
     if axis_lim is None:
