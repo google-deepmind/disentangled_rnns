@@ -837,7 +837,7 @@ def compute_update_rules(
         print(
             'WARNING: This update rule depends on more than one '
             'other latent. Plotting just one of them'
-        )
+        ) # TODO, which one are we plotting? The most important?
       update_dict[str(latent_i+1)] = latent_dict
 
   return update_dict
@@ -955,8 +955,6 @@ def plot_update_rules_new(
 ) -> tuple[dict,dict]:
     # TODO, add doc string
     # No assurances observation_types are valid inputs
-    # TODO, make sure all this works for 2D update rules
-    # Running a network with low beta, should create a test case
     # TODO, make sure this works with obs_size > 2
     # Running a network with extra input, should create a test case
  
