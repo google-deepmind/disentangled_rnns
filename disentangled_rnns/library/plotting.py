@@ -888,11 +888,12 @@ def compute_update_rules(
         )
       figs.append(fig)
       fig.tight_layout()
-      update_dict['latent_{}'.format(latent_i+1)] = latent_dict
+      update_dict[str(latent_i+1)] = latent_dict
 
   return update_dict
 
-def plot_update_dict(latent_dict,latent_num,axis_lim=2.1):
+def plot_update_dict(update_dict,latent_num,axis_lim=2.1):
+    latent_dict = update_dict[str(latent_num)]
     plt.figure()
     ax = plt.gca()
     fig = plt.gcf()
@@ -936,9 +937,7 @@ def plot_update_rules_new(
         )
     figs = []
     for latent in update_dict:
-        # TODO, parse latent_num
-        latent_num = 2
-        figs.append(plot_update_dict(update_dict[latent], latent_num,axis_lim))
+        figs.append(plot_update_dict(update_dict, latent_num,axis_lim))
 
     return (update_dict, figs)
 
