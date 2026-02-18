@@ -940,7 +940,7 @@ def plot_latent_update_combined(update_dict,latent_num,axis_lim=2.1):
 def plot_update_rules_new(
     params: rnn_utils.RnnParams,
     disrnn_config: disrnn.DisRnnConfig,
-    observation_types: list = None
+    observation_types: list = None,
     subj_ind: int | None = None,
     axis_lim: float = None,
     plot_combined: bool = False
