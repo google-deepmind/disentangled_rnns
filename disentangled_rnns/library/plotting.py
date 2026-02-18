@@ -432,7 +432,7 @@ def plot_update_rules_old(
       figs.append(fig)
       fig.tight_layout()
 
-    return figs
+  return figs
 
 
 def plot_choice_rule(
