@@ -697,7 +697,6 @@ def compute_update_rules(
       observation = observations[observation_i]
       if subj_ind is not None:
         observation = [subj_ind] + observation
-      ax = axes[observation_i]
       delta_states = np.zeros(shape=(len(state_bins), 1))
     
       # Iterate over state bins and get update value
