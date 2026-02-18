@@ -432,6 +432,9 @@ def plot_update_rules(
       figs.append(fig)
       fig.tight_layout()
 
+    return figs
+
+
 def plot_choice_rule(
     params: rnn_utils.RnnParams,
     disrnn_config: disrnn.DisRnnConfig,
