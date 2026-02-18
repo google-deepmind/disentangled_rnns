@@ -947,6 +947,7 @@ def plot_update_rules_new(
     disrnn_config: disrnn.DisRnnConfig,
     subj_ind: int | None = None,
     axis_lim: float = None,
+    plot_combined: bool = False
 ) -> tuple[dict,list[plt.Figure]]:
     # TODO, add doc string
     # TODO, plot_update_dict should take an option to plot together or separate
@@ -964,7 +965,10 @@ def plot_update_rules_new(
         )
     figs = []
     for latent in update_dict:
-        figs.append(plot_update_dict(update_dict, latent,axis_lim))
+        if plot_combined:
+            figs.append(plot_latent_update_combined(update_dict, latent,axis_lim))
+        else:
+            figs.append(plot_latent_update(update_dict, latent,axis_lim))
 
     return (update_dict, figs)
 
