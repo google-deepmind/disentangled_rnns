@@ -14,13 +14,12 @@ def fit_linear(update_dict):
 
 def print_linear(update_dict):
     for latent in update_dict.keys():
-        num = latent.split('_')[1]
         print(latent)
         for obs in update_dict[latent].keys():
             slope = update_dict[latent][obs]['slope'][0]
             intercept = update_dict[latent][obs]['intercept'][0]
             print(obs)
-            print('y{}'.format(num)+ ' = ' + 'y{}'.format(num) + ' + ' + '{:.2f}y{}'.format(slope,num) + ' + ' + '{:.2f}'.format(intercept))
+            print('y{}'.format(latent)+ ' = ' + 'y{}'.format(latent) + ' + ' + '{:.2f}y{}'.format(slope,latent) + ' + ' + '{:.2f}'.format(intercept))
             print('fixed point: {:.3f}'.format(-intercept/slope))
             print()
         print("\n\n") 
