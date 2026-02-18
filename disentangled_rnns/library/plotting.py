@@ -200,7 +200,7 @@ def plot_bottlenecks(
   return fig
 
 
-def plot_update_rules(
+def plot_update_rules_old(
     params: rnn_utils.RnnParams,
     disrnn_config: disrnn.DisRnnConfig,
     subj_ind: int | None = None,
@@ -950,7 +950,7 @@ def plot_latent_update_combined(update_dict,latent_num,axis_lim=2.1):
 
     return fig
 
-def plot_update_rules_new(
+def plot_update_rules(
     params: rnn_utils.RnnParams,
     disrnn_config: disrnn.DisRnnConfig,
     observation_types: list = None,
