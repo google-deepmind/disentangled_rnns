@@ -937,7 +937,7 @@ def plot_update_rules_new(
         )
     figs = []
     for latent in update_dict:
-        figs.append(plot_update_dict(update_dict, latent_num,axis_lim))
+        figs.append(plot_update_dict(update_dict, latent,axis_lim))
 
     return (update_dict, figs)
 
