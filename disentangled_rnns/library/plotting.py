@@ -722,28 +722,11 @@ def compute_update_rules(
     state_bins = np.linspace(-axis_lim, axis_lim, 50)
     state_bins_input = np.linspace(-axis_lim/2, axis_lim/2, 5)
     
-    #TODO, remove when done
-    colormap = mpl.colormaps['viridis'].resampled(len(state_bins_input))
-    colors = colormap.colors
-
-    # TODO, remove when done
-    fig, axes = plt.subplots(
-        1,
-        len(observations),
-        figsize=(len(observations) * 2 + 10, 5.5),
-        sharey=True,
-    )
-    # Ensure axes is always an array for consistent indexing
-    if len(observations) == 1:
-      axes = [axes]
-    axes[0].set_ylabel('Δ Activity', fontsize=medium)
-
     for observation_i in range(len(observations)):
       observation = observations[observation_i]
       if subj_ind is not None:
         observation = [subj_ind] + observation
       legend_elements = []
-      ax = axes[observation_i] #TODO, remove when done
     
       delta_states_dict = {}
       for si_i in np.arange(len(state_bins_input)):
@@ -757,28 +740,11 @@ def compute_update_rules(
           next_state = np.array(next_state)
           delta_states[s_i] = next_state[0, unit_i] - state_bins[s_i]
         delta_states_dict[state_bins_input[si_i]] = delta_states
-        # TODO, remove when done
-        lines = ax.plot(state_bins, delta_states, color=colors[si_i])
-        legend_elements.append(lines[0])
-
-        # TODO, remove when done
-        if observation_i == 0:
-          legend_labels = [f'{num:.1f}' for num in state_bins_input]  # pylint: disable=bad-whitespace
-          ax.legend(legend_elements, legend_labels, fontsize=small)
 
       update_dict[titles[observation_i]] ={
         'state_bins':state_bins,
         'delta_latent_{}'.format(unit_input+1):delta_states_dict
       } 
-
-      # TODO, remove when done
-      ax.plot((-axis_lim, axis_lim), (0, 0), color='black')
-      ax.set_title(titles[observation_i], fontsize=large)
-      ax.set_xlim(-axis_lim, axis_lim)
-      ax.set_xlabel(
-          'Latent ' + str(unit_i + 1) + ' Activity', fontsize=medium
-      )
-      ax.tick_params(axis='both', labelsize=small)
 
     return update_dict
 
