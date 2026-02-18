@@ -890,7 +890,8 @@ def plot_latent_update(update_dict, latent_num, axis_lim=2.1):
             legend_elements.append(lines[0])
           if index == 0:
             legend_labels = [f'{num:.1f}' for num in delta_vals]  # pylint: disable=bad-whitespace
-            ax.legend(legend_elements, legend_labels, fontsize=small,title=key)
+            nice_key = key.split('delta_')[1].replace('_',' ')
+            ax.legend(legend_elements, legend_labels, fontsize=small,title=nice_key)
 
       ax.set_title(observation, fontsize=large)
       ax.set_xlim(-axis_lim, axis_lim)
