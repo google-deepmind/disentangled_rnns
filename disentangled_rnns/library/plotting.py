@@ -758,7 +758,7 @@ def compute_update_rules(
           _, next_state = step_hk(params, key, observation, state)
           next_state = np.array(next_state)
           delta_states[s_i] = next_state[0, unit_i] - state_bins[s_i]
-        delta_states_dict[si_i] = delta_states
+        delta_states_dict[str(state_bins_input[si_i])] = delta_states
         # TODO, remove when done
         print(np.shape(delta_states))
         lines = ax.plot(state_bins, delta_states, color=colors[si_i])
@@ -771,7 +771,7 @@ def compute_update_rules(
 
       update_dict[titles[observation_i]] ={
         'state_bins':state_bins,
-        'delta_states_{}'.format(unit_input):delta_states_dict
+        'delta_latent_{}'.format(unit_input+1):delta_states_dict
       } 
 
       # TODO, remove when done
