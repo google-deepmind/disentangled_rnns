@@ -721,8 +721,6 @@ def compute_update_rules(
 
     state_bins = np.linspace(-axis_lim, axis_lim, 50)
     state_bins_input = np.linspace(-axis_lim/2, axis_lim/2, 5)
-    print(unit_i) # TODO REMOVE
-    print(unit_input)
     
     #TODO, remove when done
     colormap = mpl.colormaps['viridis'].resampled(len(state_bins_input))
@@ -758,9 +756,8 @@ def compute_update_rules(
           _, next_state = step_hk(params, key, observation, state)
           next_state = np.array(next_state)
           delta_states[s_i] = next_state[0, unit_i] - state_bins[s_i]
-        delta_states_dict[str(state_bins_input[si_i])] = delta_states
+        delta_states_dict[state_bins_input[si_i]] = delta_states
         # TODO, remove when done
-        print(np.shape(delta_states))
         lines = ax.plot(state_bins, delta_states, color=colors[si_i])
         legend_elements.append(lines[0])
 
@@ -910,9 +907,18 @@ def plot_latent_update(update_dict, latent_num, axis_lim=2.1):
     for index, observation in enumerate(latent_dict.keys()):
       ax = axes[index]
       ax.plot((-axis_lim, axis_lim), (0, 0), color='black')
-      state_bins = latent_dict[observation]['state_bins']
-      delta_states = latent_dict[observation]['delta_states']
-      ax.plot(state_bins, delta_states, color=colors[1])
+      if 'delta_states' in latent_dict[observation]:
+          state_bins = latent_dict[observation]['state_bins']
+          delta_states = latent_dict[observation]['delta_states']
+          ax.plot(state_bins, delta_states, color=colors[1])
+      else:
+          key = [x for x in latent_dict[observation].keys() if 'delta_latent' in x][0]
+          state_bins = latent_dict[observation]['state_bins']
+          delta_dict = latent_dict[observation][key]
+          delta_vals = sorted(delta_dict.keys())
+          for delta_i, delta_val in enumerate(delta_vals):
+            delta_states = delta_dict[delta_val]
+            ax.plot(state_bins, delta_states, color=colors[delta_i])
       ax.set_title(observation, fontsize=large)
       ax.set_xlim(-axis_lim, axis_lim)
       ax.set_xlabel(
