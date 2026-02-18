@@ -926,7 +926,7 @@ def plot_update_rules_new(
  
     # If not specified, add 5% buffer of maximum latent value
     if axis_lim is None:
-        axis_lim = 1.05*disrnn_config['max_latent_value']
+        axis_lim = 1.05*disrnn_config.max_latent_value
 
     # TODO, use kwargs here
     update_dict = compute_update_rules(
