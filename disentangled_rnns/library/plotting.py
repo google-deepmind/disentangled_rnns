@@ -834,7 +834,7 @@ def compute_update_rules(
                    titles[i] = titles[i] + obs_names[obs_i] + ': {}\n'.format(names.get(latent_obs[i][obs_i],latent_obs[i][obs_i])) 
  
       # Cast to tuples for immutability and backwards compatability
-      titles = tuple(titles)
+      titles = tuple([x.rstrip() for x in titles]) # remove whitespace
       observations = tuple(latent_obs)
 
       # Choose which other latents to condition on, based on input bottlenecks
