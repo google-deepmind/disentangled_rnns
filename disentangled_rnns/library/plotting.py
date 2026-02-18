@@ -620,10 +620,9 @@ def compute_update_rules(
     subj_ind: int | None = None,
     axis_lim: float = 2.1,
 ):
-  """Generates visualizations of the update rules of a HkDisentangledRNN."""
-# TODO, type hint is wrong, does not return a list[figure], returns nothing
-# axis_lim can be set from disrnn_config, rather than hard coded as default
+  """Generates the update rules of a HkDisentangledRNN."""
 
+  # Dictionary to save update rules, organized by latent
   update_dict = {}
 
   disrnn_config = copy.deepcopy(disrnn_config)
@@ -684,11 +683,19 @@ def compute_update_rules(
   initial_state = np.array(rnn_utils.get_initial_state(make_network))
   reference_state = np.zeros(initial_state.shape)
 
-  def plot_update_1d(update_dict, params, unit_i, observations, titles):
+  def compute_update_1d(update_dict, params, unit_i, observations, titles):
+    '''
+        update_dict, dictionary to save results
+        params, parameters of disrnn
+        unit_i, latent number in 0,1,2 indexing
+        observations, list of input observations to generate 
+        titles, titles for each input observation
+    '''
     state_bins = np.linspace(-axis_lim, axis_lim, 20)
-    colormap = mpl.colormaps['viridis'].resampled(3)
-    colors = colormap.colors
+    colormap = mpl.colormaps['viridis'].resampled(3) # TODO, remove after finished
+    colors = colormap.colors # TODO, remove after finished
 
+    # TODO, remove after finished
     fig, axes = plt.subplots(
         1, len(observations), figsize=(len(observations) * 4, 5.5), sharey=True
     )
@@ -703,6 +710,8 @@ def compute_update_rules(
         observation = [subj_ind] + observation
       ax = axes[observation_i]
       delta_states = np.zeros(shape=(len(state_bins), 1))
+    
+      # Iterate over state bins and get update value
       for s_i in np.arange(len(state_bins)):
         state = reference_state
         state[0, unit_i] = state_bins[s_i]
@@ -715,7 +724,9 @@ def compute_update_rules(
       update_dict[titles[observation_i]] ={
         'state_bins':state_bins,
         'delta_states':delta_states
-      }  
+      } 
+
+      # TODO, remove after finishing 
       ax.plot((-axis_lim, axis_lim), (0, 0), color='black')
       ax.plot(state_bins, delta_states, color=colors[1])
       ax.set_title(titles[observation_i], fontsize=large)
@@ -726,6 +737,7 @@ def compute_update_rules(
       ax.set_aspect('equal')
       ax.tick_params(axis='both', labelsize=small)
 
+    # TODO, remove fig
     return fig, update_dict
 
   def plot_update_2d(params, unit_i, unit_input, observations, titles):
@@ -787,6 +799,7 @@ def compute_update_rules(
   )
 
   # TODO(kevinjmiller): Generalize to allow different observation length
+  # TODO, I should be able to remove this
   if disrnn_config.obs_size != 2:
     raise NotImplementedError(
         'Plot update rules currently assumes that there are exactly two'
@@ -794,11 +807,12 @@ def compute_update_rules(
     )
 
   latent_order = np.argsort(latent_sigmas)
-  figs = []
+  figs = [] # TODO, remove after finishing
 
   # Loop over latents. Plot update rules
   for latent_i in latent_order:
     latent_dict = {}
+
     # If this latent's bottleneck is open
     if latent_sigmas[latent_i] < 0.5:
 
@@ -858,7 +872,7 @@ def compute_update_rules(
           update_net_input_latents, update_net_input_latents == latent_i
       )
       if not latent_sensitive.size:  # Depends on no other latents
-        fig, latent_dict = plot_update_1d(latent_dict, params, latent_i, observations, titles)
+        fig, latent_dict = compute_update_1d(latent_dict, params, latent_i, observations, titles)
       else:  # It depends on latents other than itself.
         fig = plot_update_2d(
             params,
@@ -878,8 +892,7 @@ def compute_update_rules(
 
   return update_dict
 
-def plot_update_dict(latent_dict,latent_num):
-    axis_lim = 2.1
+def plot_update_dict(latent_dict,latent_num,axis_lim=2.1):
     plt.figure()
     ax = plt.gca()
     fig = plt.gcf()
@@ -901,4 +914,31 @@ def plot_update_dict(latent_dict,latent_num):
     fig.tight_layout()
     return fig
 
+def plot_update_rules_new(
+    params: rnn_utils.RnnParams,
+    disrnn_config: disrnn.DisRnnConfig,
+    subj_ind: int | None = None,
+    axis_lim: float = None,
+) -> tuple[dict,list[plt.Figure]]:
+    # TODO, add doc string
+    # TODO, plot_update_dict should take an option to plot together or separate
+ 
+    # If not specified, add 5% buffer of maximum latent value
+    if axis_lim is None:
+        axis_lim = 1.05*disrnn_config['max_latent_value']
+
+    # TODO, use kwargs here
+    update_dict = compute_update_rules(
+        params = params,
+        disrnn_config = disrnn_config,
+        subj_ind = subj_ind,
+        axis_lim = axis_lim,
+        )
+    figs = []
+    for latent in update_dict:
+        # TODO, parse latent_num
+        latent_num = 2
+        figs.append(plot_update_dict(update_dict[latent], latent_num,axis_lim))
+
+    return (update_dict, figs)
 
