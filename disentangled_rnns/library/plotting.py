@@ -433,6 +433,7 @@ def compute_update_rules(
                     latent_dict, params, latent_i, observations, titles
                 )
             else:  # It depends on latents other than itself.
+                # TODO, could easily loop over latent_sensitive
                 latent_dict = compute_update_2d(
                     latent_dict,
                     params,
@@ -445,7 +446,7 @@ def compute_update_rules(
                 print(
                     "WARNING: This update rule depends on more than one "
                     "other latent. Plotting just one of them"
-                )  # TODO, which one are we plotting? The most important?
+                )  # TODO, we plot the first in index order, we should plot all of them
             update_dict[str(latent_i + 1)] = latent_dict
 
     return update_dict
@@ -567,11 +568,18 @@ def plot_update_rules(
     axis_lim: float = None,
     plot_combined: bool = False,
 ) -> tuple[dict, dict]:
-    # TODO, add doc string
-    # No assurances observation_types are valid inputs
-    # Didn't exhaustively check obs_size > 3
-    # when latent_sensitivity > 2, we should deal with that better
-    # Linting
+    """
+    Computes and then plots update rules.
+    Update rules are saved in a nested dictionary (latent, observation, update rule)
+    observation_types are the discrete list of input observations to use to compute
+        update rules. If the observation is continuous, you can simply pick specific
+        values to plot. We only check the dimensionality of the observation_types, we
+        do not verify the input values are valid
+    observation_names is a mapper from the way input observations are coded into
+        human readable labels. This is just for visualization and does not impact
+        computation. The names in the update rule dictionary will reflect the human
+        readable names.
+    """
 
     # If not specified, add 5% buffer of maximum latent value
     if axis_lim is None:
