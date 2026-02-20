@@ -24,6 +24,7 @@ import jax
 import jax.numpy as jnp
 import matplotlib as mpl
 from matplotlib import pyplot as plt
+import matplotlib.figure
 import numpy as np
 
 
@@ -200,7 +201,7 @@ def compute_update_rules(
     observation_names: list = None,
     subj_ind: int | None = None,
     axis_lim: float = 2.1,
-):
+) -> dict:
     """Generates the update rules of a HkDisentangledRNN."""
 
     # Dictionary to save update rules, organized by latent
@@ -452,7 +453,9 @@ def compute_update_rules(
     return update_dict
 
 
-def plot_latent_update(update_dict, latent_num, axis_lim=2.1):
+def plot_latent_update(
+    update_dict: dict, latent_num: str, axis_lim: float = 2.1
+) -> matplotlib.figure.Figure:
     """
     Plots all update rules for this latent on separate axes
     update_dict, a dictionary of update rules for all latents
@@ -517,7 +520,9 @@ def plot_latent_update(update_dict, latent_num, axis_lim=2.1):
     return fig
 
 
-def plot_latent_update_combined(update_dict, latent_num, axis_lim=2.1):
+def plot_latent_update_combined(
+    update_dict: dict, latent_num: str, axis_lim: float = 2.1
+) -> matplotlib.figure.Figure:
     """
     Plots all update rules for this latent on a single axis
     update_dict, a dictionary of update rules for all latents
