@@ -59,7 +59,9 @@ def plot_bottlenecks(
       disrnn.reparameterize_sigma(params_disrnn["update_net_obs_sigma_params"])
     )
     update_latent_sigmas_t = np.transpose(
-      disrnn.reparameterize_sigma(params_disrnn["update_net_latent_sigma_params"])
+      disrnn.reparameterize_sigma(
+        params_disrnn["update_net_latent_sigma_params"]
+      )
     )
     update_sigmas = np.concatenate(
       (update_subj_sigmas_t, update_obs_sigmas_t, update_latent_sigmas_t),
@@ -85,7 +87,9 @@ def plot_bottlenecks(
       disrnn.reparameterize_sigma(params_disrnn["update_net_obs_sigma_params"])
     )
     update_latent_sigmas_t = np.transpose(
-      disrnn.reparameterize_sigma(params_disrnn["update_net_latent_sigma_params"])
+      disrnn.reparameterize_sigma(
+        params_disrnn["update_net_latent_sigma_params"]
+      )
     )
     update_sigmas = np.concatenate(
       (update_obs_sigmas_t, update_latent_sigmas_t), axis=1
@@ -219,7 +223,9 @@ def compute_update_rules(
     subj_ind = None
 
   if isinstance(disrnn_config, multisubject_disrnn.MultisubjectDisRnnConfig):
+    # pylint: disable=C3001
     make_network = lambda: multisubject_disrnn.MultisubjectDisRnn(disrnn_config)
+    # pylint: enable=C3001
     obs_names = disrnn_config.x_names[1:]  # First x_name is "Subject ID"
     param_prefix = "multisubject_dis_rnn"
     subj_embedding_size = disrnn_config.subject_embedding_size
@@ -242,7 +248,9 @@ def compute_update_rules(
       (update_subj_s_t, update_obs_s_t, update_latent_s_t), axis=1
     )
   elif isinstance(disrnn_config, disrnn.DisRnnConfig):
+    # pylint: disable=C3001
     make_network = lambda: disrnn.HkDisentangledRNN(disrnn_config)
+    # pylint: enable=C3001
     obs_names = disrnn_config.x_names
     param_prefix = "hk_disentangled_rnn"
     subj_embedding_size = 0
@@ -317,7 +325,6 @@ def compute_update_rules(
       observation = observations[observation_i]
       if subj_ind is not None:
         observation = [subj_ind] + observation
-      legend_elements = []
 
       delta_states_dict = {}
       for si_i in np.arange(len(state_bins_input)):
@@ -334,7 +341,7 @@ def compute_update_rules(
 
       update_dict[titles[observation_i]] = {
         "state_bins": state_bins,
-        "delta_latent_{}".format(unit_input + 1): delta_states_dict,
+        f"delta_latent_{unit_input+1}": delta_states_dict,
       }
 
     return update_dict
@@ -367,9 +374,8 @@ def compute_update_rules(
         for key in np.unique(observation_types[:, obs_i])
       ):
         raise ValueError(
-          "Observation Names must contain a key for all observation types, {}".format(
-            obs_i
-          )
+          "Observation Names must contain a key for all observation types,"
+          + f" {obs_i}"
         )
   else:
     observation_names = [{}] * disrnn_config.obs_size
@@ -404,14 +410,11 @@ def compute_update_rules(
           if obs_sensitive[obs_i]:
             names = observation_names[obs_i]
             for i in range(len(titles)):
+              name_str = names.get(latent_obs[i][obs_i], latent_obs[i][obs_i])
               titles[i] = (
                 titles[i]
                 + obs_names[obs_i]
-                + ": {}\n".format(
-                  names.get(
-                    latent_obs[i][obs_i], latent_obs[i][obs_i]
-                  )
-                )
+                + f": {name_str}\n"
               )
 
       # Cast to tuples for immutability and backwards compatability
@@ -490,7 +493,11 @@ def plot_latent_update(
       delta_states = latent_dict[observation]["delta_states"]
       ax.plot(state_bins, delta_states, color=colors[1])
     else:
-      key = [x for x in latent_dict[observation].keys() if "delta_latent" in x][0]
+      key = [
+        x
+        for x in latent_dict[observation].keys()
+        if "delta_latent" in x
+      ][0]
       state_bins = latent_dict[observation]["state_bins"]
       delta_dict = latent_dict[observation][key]
       delta_vals = sorted(delta_dict.keys())
@@ -575,11 +582,13 @@ def plot_update_rules(
 ) -> tuple[dict, dict]:
   """
   Computes and then plots update rules.
-  Update rules are saved in a nested dictionary (latent, observation, update rule)
-  observation_types are the discrete list of input observations to use to compute
-    update rules. If the observation is continuous, you can simply pick specific
-    values to plot. We only check the dimensionality of the observation_types, we
-    do not verify the input values are valid
+  Update rules are saved in a nested dictionary 
+    (latent, observation, update rule)
+  observation_types are the discrete list of input observations to use
+    to compute update rules. If the observation is continuous, you can
+    simply pick specific values to plot. We only check the 
+    dimensionality of the observation_types, we do not verify the 
+    input values are valid
   observation_names is a mapper from the way input observations are coded into
     human readable labels. This is just for visualization and does not impact
     computation. The names in the update rule dictionary will reflect the human
@@ -600,7 +609,8 @@ def plot_update_rules(
     axis_lim=axis_lim,
   )
 
-  # plot each active latent, either combined or in separate axes for each observation
+  # plot each active latent
+  # either combined or in separate axes for each observation
   figs = {}
   for latent in update_dict:
     if plot_combined:
@@ -757,8 +767,10 @@ def plot_choice_rule(
     )
     xs[:, :subj_embedding_size] = subj_embedding
     # Vary the selected latents; other latents remain 0
-    xs[:, subj_embedding_size + policy_latent_idx1_in_latent_space] = latent0_vals
-    xs[:, subj_embedding_size + policy_latent_idx2_in_latent_space] = latent1_vals
+    xs[:, subj_embedding_size + policy_latent_idx1_in_latent_space] = \
+      latent0_vals
+    xs[:, subj_embedding_size + policy_latent_idx2_in_latent_space] = \
+      latent1_vals
 
     y_hats = apply(choice_net_params, jax.random.PRNGKey(0), xs)
     # TODO(kevinjmiller): This assumes two-alternative logits. Generalize to
