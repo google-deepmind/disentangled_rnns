@@ -652,8 +652,8 @@ def plot_choice_rule(
   disrnn_config: disrnn.DisRnnConfig,
   subj_embedding: np.ndarray | None = None,
   axis_lim: float = 2.1,
-) -> tuple[dict, plt.Figure | None]:
-  """Plots the choice rule of a DisRNN.
+) -> plt.Figure | None:
+  """Computes and plots the choice rule of a DisRNN.
 
   Args:
     params: The parameters of the DisRNN
@@ -664,6 +664,100 @@ def plot_choice_rule(
 
   Returns:
     A matplotlib Figure object, or None if choice depends on no latents.
+  """
+  choice_dict = compute_choice_rule(
+    params = params,
+    disrnn_config = disrnn_config,
+    subj_embedding = subj_embedding,
+    axis_lim = axis_lim
+  )
+
+  fig = plot_choice_rule_inner(choice_dict, axis_lim)
+  return fig
+
+
+def plot_choice_rule_inner(
+  choice_dict: dict,
+  axis_lim: float = 2.1,
+  ):
+  """Plots the choice rule of a DisRNN from a choice dictionary"""
+
+  if choice_dict["n_latents_to_plot"] == 0:
+    print("Choice does not depend on any latents, nothing to plot")
+    return None
+
+  if choice_dict["n_latents_to_plot"] == 1:
+    return plot_choice_rule_1d(choice_dict, axis_lim)
+
+  return plot_choice_rule_2d(choice_dict, axis_lim)
+
+
+def plot_choice_rule_1d(
+  choice_dict: dict,
+  axis_lim: float = 2.1
+):
+  """Plots the choice rule if its 1D"""
+  if choice_dict["n_latents_to_plot"] != 1:
+    raise ValueError("Cannot plot choice rule with n_latents different from 1")
+
+  latent_key = [x for x in choice_dict.keys() if "policy_latent_" in x][0]
+  latent_num = latent_key.split("policy_latent_")[1]
+
+  fig, ax = plt.subplots()
+  ax.plot(choice_dict[latent_key], choice_dict["choice_logits"], "g")
+  ax.set_title("Choice Rule", fontsize=large)
+  ax.set_xlabel(f"Latent {latent_num}", fontsize=medium)
+  ax.set_ylabel("Choice Logit", fontsize=medium)
+  ax.tick_params(axis="both", labelsize=small)
+  ax.set_xlim(-axis_lim, axis_lim)
+  return fig
+
+
+def plot_choice_rule_2d(
+  choice_dict: dict,
+  axis_lim: float = 2.1
+):
+  """Plots the choice rule if its 2D"""
+  if choice_dict["n_latents_to_plot"] != 2:
+    raise ValueError("Cannot plot choice rule with n_latents different from 2")
+
+  fig, ax = plt.subplots()
+  scatter = ax.imshow(
+    choice_dict["choice_logits_2d"],
+    cmap="coolwarm",
+    origin="lower",
+    extent=[-axis_lim, axis_lim, -axis_lim, axis_lim],
+    aspect="auto",
+  )
+  cbar = fig.colorbar(scatter, ax=ax)
+  cbar.ax.tick_params(labelsize=small)
+  cbar.set_label("Choice Logit", fontsize=medium)
+  ax.set_title("Choice Rule", fontsize=large)
+  ax.set_xlabel(
+    f"Latent {choice_dict['x_latent']}", fontsize=medium
+  )
+  ax.set_ylabel(
+    f"Latent {choice_dict['y_latent']}", fontsize=medium
+  )
+  ax.tick_params(axis="both", labelsize=small)
+
+
+def compute_choice_rule(
+  params: rnn_utils.RnnParams,
+  disrnn_config: disrnn.DisRnnConfig,
+  subj_embedding: np.ndarray | None = None,
+  axis_lim: float = 2.1
+) -> dict:
+  """ Computes the choice rule of a DisRNN.
+
+  Args:
+    params: The parameters of the DisRNN
+    disrnn_config: A DisRnnConfig object
+    subj_embedding: The subject embedding to use. If None, use a zero vector
+      (loosely: the average subject)
+
+  Returns:
+    A dictionary with the choice rule
   """
 
   disrnn_config = copy.deepcopy(disrnn_config)
@@ -727,20 +821,23 @@ def plot_choice_rule(
     if latent_to_choice_net_sigmas[latent_idx] < 0.5
   ]
   n_latents_to_plot = min(len(influential_latents_indices_in_latent_space), 2)
+  output = {"n_latents_to_plot":n_latents_to_plot}
+  output = {
+    "n_influential_latents": len(influential_latents_indices_in_latent_space)
+  }
 
   if n_latents_to_plot == 0:
     print(
       "Choice rule: No latents have a choice_net_input_sigma < 0.5."
-      " Plotting not possible."
+      " Computation not possible."
     )
-    return None
+    return output
 
   # Select the actual latents to vary (indices within the latent space)
   varying_latents_plot_indices = influential_latents_indices_in_latent_space[
     :n_latents_to_plot
   ]
 
-  output = {}
   if n_latents_to_plot == 1:
     # Choice Rule 1D: A curve
     policy_latent_idx_in_latent_space = varying_latents_plot_indices[0]
@@ -760,14 +857,6 @@ def plot_choice_rule(
     y_hats = choice_net_output[0]
     choice_logits = y_hats[:, 1] - y_hats[:, 0]
 
-    fig, ax = plt.subplots()
-    ax.plot(policy_latent_vals, choice_logits, "g")
-    ax.set_title("Choice Rule", fontsize=large)
-    ax.set_xlabel(
-      f"Latent {policy_latent_idx_in_latent_space + 1}", fontsize=medium
-    )
-    ax.set_ylabel("Choice Logit", fontsize=medium)
-    ax.tick_params(axis="both", labelsize=small)
     output[
       f"policy_latent_{policy_latent_idx_in_latent_space + 1}_vals"
     ] = policy_latent_vals
@@ -778,7 +867,7 @@ def plot_choice_rule(
     if len(influential_latents_indices_in_latent_space) > 2:
       print(
         "WARNING: More than two latents have choice_net_input_sigma < 0.5."
-        " Plotting only the two with the smallest choice_net_input_sigmas."
+        " Computing only the two with the smallest choice_net_input_sigmas."
       )
 
     policy_latent_idx1_in_latent_space = varying_latents_plot_indices[0]
@@ -809,25 +898,6 @@ def plot_choice_rule(
     choice_logits_2d = y_hats[0][:, 1] - y_hats[0][:, 0]
     choice_logits_2d = choice_logits_2d.reshape((n_vals, n_vals))
 
-    fig, ax = plt.subplots()
-    scatter = ax.imshow(
-      choice_logits_2d,
-      cmap="coolwarm",
-      origin="lower",
-      extent=[-axis_lim, axis_lim, -axis_lim, axis_lim],
-      aspect="auto",
-    )
-    cbar = fig.colorbar(scatter, ax=ax)
-    cbar.ax.tick_params(labelsize=small)
-    cbar.set_label("Choice Logit", fontsize=medium)
-    ax.set_title("Choice Rule", fontsize=large)
-    ax.set_xlabel(
-      f"Latent {policy_latent_idx1_in_latent_space + 1}", fontsize=medium
-    )
-    ax.set_ylabel(
-      f"Latent {policy_latent_idx2_in_latent_space + 1}", fontsize=medium
-    )
-    ax.tick_params(axis="both", labelsize=small)
     output["yhats"] = y_hats[0]
     output[
       f"policy_latent_{policy_latent_idx1_in_latent_space + 1}_vals"
@@ -835,5 +905,8 @@ def plot_choice_rule(
     output[
       f"policy_latent_{policy_latent_idx2_in_latent_space + 1}_vals"
     ] = latent1_vals
+    output["x_latent"] = policy_latent_idx1_in_latent_space + 1
+    output["y_latent"] = policy_latent_idx1_in_latent_space + 2
+    output["choice_logits_2d"] = choice_logits_2d
 
-  return (output,fig)
+  return output
