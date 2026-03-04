@@ -905,7 +905,7 @@ def compute_choice_rule(
       f"policy_latent_{policy_latent_idx2_in_latent_space + 1}_vals"
     ] = latent1_vals
     output["x_latent"] = policy_latent_idx1_in_latent_space + 1
-    output["y_latent"] = policy_latent_idx1_in_latent_space + 2
+    output["y_latent"] = policy_latent_idx2_in_latent_space + 1
     output["choice_logits_2d"] = choice_logits_2d
 
   return output
