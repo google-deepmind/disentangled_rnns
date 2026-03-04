@@ -740,6 +740,7 @@ def plot_choice_rule_2d(
     f"Latent {choice_dict['y_latent']}", fontsize=medium
   )
   ax.tick_params(axis="both", labelsize=small)
+  return fig
 
 
 def compute_choice_rule(
