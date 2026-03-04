@@ -207,21 +207,30 @@ def compute_update_rules(
   axis_lim: float = 2.1,
 ) -> dict:
   """
-    Generates the update rules of a HkDisentangledRNN.
-    
-    Update rules are saved in a nested dictionary 
-      (latent, observation, update rule).
-      latent, keys are strings, names of latents in 1 based indexing
-      observation, keys are strings, names of observations in 
-        observation_names
-      update rule, keys are state_bins, and delta_states | delta_latent_X
-        state_bins, vector of latent values where the update rule is 
-          evaluated
-        delta_states, if the update rule depends on just one latent. 
-          vector of changes in latent states.
-        delta_latent_X, if the update rule depends on more than one latent
-          then this is a dictionary with keys being the values of the 
-          latent X at which the update rule is evaluated
+  Generates the update rules of a HkDisentangledRNN.
+  observation_types are the discrete list of input observations to use
+    to compute update rules. If the observation is continuous, you can
+    simply pick specific values to plot. We only check the 
+    dimensionality of the observation_types, we do not verify the 
+    input values are valid. The order of the list is determined by
+    disrnn_config.x_names. 
+  observation_names is a mapper from the way input observations are coded into
+    human readable labels. This is just for visualization and does not impact
+    computation. The names in the update rule dictionary will reflect the human
+    readable names.   
+  Update rules are saved in a nested dictionary 
+    (latent, observation, update rule).
+    latent, keys are strings, names of latents in 1 based indexing
+    observation, keys are strings, names of observations in 
+      observation_names
+    update rule, keys are state_bins, and delta_states | delta_latent_X
+      state_bins, vector of latent values where the update rule is 
+        evaluated
+      delta_states, if the update rule depends on just one latent. 
+        vector of changes in latent states.
+      delta_latent_X, if the update rule depends on more than one latent
+        then this is a dictionary with keys being the values of the 
+        latent X at which the update rule is evaluated
   """
 
   # Dictionary to save update rules, organized by latent
@@ -604,7 +613,8 @@ def plot_update_rules(
     to compute update rules. If the observation is continuous, you can
     simply pick specific values to plot. We only check the 
     dimensionality of the observation_types, we do not verify the 
-    input values are valid
+    input values are valid. The order of the list is determined by
+    disrnn_config.x_names. 
   observation_names is a mapper from the way input observations are coded into
     human readable labels. This is just for visualization and does not impact
     computation. The names in the update rule dictionary will reflect the human
