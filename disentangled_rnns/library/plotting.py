@@ -758,7 +758,20 @@ def compute_choice_rule(
       (loosely: the average subject)
 
   Returns:
-    A dictionary with the choice rule
+    A dictionary with the choice rule.
+    n_latents_to_plot: number of latents used to compute the choice rule
+      will equal min(2,n_influential_latents)
+    n_influential_latents: number of latents the choice depends on
+    if n_latents_to_plot = 1
+      policy_latent_X_vals: the values of the latent, a 1D vector
+      choice_logits: the choice logits evaluated at policy_latent_X_vals
+      yhats: the full yhats evaluated at policy_latent_X_vals
+    if n_latents_to_plot = 2
+      policy_latent_X_vals: the values of the latent, a 2D mesh
+      x_latent: Which latent is the x-dimension
+      y_latent: Which latent is the y-dimension
+      choice_logits_2d: the choice logits evaluated on the 2D mesh
+      yhats: the full yhats evaluated at policy_latent_X_vals
   """
 
   disrnn_config = copy.deepcopy(disrnn_config)
