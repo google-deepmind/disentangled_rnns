@@ -822,9 +822,8 @@ def compute_choice_rule(
   ]
   n_latents_to_plot = min(len(influential_latents_indices_in_latent_space), 2)
   output = {"n_latents_to_plot":n_latents_to_plot}
-  output = {
-    "n_influential_latents": len(influential_latents_indices_in_latent_space)
-  }
+  output["n_influential_latents"] = \
+    len(influential_latents_indices_in_latent_space)
 
   if n_latents_to_plot == 0:
     print(
