@@ -206,7 +206,23 @@ def compute_update_rules(
   subj_ind: int | None = None,
   axis_lim: float = 2.1,
 ) -> dict:
-  """Generates the update rules of a HkDisentangledRNN."""
+  """
+    Generates the update rules of a HkDisentangledRNN.
+    
+    Update rules are saved in a nested dictionary 
+      (latent, observation, update rule).
+      latent, keys are strings, names of latents in 1 based indexing
+      observation, keys are strings, names of observations in 
+        observation_names
+      update rule, keys are state_bins, and delta_states | delta_latent_X
+        state_bins, vector of latent values where the update rule is 
+          evaluated
+        delta_states, if the update rule depends on just one latent. 
+          vector of changes in latent states.
+        delta_latent_X, if the update rule depends on more than one latent
+          then this is a dictionary with keys being the values of the 
+          latent X at which the update rule is evaluated
+  """
 
   # Dictionary to save update rules, organized by latent
   update_dict = {}
