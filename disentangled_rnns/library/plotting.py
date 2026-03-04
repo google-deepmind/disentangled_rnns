@@ -701,7 +701,7 @@ def plot_choice_rule_1d(
     raise ValueError("Cannot plot choice rule with n_latents different from 1")
 
   latent_key = [x for x in choice_dict.keys() if "policy_latent_" in x][0]
-  latent_num = latent_key.split("policy_latent_")[1]
+  latent_num = latent_key.split("_")[2]
 
   fig, ax = plt.subplots()
   ax.plot(choice_dict[latent_key], choice_dict["choice_logits"], "g")
