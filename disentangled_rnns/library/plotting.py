@@ -802,7 +802,7 @@ def plot_choice_rule(
       f"Latent {policy_latent_idx2_in_latent_space + 1}", fontsize=medium
     )
     ax.tick_params(axis="both", labelsize=small)
-    output["yhats"] = y_hats
+    output["yhats"] = y_hats[0]
     output[
       f"policy_latent_{policy_latent_idx1_in_latent_space + 1}_vals"
     ] = latent0_vals
