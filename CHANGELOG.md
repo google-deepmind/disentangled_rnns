@@ -24,6 +24,10 @@ To release a new version (e.g. from `1.0.0` -> `2.0.0`):
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-03-07
+
+- Fix bug in two_armed_bandits.AgentNetwork. Add example to the colab of using
+  it to generate synthetic data from a fit DisRNN
 - Refactor DatasetRNN to be subclassable for different target types and
   introduce subclasses for the existing target types. DatasetRNN can no longer
   be used directly.
@@ -65,3 +69,4 @@ a release and act as a baseline for future releases.
 [0.1.2]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.2
 [0.1.3]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.3
 [0.1.4]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.4
+[0.1.5]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.5

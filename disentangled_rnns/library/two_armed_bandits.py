@@ -400,10 +400,13 @@ class AgentNetwork:
   Attributes:
     make_network: A Haiku function that returns an RNN architecture
     params: A set of Haiku parameters suitable for that architecture
+    n_actions: The number of actions available to the agent. Defaults to 2.
   """
 
   def __init__(
-      self, make_network: Callable[[], hk.RNNCore], params: rnn_utils.RnnParams
+      self, make_network: Callable[[], hk.RNNCore],
+      params: rnn_utils.RnnParams,
+      n_actions: int = 2,
   ):
 
     def step_network(
@@ -426,6 +429,7 @@ class AgentNetwork:
         lambda xs, state: model.apply(params, xs, state)
     )
     self._xs = np.zeros((1, 2))
+    self._n_actions = n_actions
     self.new_session()
 
   def new_session(self):
@@ -433,7 +437,9 @@ class AgentNetwork:
 
   def get_choice_probs(self) -> np.ndarray:
     output_logits, _ = self._model_fun(self._xs, self._rnn_state)
-    choice_probs = np.asarray(jax.nn.softmax(output_logits[0]))
+    choice_probs = np.asarray(
+        jax.nn.softmax(output_logits[0, : self._n_actions])
+    )
     return choice_probs
 
   def get_choice(self) -> tuple[int, np.ndarray]:
@@ -442,8 +448,8 @@ class AgentNetwork:
     return choice
 
   def update(self, choice: int, reward: int):
-    self._xs = np.array([[choice, reward]])
     _, self._rnn_state = self._model_fun(self._xs, self._rnn_state)
+    self._xs = np.array([[choice, reward]])
 
 
 Agent = Union[AgentQ, AgentLeakyActorCritic, AgentNetwork]
