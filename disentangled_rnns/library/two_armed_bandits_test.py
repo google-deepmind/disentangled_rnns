@@ -93,6 +93,21 @@ class TwoArmedBanditsTest(parameterized.TestCase):
     self.assertIn(attempted_choice, [0, 1])
 
   @parameterized.named_parameters(named_agents_list)
+  def test_softmax_stability(self, agent):
+    """Checks that agent's softmax is numerically stable."""
+    # Set agent parameters to large values to trigger potential overflow
+    if isinstance(agent, two_armed_bandits.AgentQ):
+      agent.q = np.array([1000.0, 0.0])
+    elif isinstance(agent, two_armed_bandits.AgentLeakyActorCritic):
+      agent.theta = np.array([1000.0, 0.0])
+
+    # If the agent is not one of the above, we skip the test logic
+    # but still assert choice_probs are valid for the default state
+    choice_probs = agent.get_choice_probs()
+    self.assertFalse(np.any(np.isnan(choice_probs)))
+    self.assertTrue(np.allclose(np.sum(choice_probs), 1.0))
+
+  @parameterized.named_parameters(named_agents_list)
   def test_generate_dataset(self, agent):
     """Smoke test generating a dataset the environment."""
     environment = two_armed_bandits.EnvironmentBanditsDrift(sigma=0.01)

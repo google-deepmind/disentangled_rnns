@@ -24,7 +24,9 @@ import haiku as hk
 import jax
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy import special
 import seaborn as sns
+
 
 abstractmethod = abc.abstractmethod
 
@@ -304,9 +306,7 @@ class AgentQ:
     self.q = 0.5 * np.ones(2)
 
   def get_choice_probs(self) -> np.ndarray:
-    choice_probs = np.exp(self._beta * self.q) / np.sum(
-        np.exp(self._beta * self.q)
-    )
+    choice_probs = special.softmax(self._beta * self.q)
     return choice_probs
 
   def get_choice(self) -> int:
@@ -360,7 +360,7 @@ class AgentLeakyActorCritic:
     self.v = 0.5
 
   def get_choice_probs(self) -> np.ndarray:
-    choice_probs = np.exp(self.theta) / np.sum(np.exp(self.theta))
+    choice_probs = special.softmax(self.theta)
     return choice_probs
 
   def get_choice(self) -> int:
@@ -550,7 +550,7 @@ def plot_2ab_sessdata(
     left_color: str = 'rebeccapurple',
     right_color: str = 'darkorange',
 ):
-  """Creates a figure showing data from session of a two-armed binary bandit task.
+  """Figure showing data from one session of the binary two-armed bandit task.
 
   Args:
     choices: The choices made by the agent in the session
