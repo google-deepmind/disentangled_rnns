@@ -257,7 +257,7 @@ def get_q_learning_dataset(
     n_sessions: int = 20000,
     np_rng_seed: float = 0
 ) -> rnn_utils.DatasetRNNCategorical:
-  """Generates synthetic dataset from Q-Learning agent, using standard parameters."""
+  """Generates synthetic dataset from Q-Learning agent."""
   rng = np.random.default_rng(np_rng_seed)
   agent = two_armed_bandits.AgentQ(alpha=alpha, beta=beta)
   environment = two_armed_bandits.EnvironmentBanditsDrift(sigma=sigma)
@@ -280,7 +280,7 @@ def get_actor_critic_dataset(
     n_sessions: int = 20000,
     np_rng_seed: float = 0,
 ) -> rnn_utils.DatasetRNNCategorical:
-  """Generates synthetic dataset from Actor-Critic agent, using standard parameters."""
+  """Generates synthetic dataset from Actor-Critic agent."""
   np.random.seed(np_rng_seed)
   agent = two_armed_bandits.AgentLeakyActorCritic(
       alpha_critic=alpha_critic,
@@ -339,6 +339,7 @@ T = TypeVar('T', bound=rnn_utils.DatasetRNN)
 
 def dataset_list_to_multisubject(
     dataset_list: list[T],
+    subject_ids: list[int] | None = None,
     add_subj_id: bool = True,
 ) -> T:
   """Turn a list of single-subject datasets into a multisubject dataset.
@@ -352,6 +353,9 @@ def dataset_list_to_multisubject(
       i.e. have the same number of trials, timesteps, and features, and be
       instances of the same class -- this is necessary for them to be mergable.
       They must also have the same batching and rng object.
+    subject_ids: Optional list of non-negative integers specifying subject IDs.
+      Must be the same length as dataset_list. If None, subject IDs will be
+      assigned sequentially starting from 0.
     add_subj_id: Whether to add a subject ID column to the xs. If True, dataset
       is suitable for multisubject mode. If False, dataset is suitable for
       single-subject mode, treating all data as if from a single subject.
@@ -359,6 +363,17 @@ def dataset_list_to_multisubject(
   Returns:
     A single DatasetRNN containing data from all datasets in the list
   """
+  if subject_ids is not None:
+    if len(subject_ids) != len(dataset_list):
+      raise ValueError(
+          f'subject_ids has length {len(subject_ids)} but dataset_list has'
+          f' length {len(dataset_list)}. They must be the same length.'
+      )
+    if not all(isinstance(s, int) and s >= 0 for s in subject_ids):
+      raise ValueError(
+          'All elements of subject_ids must be non-negative integers.'
+      )
+
   data = dataset_list[0].get_all()
   xs_dataset, ys_dataset = data['xs'], data['ys']
 
@@ -399,7 +414,8 @@ def dataset_list_to_multisubject(
     n_sessions = np.shape(xs_dataset)[1]
     n_trials = np.shape(xs_dataset)[0]
     if add_subj_id:
-      subj_ids = dataset_i * np.ones([n_trials, n_sessions, 1])
+      subj_id = subject_ids[dataset_i] if subject_ids is not None else dataset_i
+      subj_ids = subj_id * np.ones([n_trials, n_sessions, 1])
       xs_dataset = np.concatenate([subj_ids, xs_dataset], axis=2)
 
     # If this dataset has more trials than all previous datasets, add dummy

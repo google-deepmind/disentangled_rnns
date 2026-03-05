@@ -17,6 +17,7 @@
 from absl.testing import absltest
 from disentangled_rnns.library import get_datasets
 from disentangled_rnns.library import rnn_utils
+import numpy as np
 
 
 class GetDatasetsTest(absltest.TestCase):
@@ -37,7 +38,7 @@ class GetDatasetsTest(absltest.TestCase):
     self.assertIsInstance(dataset, rnn_utils.DatasetRNN)
 
   def test_q_learning_multisubject_dataset(self):
-    """Test that synthetic Q-Learning multisubject datasets generate correctly."""
+    """Smoke test for synthetic Q-learning multisubject datasets."""
     dataset = get_datasets.get_q_learning_multisubject_dataset(
         n_trials=10, n_sessions=10, alphas=[0.1, 0.2]
     )
@@ -58,6 +59,33 @@ class GetDatasetsTest(absltest.TestCase):
     self.assertEqual(ys.shape[0], 12)
     self.assertEqual(xs.shape[1], 20)
     self.assertEqual(ys.shape[1], 20)
+
+  def test_dataset_list_to_multisubject_with_custom_subject_ids(self):
+    dataset1 = get_datasets.get_q_learning_dataset(n_trials=10, n_sessions=5)
+    dataset2 = get_datasets.get_q_learning_dataset(n_trials=10, n_sessions=5)
+    multisubject_dataset = get_datasets.dataset_list_to_multisubject(
+        [dataset1, dataset2], subject_ids=[10, 20]
+    )
+    data_dict = multisubject_dataset.get_all()
+    xs = data_dict["xs"]
+    np.testing.assert_array_equal(xs[:, :5, 0], 10)
+    np.testing.assert_array_equal(xs[:, 5:, 0], 20)
+
+  def test_dataset_list_to_multisubject_subject_ids_wrong_length(self):
+    dataset1 = get_datasets.get_q_learning_dataset(n_trials=10, n_sessions=5)
+    dataset2 = get_datasets.get_q_learning_dataset(n_trials=10, n_sessions=5)
+    with self.assertRaises(ValueError):
+      get_datasets.dataset_list_to_multisubject(
+          [dataset1, dataset2], subject_ids=[0]
+      )
+
+  def test_dataset_list_to_multisubject_subject_ids_negative(self):
+    dataset1 = get_datasets.get_q_learning_dataset(n_trials=10, n_sessions=5)
+    dataset2 = get_datasets.get_q_learning_dataset(n_trials=10, n_sessions=5)
+    with self.assertRaises(ValueError):
+      get_datasets.dataset_list_to_multisubject(
+          [dataset1, dataset2], subject_ids=[0, -1]
+      )
 
 
 if __name__ == "__main__":
