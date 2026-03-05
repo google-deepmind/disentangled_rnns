@@ -19,4 +19,3 @@ updates:
     # Set a label for the PRs
     labels:
       - 'dependencies'
-      
