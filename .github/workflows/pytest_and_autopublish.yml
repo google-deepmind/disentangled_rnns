@@ -1,7 +1,7 @@
-name: Unittests & Auto-publish
+name: 'Unittests & Auto-publish'
 
 # Allow to trigger the workflow manually (e.g. when deps changes)
-on: [push, workflow_dispatch]
+on: ['push', 'workflow_dispatch']
 
 jobs:
   pytest-job:
