@@ -14,7 +14,9 @@
 
 """Plotting functions for inspecting Disentangled RNNs."""
 
+from collections.abc import Sequence
 import copy
+from typing import Any
 
 from disentangled_rnns.library import disrnn
 from disentangled_rnns.library import multisubject_disrnn
@@ -24,6 +26,7 @@ import jax
 import jax.numpy as jnp
 import matplotlib as mpl
 from matplotlib import pyplot as plt
+import matplotlib.figure
 import numpy as np
 
 
@@ -31,9 +34,9 @@ import numpy as np
 small = 15
 medium = 18
 large = 20
-mpl.rcParams['grid.color'] = 'none'
-mpl.rcParams['axes.facecolor'] = 'white'
-plt.rcParams['svg.fonttype'] = 'none'
+mpl.rcParams["grid.color"] = "none"
+mpl.rcParams["axes.facecolor"] = "white"
+plt.rcParams["svg.fonttype"] = "none"
 
 
 def plot_bottlenecks(
@@ -44,26 +47,26 @@ def plot_bottlenecks(
   """Plot the bottleneck sigmas from an hk.DisentangledRNN."""
 
   if isinstance(disrnn_config, multisubject_disrnn.MultisubjectDisRnnConfig):
-    params_disrnn = params['multisubject_dis_rnn']
+    params_disrnn = params["multisubject_dis_rnn"]
     subject_embedding_size = disrnn_config.subject_embedding_size
     update_input_names = [
-        f'SubjEmb {i+1}' for i in range(subject_embedding_size)
+        f"SubjEmb {i+0}" for i in range(subject_embedding_size)
     ] + disrnn_config.x_names[1:]
     # For update_sigmas: concatenate transposed reparameterized sigmas
     # Order of inputs to update nets: subject_embedding, observations, latents
     update_subj_sigmas_t = np.transpose(
         disrnn.reparameterize_sigma(
-            params_disrnn['update_net_subj_sigma_params']
+            params_disrnn["update_net_subj_sigma_params"]
         )
     )
     update_obs_sigmas_t = np.transpose(
         disrnn.reparameterize_sigma(
-            params_disrnn['update_net_obs_sigma_params']
+            params_disrnn["update_net_obs_sigma_params"]
         )
     )
     update_latent_sigmas_t = np.transpose(
         disrnn.reparameterize_sigma(
-            params_disrnn['update_net_latent_sigma_params']
+            params_disrnn["update_net_latent_sigma_params"]
         )
     )
     update_sigmas = np.concatenate(
@@ -74,43 +77,44 @@ def plot_bottlenecks(
     # For choice_sigmas: concatenate reparameterized sigmas
     # Order of inputs to choice net: subject_embedding, latents
     choice_subj_sigmas = disrnn.reparameterize_sigma(
-        params_disrnn['choice_net_subj_sigma_params']
+        params_disrnn["choice_net_subj_sigma_params"]
     )
     choice_latent_sigmas = disrnn.reparameterize_sigma(
-        params_disrnn['choice_net_latent_sigma_params']
+        params_disrnn["choice_net_latent_sigma_params"]
     )
     choice_sigmas = np.concatenate((choice_subj_sigmas, choice_latent_sigmas))
   elif isinstance(disrnn_config, disrnn.DisRnnConfig):
-    params_disrnn = params['hk_disentangled_rnn']
+    params_disrnn = params["hk_disentangled_rnn"]
     subject_embedding_size = 0
     update_input_names = disrnn_config.x_names
     # For update_sigmas: concatenate transposed reparameterized sigmas
     # Order of inputs to update nets: observations, latents
     update_obs_sigmas_t = np.transpose(
         disrnn.reparameterize_sigma(
-            params_disrnn['update_net_obs_sigma_params']
+            params_disrnn["update_net_obs_sigma_params"]
         )
     )
     update_latent_sigmas_t = np.transpose(
         disrnn.reparameterize_sigma(
-            params_disrnn['update_net_latent_sigma_params']
+            params_disrnn["update_net_latent_sigma_params"]
         )
     )
     update_sigmas = np.concatenate(
-        (update_obs_sigmas_t, update_latent_sigmas_t), axis=1)
+        (update_obs_sigmas_t, update_latent_sigmas_t), axis=1
+    )
     choice_sigmas = np.array(
         disrnn.reparameterize_sigma(
-            np.transpose(params_disrnn['choice_net_sigma_params'])
+            np.transpose(params_disrnn["choice_net_sigma_params"])
         )
     )
   else:
     raise ValueError(
-        'plot_bottlenecks only supports DisRnnConfig and'
-        ' MultisubjectDisRnnConfig.'
+        "plot_bottlenecks only supports DisRnnConfig and"
+        " MultisubjectDisRnnConfig."
     )
 
   latent_sigmas = np.array(
-      disrnn.reparameterize_sigma(params_disrnn['latent_sigma_params'])
+      disrnn.reparameterize_sigma(params_disrnn["latent_sigma_params"])
   )
 
   if sort_latents:
@@ -145,7 +149,7 @@ def plot_bottlenecks(
   fig, axes = plt.subplots(1, 3, figsize=(15, 5))
 
   # Plot Latent Bottlenecks on axes[0]
-  im1 = axes[0].imshow(np.swapaxes([1 - latent_sigmas], 0, 1), cmap='Oranges')
+  im1 = axes[0].imshow(np.swapaxes([1 - latent_sigmas], 0, 1), cmap="Oranges")
   im1.set_clim(vmin=0, vmax=1)
   axes[0].set_yticks(
       ticks=range(disrnn_config.latent_size),
@@ -153,28 +157,28 @@ def plot_bottlenecks(
       fontsize=small,
   )
   axes[0].set_xticks(ticks=[])
-  axes[0].set_ylabel('Latent #', fontsize=medium)
-  axes[0].set_title('Latent Bottlenecks', fontsize=large)
+  axes[0].set_ylabel("Latent #", fontsize=medium)
+  axes[0].set_title("Latent Bottlenecks", fontsize=large)
 
   # Plot Choice Bottlenecks on axes[1]
   # These bottlenecks apply to the inputs of the choice network:
   # [subject embeddings, latents]
   choice_input_dim = subject_embedding_size + disrnn_config.latent_size
   choice_input_names = np.concatenate((
-      [f'SubjEmb {i+1}' for i in range(subject_embedding_size)],
-      [f'Latent {i}' for i in latent_names]
+      [f"SubjEmb {i+1}" for i in range(subject_embedding_size)],
+      [f"Latent {i}" for i in latent_names],
   ))
-  im2 = axes[1].imshow(np.swapaxes([1 - choice_sigmas], 0, 1), cmap='Oranges')
+  im2 = axes[1].imshow(np.swapaxes([1 - choice_sigmas], 0, 1), cmap="Oranges")
   im2.set_clim(vmin=0, vmax=1)
   axes[1].set_yticks(
       ticks=range(choice_input_dim), labels=choice_input_names, fontsize=small
   )
   axes[1].set_xticks(ticks=[])
-  axes[1].set_ylabel('Choice Network Input', fontsize=medium)
-  axes[1].set_title('Choice Network Bottlenecks', fontsize=large)
+  axes[1].set_ylabel("Choice Network Input", fontsize=medium)
+  axes[1].set_title("Choice Network Bottlenecks", fontsize=large)
 
   # Plot Update Bottlenecks on axes[2]
-  im3 = axes[2].imshow(1 - update_sigmas, cmap='Oranges')
+  im3 = axes[2].imshow(1 - update_sigmas, cmap="Oranges")
   im3.set_clim(vmin=0, vmax=1)
   cbar = fig.colorbar(im3, ax=axes[2])
   # Y-axis corresponds to the target latent (sorted if sort_latents=True)
@@ -186,72 +190,122 @@ def plot_bottlenecks(
   )
   # X-axis corresponds to the inputs to the update network:
   # [subject embeddings, observations, latents]
-  xlabels = update_input_names + [f'Latent {i}' for i in latent_names]
+  xlabels = update_input_names + [f"Latent {i}" for i in latent_names]
   axes[2].set_xticks(
       ticks=range(len(xlabels)),
       labels=xlabels,
-      rotation='vertical',
+      rotation="vertical",
       fontsize=small,
   )
-  axes[2].set_ylabel('Latent #', fontsize=medium)
-  axes[2].set_xlabel('Update Network Inputs', fontsize=medium)
-  axes[2].set_title('Update Network Bottlenecks', fontsize=large)
+  axes[2].set_ylabel("Latent #", fontsize=medium)
+  axes[2].set_xlabel("Update Network Inputs", fontsize=medium)
+  axes[2].set_title("Update Network Bottlenecks", fontsize=large)
   fig.tight_layout()  # Adjust layout to prevent overlap
   return fig
 
 
-def plot_update_rules(
+def compute_update_rules(
     params: rnn_utils.RnnParams,
     disrnn_config: disrnn.DisRnnConfig,
+    observation_types: Sequence[Sequence[int]] | None = None,
+    observation_names: Sequence[dict[str, str]] | None = None,
     subj_ind: int | None = None,
     axis_lim: float = 2.1,
-) -> list[plt.Figure]:
-  """Generates visualizations of the update rules of a HkDisentangledRNN."""
+) -> dict[str, Any]:
+  """Generates the update rules of a HkDisentangledRNN.
+
+  Args:
+    params: Parameters of the DisRNN.
+    disrnn_config: Configuration for the DisRNN.
+    observation_types: Discrete list of input observations to use to compute
+      update rules. If the observation is continuous, you can simply pick
+      specific values to plot. We only check the dimensionality of the
+      observation_types, we do not verify the input values are valid. The order
+      of the list is determined by disrnn_config.x_names.
+    observation_names: A mapper from the way input observations are coded into
+      human readable labels. This is just for visualization and does not impact
+      computation. The names in the update rule dictionary will reflect the
+      human readable names.
+    subj_ind: Subject index, used in multisubject mode. If None in multisubject
+      mode, defaults to 0.
+    axis_lim: The axis limit for the update rule computation.
+
+  Returns:
+    A nested dictionary (latent, observation, update rule):
+      - latent: Keys are strings, names of latents in 1-based indexing.
+      - observation: Keys are strings, names of observations from
+        observation_names.
+      - update rule: Keys are state_bins, and delta_states | delta_latent_X.
+        - state_bins: Vector of latent values where the update rule is
+          evaluated.
+        - delta_states: If the update rule depends on just one latent, a vector
+          of changes in latent states.
+        - delta_latent_X: If the update rule depends on more than one latent,
+          a dictionary with keys being the values of latent X at which the
+          update rule is evaluated.
+  """
+
+  # Dictionary to save update rules, organized by latent
+  update_dict = {}
 
   disrnn_config = copy.deepcopy(disrnn_config)
   disrnn_config.noiseless_mode = True  # Turn off noise for plotting
 
   if isinstance(disrnn_config, multisubject_disrnn.MultisubjectDisRnnConfig):
     if subj_ind is None:
-      print('In multisubject mode, but subj_ind not provided. Defaulting to 0')
+      print("In multisubject mode, but subj_ind not provided. Defaulting to 0")
       subj_ind = 0
   elif subj_ind is not None:
-    print('subj_ind provided, but not in multisubject mode. Ignoring it')
+    print("subj_ind provided, but not in multisubject mode. Ignoring it")
     subj_ind = None
 
   if isinstance(disrnn_config, multisubject_disrnn.MultisubjectDisRnnConfig):
+    # pylint: disable=C3001
     make_network = lambda: multisubject_disrnn.MultisubjectDisRnn(disrnn_config)
+    # pylint: enable=C3001
     obs_names = disrnn_config.x_names[1:]  # First x_name is "Subject ID"
-    param_prefix = 'multisubject_dis_rnn'
+    param_prefix = "multisubject_dis_rnn"
     subj_embedding_size = disrnn_config.subject_embedding_size
-    update_subj_s_t = np.transpose(disrnn.reparameterize_sigma(
-        params[param_prefix]['update_net_subj_sigma_params']))
-    update_obs_s_t = np.transpose(disrnn.reparameterize_sigma(
-        params[param_prefix]['update_net_obs_sigma_params']))
-    update_latent_s_t = np.transpose(disrnn.reparameterize_sigma(
-        params[param_prefix]['update_net_latent_sigma_params']))
-    update_sigmas = np.concatenate(
-        (update_subj_s_t, update_obs_s_t, update_latent_s_t), axis=1
+    update_subj_s_t = np.transpose(
+        disrnn.reparameterize_sigma(
+            params[param_prefix]["update_net_subj_sigma_params"]
+        )
     )
-  elif isinstance(disrnn_config, disrnn.DisRnnConfig):
-    make_network = lambda: disrnn.HkDisentangledRNN(disrnn_config)
-    obs_names = disrnn_config.x_names
-    param_prefix = 'hk_disentangled_rnn'
-    subj_embedding_size = 0
     update_obs_s_t = np.transpose(
         disrnn.reparameterize_sigma(
-            params[param_prefix]['update_net_obs_sigma_params']
+            params[param_prefix]["update_net_obs_sigma_params"]
         )
     )
     update_latent_s_t = np.transpose(
         disrnn.reparameterize_sigma(
-            params[param_prefix]['update_net_latent_sigma_params']
-        ))
+            params[param_prefix]["update_net_latent_sigma_params"]
+        )
+    )
+    update_sigmas = np.concatenate(
+        (update_subj_s_t, update_obs_s_t, update_latent_s_t), axis=1
+    )
+  elif isinstance(disrnn_config, disrnn.DisRnnConfig):
+    # pylint: disable=C3001
+    make_network = lambda: disrnn.HkDisentangledRNN(disrnn_config)
+    # pylint: enable=C3001
+    obs_names = disrnn_config.x_names
+    param_prefix = "hk_disentangled_rnn"
+    subj_embedding_size = 0
+    update_obs_s_t = np.transpose(
+        disrnn.reparameterize_sigma(
+            params[param_prefix]["update_net_obs_sigma_params"]
+        )
+    )
+    update_latent_s_t = np.transpose(
+        disrnn.reparameterize_sigma(
+            params[param_prefix]["update_net_latent_sigma_params"]
+        )
+    )
     update_sigmas = np.concatenate((update_obs_s_t, update_latent_s_t), axis=1)
 
   else:
     raise ValueError(
-        f'Unsupported config type: {type(disrnn_config)} for plot_update_rules.'
+        f"Unsupported config type: {type(disrnn_config)} for plot_update_rules."
     )
 
   def step(xs, state):
@@ -266,70 +320,55 @@ def plot_update_rules(
   initial_state = np.array(rnn_utils.get_initial_state(make_network))
   reference_state = np.zeros(initial_state.shape)
 
-  def plot_update_1d(params, unit_i, observations, titles):
-    state_bins = np.linspace(-axis_lim, axis_lim, 20)
-    colormap = mpl.colormaps['viridis'].resampled(3)
-    colors = colormap.colors
+  def compute_update_1d(update_dict, params, unit_i, observations, titles):
+    """Computes 1D update rules for a single latent.
 
-    fig, axes = plt.subplots(
-        1, len(observations), figsize=(len(observations) * 4, 5.5), sharey=True
-    )
-    # Ensure axes is always an array for consistent indexing
-    if len(observations) == 1:
-      axes = [axes]
-    axes[0].set_ylabel('Δ Activity')
+    Args:
+      update_dict: Dictionary to save results.
+      params: Parameters of disrnn.
+      unit_i: Latent number in 0,1,2 indexing.
+      observations: List of input observations to generate.
+      titles: Titles for each input observation.
+
+    Returns:
+      The update_dict, modified with the computed 1D update rules.
+    """
+    state_bins = np.linspace(-axis_lim, axis_lim, 20)
 
     for observation_i in range(len(observations)):
       observation = observations[observation_i]
       if subj_ind is not None:
         observation = [subj_ind] + observation
-      ax = axes[observation_i]
       delta_states = np.zeros(shape=(len(state_bins), 1))
+
+      # Iterate over state bins and get update value
       for s_i in np.arange(len(state_bins)):
         state = reference_state
         state[0, unit_i] = state_bins[s_i]
-        _, next_state = step_hk(
-            params, key, observation, state
-        )
+        _, next_state = step_hk(params, key, observation, state)
         next_state = np.array(next_state)
         delta_states[s_i] = next_state[0, unit_i] - state_bins[s_i]
 
-      ax.plot((-axis_lim, axis_lim), (0, 0), color='black')
-      ax.plot(state_bins, delta_states, color=colors[1])
-      ax.set_title(titles[observation_i], fontsize=large)
-      ax.set_xlim(-axis_lim, axis_lim)
-      ax.set_xlabel(
-          'Latent ' + str(unit_i + 1) + ' Activity', fontsize=medium
-      )
-      ax.set_aspect('equal')
-      ax.tick_params(axis='both', labelsize=small)
+      update_dict[titles[observation_i]] = {
+          "state_bins": state_bins,
+          "delta_states": delta_states,
+      }
 
-    return fig
+    return update_dict
 
-  def plot_update_2d(params, unit_i, unit_input, observations, titles):
+  def compute_update_2d(
+      update_dict, params, unit_i, unit_input, observations, titles
+  ):
 
     state_bins = np.linspace(-axis_lim, axis_lim, 50)
-    state_bins_input = np.linspace(-axis_lim/2, axis_lim/2, 5)
-    colormap = mpl.colormaps['viridis'].resampled(len(state_bins_input))
-    colors = colormap.colors
-
-    fig, axes = plt.subplots(
-        1,
-        len(observations),
-        figsize=(len(observations) * 2 + 10, 5.5),
-        sharey=True,
-    )
-    # Ensure axes is always an array for consistent indexing
-    if len(observations) == 1:
-      axes = [axes]
-    axes[0].set_ylabel('Δ Activity', fontsize=medium)
+    state_bins_input = np.linspace(-axis_lim / 2, axis_lim / 2, 5)
 
     for observation_i in range(len(observations)):
       observation = observations[observation_i]
       if subj_ind is not None:
         observation = [subj_ind] + observation
-      legend_elements = []
-      ax = axes[observation_i]
+
+      delta_states_dict = {}
       for si_i in np.arange(len(state_bins_input)):
         delta_states = np.zeros(shape=(len(state_bins), 1))
         for s_i in np.arange(len(state_bins)):
@@ -340,68 +379,85 @@ def plot_update_rules(
           _, next_state = step_hk(params, key, observation, state)
           next_state = np.array(next_state)
           delta_states[s_i] = next_state[0, unit_i] - state_bins[s_i]
+        delta_states_dict[state_bins_input[si_i]] = delta_states
 
-        lines = ax.plot(state_bins, delta_states, color=colors[si_i])
-        legend_elements.append(lines[0])
+      update_dict[titles[observation_i]] = {
+          "state_bins": state_bins,
+          f"delta_latent_{unit_input+1}": delta_states_dict,
+      }
 
-        if observation_i == 0:
-          legend_labels = [f'{num:.1f}' for num in state_bins_input]  # pylint: disable=bad-whitespace
-          ax.legend(legend_elements, legend_labels, fontsize=small)
-
-      ax.plot((-axis_lim, axis_lim), (0, 0), color='black')
-      ax.set_title(titles[observation_i], fontsize=large)
-      ax.set_xlim(-axis_lim, axis_lim)
-      ax.set_xlabel(
-          'Latent ' + str(unit_i + 1) + ' Activity', fontsize=medium
-      )
-      ax.tick_params(axis='both', labelsize=small)
-
-    return fig
+    return update_dict
 
   latent_sigmas = np.array(
-      disrnn.reparameterize_sigma(
-          params[param_prefix]['latent_sigma_params']
-      )
+      disrnn.reparameterize_sigma(params[param_prefix]["latent_sigma_params"])
   )
 
-  # TODO(kevinjmiller): Generalize to allow different observation length
-  if disrnn_config.obs_size != 2:
-    raise NotImplementedError(
-        'Plot update rules currently assumes that there are exactly two'
-        f' observations. Instead founc observarions {obs_names}'
+  latent_order = np.argsort(latent_sigmas)
+
+  # check input observation types are good
+  if observation_types is None:
+    # This is what was hard coded originally
+    observation_types = [[0, 0], [0, 1], [1, 0], [1, 1]]
+  observation_types = np.array(observation_types)
+  if np.shape(observation_types)[1] != disrnn_config.obs_size:
+    raise ValueError(
+        "Observation Types doesn't match the size of observations to network"
     )
 
-  latent_order = np.argsort(latent_sigmas)
-  figs = []
+  # Check if observation names are valid
+  if observation_names is not None:
+    if len(observation_names) != disrnn_config.obs_size:
+      raise ValueError(
+          "Observation Names doesn't match the size of observations to network"
+      )
+    for obs_i in range(disrnn_config.obs_size):
+      if not all(
+          key in observation_names[obs_i]
+          for key in np.unique(observation_types[:, obs_i])
+      ):
+        raise ValueError(
+            "Observation Names must contain a key for all observation types,"
+            + f" {obs_i}"
+        )
+  else:
+    observation_names = [{}] * disrnn_config.obs_size
 
   # Loop over latents. Plot update rules
   for latent_i in latent_order:
+    latent_dict = {}
+
     # If this latent's bottleneck is open
     if latent_sigmas[latent_i] < 0.5:
 
       # Which of its input bottlenecks are open?
       update_net_inputs = np.argwhere(update_sigmas[latent_i] < 0.5)
-      obs1_sensitive = np.any(update_net_inputs == subj_embedding_size)
-      obs2_sensitive = np.any(update_net_inputs == subj_embedding_size + 1)
+      obs_sensitive = np.array([False] * disrnn_config.obs_size)
+      for i in range(disrnn_config.obs_size):
+        obs_sensitive[i] = np.any(update_net_inputs == subj_embedding_size + i)
 
-      # Choose which observations to use based on input bottlenecks
-      if obs1_sensitive and obs2_sensitive:
-        observations = ([0, 0], [0, 1], [1, 0], [1, 1])
-        titles = (
-            obs_names[0] + ': 0\n' + obs_names[1] + ': 0',
-            obs_names[0] + ': 0\n' + obs_names[1] + ': 1',
-            obs_names[0] + ': 1\n' + obs_names[1] + ': 0',
-            obs_names[0] + ': 1\n' + obs_names[1] + ': 1',
-        )
-      elif obs1_sensitive:
-        observations = ([0, 0], [1, 0])
-        titles = (obs_names[0] + ': 0', obs_names[0] + ': 1')
-      elif obs2_sensitive:
-        observations = ([0, 0], [0, 1])
-        titles = (obs_names[1] + ': 0', obs_names[1] + ': 1')
+      # Filter list of observation types based on sensitivity of this latent
+      latent_obs = observation_types.copy()
+      default_vals = observation_types[0]
+      for obs_i in range(disrnn_config.obs_size):
+        if not obs_sensitive[obs_i]:
+          latent_obs[:, obs_i] = default_vals[obs_i]
+      latent_obs = np.unique(latent_obs, axis=0)
+
+      # Build titles for each observation, based on sensitivity of this latent
+      titles = [""] * np.shape(latent_obs)[0]
+      if np.shape(latent_obs)[0] == 1:
+        titles = "All Trials"
       else:
-        observations = ([0, 0],)
-        titles = ('All Trials',)
+        for obs_i in range(disrnn_config.obs_size):
+          if obs_sensitive[obs_i]:
+            names = observation_names[obs_i]
+            for i in range(len(titles)):
+              name_str = names.get(latent_obs[i][obs_i], latent_obs[i][obs_i])
+              titles[i] = titles[i] + obs_names[obs_i] + f": {name_str}\n"
+
+      # Cast to tuples for immutability and backwards compatability
+      titles = tuple([x.rstrip() for x in titles])  # remove whitespace
+      observations = tuple(latent_obs)
 
       # Choose which other latents to condition on, based on input bottlenecks
       start_idx_of_latents = subj_embedding_size + disrnn_config.obs_size
@@ -415,9 +471,14 @@ def plot_update_rules(
           update_net_input_latents, update_net_input_latents == latent_i
       )
       if not latent_sensitive.size:  # Depends on no other latents
-        fig = plot_update_1d(params, latent_i, observations, titles)
+        latent_dict = compute_update_1d(
+            latent_dict, params, latent_i, observations, titles
+        )
       else:  # It depends on latents other than itself.
-        fig = plot_update_2d(
+        # TODO(siddhantjain, kevinjmiller)
+        # could easily loop over latent_sensitive
+        latent_dict = compute_update_2d(
+            latent_dict,
             params,
             latent_i,
             latent_sensitive[0],
@@ -426,13 +487,196 @@ def plot_update_rules(
         )
       if len(latent_sensitive) > 1:
         print(
-            'WARNING: This update rule depends on more than one '
-            'other latent. Plotting just one of them'
+            "WARNING: This update rule depends on more than one "
+            "other latent. Plotting just one of them"
         )
-      figs.append(fig)
-      fig.tight_layout()
+      # TODO(siddhantjain, kevinjmiller) we plot the first in index order,
+      # we should plot all of them
+      update_dict[str(latent_i + 1)] = latent_dict
 
-  return figs
+  return update_dict
+
+
+def plot_latent_update(
+    update_dict: dict[str, Any], latent_num: str, axis_lim: float = 2.1
+) -> matplotlib.figure.Figure:
+  """Plots all update rules for this latent on separate axes.
+
+  Observations to plot will be the keys of update_dict[latent_num].
+
+  Args:
+    update_dict: A dictionary of update rules for all latents.
+    latent_num: The latent to plot in 1-based indexing.
+    axis_lim: The limits of the axis to plot.
+
+  Returns:
+    A matplotlib Figure with the update rules plotted on separate axes.
+  """
+
+  # Get this latent
+  latent_dict = update_dict[str(latent_num)]
+
+  # Set up figure
+  observations = latent_dict.keys()
+  fig, axes = plt.subplots(
+      1, len(observations), figsize=(len(observations) * 4, 5.5), sharey=True
+  )
+  # Ensure axes is always an array for consistent indexing
+  if len(observations) == 1:
+    axes = [axes]
+  axes[0].set_ylabel("Δ Activity", fontsize=medium)
+
+  # plot each observation's update rule
+  for index, observation in enumerate(latent_dict.keys()):
+    ax = axes[index]
+    ax.plot((-axis_lim, axis_lim), (0, 0), color="black")
+    if "delta_states" in latent_dict[observation]:
+      # Set up color map
+      colormap = mpl.colormaps["viridis"].resampled(3)
+      colors = colormap.colors
+      state_bins = latent_dict[observation]["state_bins"]
+      delta_states = latent_dict[observation]["delta_states"]
+      ax.plot(state_bins, delta_states, color=colors[1])
+    else:
+      key = [x for x in latent_dict[observation].keys() if "delta_latent" in x][
+          0
+      ]
+      state_bins = latent_dict[observation]["state_bins"]
+      delta_dict = latent_dict[observation][key]
+      delta_vals = sorted(delta_dict.keys())
+      colormap = mpl.colormaps["viridis"].resampled(len(delta_vals))
+      colors = colormap.colors
+      legend_elements = []
+      for delta_i, delta_val in enumerate(delta_vals):
+        delta_states = delta_dict[delta_val]
+        lines = ax.plot(state_bins, delta_states, color=colors[delta_i])
+        legend_elements.append(lines[0])
+      if index == 0:
+        legend_labels = [
+            f"{num:.1f}" for num in delta_vals
+        ]  # pylint: disable=bad-whitespace
+        nice_key = key.split("delta_")[1].replace("_", " ")
+        ax.legend(
+            legend_elements, legend_labels, fontsize=small, title=nice_key
+        )
+
+    ax.set_title(observation, fontsize=large)
+    ax.set_xlim(-axis_lim, axis_lim)
+    ax.set_ylim(-axis_lim, axis_lim)
+    ax.set_xlabel("Latent " + str(latent_num) + " Activity", fontsize=medium)
+    ax.set_aspect("equal")
+    ax.tick_params(axis="both", labelsize=small)
+
+  return fig
+
+
+def plot_latent_update_combined(
+    update_dict: dict[str, Any], latent_num: str, axis_lim: float = 2.1
+) -> matplotlib.figure.Figure:
+  """Plots all update rules for this latent on a single axis.
+
+  Observations to plot will be the keys of update_dict[latent_num].
+
+  Args:
+    update_dict: A dictionary of update rules for all latents.
+    latent_num: The latent to plot in 1-based indexing.
+    axis_lim: The limits of the axis to plot.
+
+  Returns:
+    A matplotlib Figure with the update rules plotted on a single axis.
+  """
+
+  latent_dict = update_dict[str(latent_num)]
+
+  # Set up figure
+  plt.figure()
+  ax = plt.gca()
+  fig = plt.gcf()
+
+  # plot horizontal and vertical lines for clarity
+  plt.plot((-axis_lim, axis_lim), (0, 0), color="black", alpha=0.1)
+  plt.plot((0, 0), (-axis_lim, axis_lim), color="black", alpha=0.1)
+
+  # plot update rule for each observation
+  for observation in latent_dict.keys():
+    obs = latent_dict[observation]
+    if "delta_states" not in obs:
+      print("Cannot plot 2D update rules in a combined plot")
+      return fig
+    plt.plot(obs["state_bins"], obs["delta_states"], label=observation)
+
+  # Clean up plot
+  ax.set_xlim(-axis_lim, axis_lim)
+  ax.set_ylim(-axis_lim, axis_lim)
+  ax.set_xlabel("Latent " + str(latent_num) + " Activity", fontsize=medium)
+  ax.set_ylabel("Δ Activity", fontsize=medium)
+  ax.set_aspect("equal", "box")
+  ax.tick_params(axis="both", labelsize=small)
+  ax.legend()
+  fig.tight_layout()
+
+  return fig
+
+
+def plot_update_rules(
+    params: rnn_utils.RnnParams,
+    disrnn_config: disrnn.DisRnnConfig,
+    observation_types: Sequence[Sequence[int]] | None = None,
+    observation_names: Sequence[dict[str, str]] | None = None,
+    subj_ind: int | None = None,
+    axis_lim: float | None = None,
+    plot_combined: bool = False,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+  """Computes and then plots update rules.
+
+  Args:
+    params: Parameters of the DisRNN.
+    disrnn_config: Configuration for the DisRNN.
+    observation_types: Discrete list of input observations to use to compute
+      update rules. If the observation is continuous, you can simply pick
+      specific values to plot. We only check the dimensionality of the
+      observation_types, we do not verify the input values are valid. The order
+      of the list is determined by disrnn_config.x_names.
+    observation_names: A mapper from the way input observations are coded into
+      human readable labels. This is just for visualization and does not impact
+      computation. The names in the update rule dictionary will reflect the
+      human readable names.
+    subj_ind: Subject index, used in multisubject mode.
+    axis_lim: The axis limit for the plot. If None, defaults to 1.05 times the
+      maximum latent value.
+    plot_combined: If True, plot all observations on a single axis. If False,
+      plot on separate axes.
+
+  Returns:
+    A tuple of (update_dict, figs), where update_dict is a nested dictionary
+    of update rules and figs is a dictionary mapping latent numbers to their
+    corresponding matplotlib Figures.
+  """
+
+  # If not specified, add 5% buffer of maximum latent value
+  if axis_lim is None:
+    axis_lim = 1.05 * disrnn_config.max_latent_value
+
+  # Compute update rules, and return dictionary
+  update_dict = compute_update_rules(
+      params=params,
+      disrnn_config=disrnn_config,
+      observation_types=observation_types,
+      observation_names=observation_names,
+      subj_ind=subj_ind,
+      axis_lim=axis_lim,
+  )
+
+  # plot each active latent
+  # either combined or in separate axes for each observation
+  figs = {}
+  for latent in update_dict:
+    if plot_combined:
+      figs[latent] = plot_latent_update_combined(update_dict, latent, axis_lim)
+    else:
+      figs[latent] = plot_latent_update(update_dict, latent, axis_lim)
+
+  return (update_dict, figs)
 
 
 def plot_choice_rule(
@@ -441,7 +685,7 @@ def plot_choice_rule(
     subj_embedding: np.ndarray | None = None,
     axis_lim: float = 2.1,
 ) -> plt.Figure | None:
-  """Plots the choice rule of a DisRNN.
+  """Computes and plots the choice rule of a DisRNN.
 
   Args:
     params: The parameters of the DisRNN
@@ -453,6 +697,139 @@ def plot_choice_rule(
   Returns:
     A matplotlib Figure object, or None if choice depends on no latents.
   """
+  choice_dict = compute_choice_rule(
+      params=params,
+      disrnn_config=disrnn_config,
+      subj_embedding=subj_embedding,
+      axis_lim=axis_lim,
+  )
+
+  fig = plot_choice_rule_inner(choice_dict, axis_lim)
+  return fig
+
+
+def plot_choice_rule_inner(
+    choice_dict: dict[str, Any],
+    axis_lim: float = 2.1,
+) -> matplotlib.figure.Figure | None:
+  """Plots the choice rule of a DisRNN from a choice dictionary.
+
+  Args:
+    choice_dict: A dictionary containing the choice rule data.
+    axis_lim: The limits of the axis to plot.
+
+  Returns:
+    A matplotlib Figure, or None if the choice depends on no latents.
+  """
+
+  if choice_dict["n_latents_to_plot"] == 0:
+    print("Choice does not depend on any latents, nothing to plot")
+    return None
+
+  if choice_dict["n_latents_to_plot"] == 1:
+    return plot_choice_rule_1d(choice_dict, axis_lim)
+
+  return plot_choice_rule_2d(choice_dict, axis_lim)
+
+
+def plot_choice_rule_1d(
+    choice_dict: dict[str, Any], axis_lim: float = 2.1
+) -> matplotlib.figure.Figure:
+  """Plots the choice rule if it is 1D.
+
+  Args:
+    choice_dict: A dictionary containing the choice rule data.
+    axis_lim: The limits of the axis to plot.
+
+  Returns:
+    A matplotlib Figure with the 1D choice rule.
+
+  Raises:
+    ValueError: If n_latents_to_plot is not 1.
+  """
+  if choice_dict["n_latents_to_plot"] != 1:
+    raise ValueError("Cannot plot choice rule with n_latents different from 1")
+
+  latent_key = [x for x in choice_dict.keys() if "policy_latent_" in x][0]
+  latent_num = latent_key.split("_")[2]
+
+  fig, ax = plt.subplots()
+  ax.plot(choice_dict[latent_key], choice_dict["choice_logits"], "g")
+  ax.set_title("Choice Rule", fontsize=large)
+  ax.set_xlabel(f"Latent {latent_num}", fontsize=medium)
+  ax.set_ylabel("Choice Logit", fontsize=medium)
+  ax.tick_params(axis="both", labelsize=small)
+  ax.set_xlim(-axis_lim, axis_lim)
+  return fig
+
+
+def plot_choice_rule_2d(
+    choice_dict: dict[str, Any], axis_lim: float = 2.1
+) -> matplotlib.figure.Figure:
+  """Plots the choice rule if it is 2D.
+
+  Args:
+    choice_dict: A dictionary containing the choice rule data.
+    axis_lim: The limits of the axis to plot.
+
+  Returns:
+    A matplotlib Figure with the 2D choice rule.
+
+  Raises:
+    ValueError: If n_latents_to_plot is not 2.
+  """
+  if choice_dict["n_latents_to_plot"] != 2:
+    raise ValueError("Cannot plot choice rule with n_latents different from 2")
+
+  fig, ax = plt.subplots()
+  scatter = ax.imshow(
+      choice_dict["choice_logits_2d"],
+      cmap="coolwarm",
+      origin="lower",
+      extent=[-axis_lim, axis_lim, -axis_lim, axis_lim],
+      aspect="auto",
+  )
+  cbar = fig.colorbar(scatter, ax=ax)
+  cbar.ax.tick_params(labelsize=small)
+  cbar.set_label("Choice Logit", fontsize=medium)
+  ax.set_title("Choice Rule", fontsize=large)
+  ax.set_xlabel(f"Latent {choice_dict['x_latent']}", fontsize=medium)
+  ax.set_ylabel(f"Latent {choice_dict['y_latent']}", fontsize=medium)
+  ax.tick_params(axis="both", labelsize=small)
+  return fig
+
+
+def compute_choice_rule(
+    params: rnn_utils.RnnParams,
+    disrnn_config: disrnn.DisRnnConfig,
+    subj_embedding: np.ndarray | None = None,
+    axis_lim: float = 2.1,
+) -> dict[str, Any]:
+  """Computes the choice rule of a DisRNN.
+
+  Args:
+    params: The parameters of the DisRNN.
+    disrnn_config: A DisRnnConfig object.
+    subj_embedding: The subject embedding to use. If None, use a zero vector
+      (loosely: the average subject).
+    axis_lim: The axis limit for the plot.
+
+  Returns:
+    A dictionary with the choice rule containing:
+      - n_latents_to_plot: Number of latents used to compute the choice rule,
+        equal to min(2, n_influential_latents).
+      - n_influential_latents: Number of latents the choice depends on.
+      If n_latents_to_plot == 1:
+        - policy_latent_X_vals: The values of the latent, a 1D vector.
+        - choice_logits: The choice logits evaluated at policy_latent_X_vals.
+        - yhats: The full yhats evaluated at policy_latent_X_vals.
+      If n_latents_to_plot == 2:
+        - policy_latent_X_vals: The values of the latent, a 2D mesh.
+        - x_latent: Which latent is the x-dimension.
+        - y_latent: Which latent is the y-dimension.
+        - choice_logits_2d: The choice logits evaluated on the 2D mesh.
+        - yhats: The full yhats evaluated at policy_latent_X_vals.
+  """
 
   disrnn_config = copy.deepcopy(disrnn_config)
   disrnn_config.noiseless_mode = True  # Turn off noise for plotting
@@ -460,24 +837,24 @@ def plot_choice_rule(
 
   if isinstance(disrnn_config, multisubject_disrnn.MultisubjectDisRnnConfig):
     subj_embedding_size = disrnn_config.subject_embedding_size
-    params_prefix = 'multisubject_dis_rnn'
+    params_prefix = "multisubject_dis_rnn"
     choice_subj_s = disrnn.reparameterize_sigma(
-        params[params_prefix]['choice_net_subj_sigma_params']
+        params[params_prefix]["choice_net_subj_sigma_params"]
     )
     choice_latent_s = disrnn.reparameterize_sigma(
-        params[params_prefix]['choice_net_latent_sigma_params']
+        params[params_prefix]["choice_net_latent_sigma_params"]
     )
     choice_net_sigmas = np.concatenate((choice_subj_s, choice_latent_s))
   elif isinstance(disrnn_config, disrnn.DisRnnConfig):
     subj_embedding_size = 0
-    params_prefix = 'hk_disentangled_rnn'
+    params_prefix = "hk_disentangled_rnn"
     choice_net_sigmas = disrnn.reparameterize_sigma(
-        params[params_prefix]['choice_net_sigma_params']
+        params[params_prefix]["choice_net_sigma_params"]
     )
   else:
     raise ValueError(
-        'DisRnnConfig is neither MultisubjectDisRnnConfig nor DisRnnConfig,'
-        f' but got {type(disrnn_config).__name__}'
+        "DisRnnConfig is neither MultisubjectDisRnnConfig nor DisRnnConfig,"
+        f" but got {type(disrnn_config).__name__}"
     )
 
   if subj_embedding is None:
@@ -492,7 +869,7 @@ def plot_choice_rule(
         n_units_per_layer=disrnn_config.choice_net_n_units_per_layer,
         n_layers=disrnn_config.choice_net_n_layers,
         activation_fn=activation_fn,
-        name='choice_net',
+        name="choice_net",
     )(xs)
     return choice_net_output
 
@@ -500,16 +877,14 @@ def plot_choice_rule(
   apply = jax.jit(model.apply)
 
   choice_net_params = {
-      'choice_net': params[params_prefix + '/~predict_targets/choice_net']
+      "choice_net": params[params_prefix + "/~predict_targets/choice_net"]
   }
 
   # Determine which latents to vary based on their choice_net_sigma_params.
   # choice_net_sigmas has shape (subj_embedding_size + latent_size,).
   latent_to_choice_net_sigmas = choice_net_sigmas[subj_embedding_size:]
 
-  sorted_latent_indices = np.argsort(
-      latent_to_choice_net_sigmas
-  )
+  sorted_latent_indices = np.argsort(latent_to_choice_net_sigmas)
 
   influential_latents_indices_in_latent_space = [
       latent_idx  # This is an index in the latent space (0 to latent_size-1)
@@ -517,13 +892,17 @@ def plot_choice_rule(
       if latent_to_choice_net_sigmas[latent_idx] < 0.5
   ]
   n_latents_to_plot = min(len(influential_latents_indices_in_latent_space), 2)
+  output = {"n_latents_to_plot": n_latents_to_plot}
+  output["n_influential_latents"] = len(
+      influential_latents_indices_in_latent_space
+  )
 
   if n_latents_to_plot == 0:
     print(
-        'Choice rule: No latents have a choice_net_input_sigma < 0.5.'
-        ' Plotting not possible.'
+        "Choice rule: No latents have a choice_net_input_sigma < 0.5."
+        " Computation not possible."
     )
-    return None
+    return output
 
   # Select the actual latents to vary (indices within the latent space)
   varying_latents_plot_indices = influential_latents_indices_in_latent_space[
@@ -540,28 +919,24 @@ def plot_choice_rule(
     ))
     xs[:, :subj_embedding_size] = subj_embedding
     # Vary the selected latent; other latents remain 0
-    xs[
-        :, subj_embedding_size + policy_latent_idx_in_latent_space
-    ] = policy_latent_vals
+    xs[:, subj_embedding_size + policy_latent_idx_in_latent_space] = (
+        policy_latent_vals
+    )
     choice_net_output = apply(choice_net_params, jax.random.PRNGKey(0), xs)
     y_hats = choice_net_output[0]
     choice_logits = y_hats[:, 1] - y_hats[:, 0]
 
-    fig, ax = plt.subplots()
-    ax.plot(policy_latent_vals, choice_logits, 'g')
-    ax.set_title('Choice Rule', fontsize=large)
-    ax.set_xlabel(
-        f'Latent {policy_latent_idx_in_latent_space + 1}', fontsize=medium
+    output[f"policy_latent_{policy_latent_idx_in_latent_space + 1}_vals"] = (
+        policy_latent_vals
     )
-    ax.set_ylabel('Choice Logit', fontsize=medium)
-    ax.tick_params(axis='both', labelsize=small)
-
+    output["choice_logits"] = choice_logits
+    output["yhats"] = y_hats
   else:
     # Choice Rule 2D: A colormap
     if len(influential_latents_indices_in_latent_space) > 2:
       print(
-          'WARNING: More than two latents have choice_net_input_sigma < 0.5.'
-          ' Plotting only the two with the smallest choice_net_input_sigmas.'
+          "WARNING: More than two latents have choice_net_input_sigma < 0.5."
+          " Computing only the two with the smallest choice_net_input_sigmas."
       )
 
     policy_latent_idx1_in_latent_space = varying_latents_plot_indices[0]
@@ -579,12 +954,12 @@ def plot_choice_rule(
     ))
     xs[:, :subj_embedding_size] = subj_embedding
     # Vary the selected latents; other latents remain 0
-    xs[
-        :, subj_embedding_size + policy_latent_idx1_in_latent_space
-    ] = latent0_vals
-    xs[
-        :, subj_embedding_size + policy_latent_idx2_in_latent_space
-    ] = latent1_vals
+    xs[:, subj_embedding_size + policy_latent_idx1_in_latent_space] = (
+        latent0_vals
+    )
+    xs[:, subj_embedding_size + policy_latent_idx2_in_latent_space] = (
+        latent1_vals
+    )
 
     y_hats = apply(choice_net_params, jax.random.PRNGKey(0), xs)
     # TODO(kevinjmiller): This assumes two-alternative logits. Generalize to
@@ -592,24 +967,15 @@ def plot_choice_rule(
     choice_logits_2d = y_hats[0][:, 1] - y_hats[0][:, 0]
     choice_logits_2d = choice_logits_2d.reshape((n_vals, n_vals))
 
-    fig, ax = plt.subplots()
-    scatter = ax.imshow(
-        choice_logits_2d,
-        cmap='coolwarm',
-        origin='lower',
-        extent=[-axis_lim, axis_lim, -axis_lim, axis_lim],
-        aspect='auto',
+    output["yhats"] = y_hats[0]
+    output[f"policy_latent_{policy_latent_idx1_in_latent_space + 1}_vals"] = (
+        latent0_vals
     )
-    cbar = fig.colorbar(scatter, ax=ax)
-    cbar.ax.tick_params(labelsize=small)
-    cbar.set_label('Choice Logit', fontsize=medium)
-    ax.set_title('Choice Rule', fontsize=large)
-    ax.set_xlabel(
-        f'Latent {policy_latent_idx1_in_latent_space + 1}', fontsize=medium
+    output[f"policy_latent_{policy_latent_idx2_in_latent_space + 1}_vals"] = (
+        latent1_vals
     )
-    ax.set_ylabel(
-        f'Latent {policy_latent_idx2_in_latent_space + 1}', fontsize=medium
-    )
-    ax.tick_params(axis='both', labelsize=small)
+    output["x_latent"] = policy_latent_idx1_in_latent_space + 1
+    output["y_latent"] = policy_latent_idx2_in_latent_space + 1
+    output["choice_logits_2d"] = choice_logits_2d
 
-  return fig
+  return output
