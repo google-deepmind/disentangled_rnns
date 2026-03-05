@@ -13,10 +13,10 @@ jobs:
       cancel-in-progress: true
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v6  # ratchet:exclude
 
     # Install deps
-    - uses: actions/setup-python@v6
+    - uses: actions/setup-python@v6  # ratchet:exclude
       with:
         python-version: "3.11"
         # Uncomment to cache of pip dependencies (if tests too slow)
@@ -47,7 +47,7 @@ jobs:
 
     steps:
     # Publish the package (if local `__version__` > pip version)
-    - uses: etils-actions/pypi-auto-publish@v1
+    - uses: etils-actions/pypi-auto-publish@v1  # ratchet:exclude
       with:
         pypi-token: ${{ secrets.PYPI_API_TOKEN }}
         gh-token: ${{ secrets.GITHUB_TOKEN }}
