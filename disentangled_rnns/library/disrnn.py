@@ -113,7 +113,7 @@ class DisRnnConfig:
     update_net_n_layers: Number of layers in the update networks
     choice_net_n_units_per_layer: Number of units in each hidden layer of the choice
       network
-    choice_net_n_layers: Number of hidden layers in the choice network. This 
+    choice_net_n_layers: Number of hidden layers in the choice network. This
       number can be 0 if a simple linear regression should be applied
     noiseless_mode: Allows turning off the bottlenecks e.g. for evaluation
     latent_penalty: Multiplier for KL cost on the latent bottlenecks
