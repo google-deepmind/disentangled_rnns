@@ -210,26 +210,26 @@ def compute_update_rules(
   Generates the update rules of a HkDisentangledRNN.
   observation_types are the discrete list of input observations to use
     to compute update rules. If the observation is continuous, you can
-    simply pick specific values to plot. We only check the 
-    dimensionality of the observation_types, we do not verify the 
+    simply pick specific values to plot. We only check the
+    dimensionality of the observation_types, we do not verify the
     input values are valid. The order of the list is determined by
-    disrnn_config.x_names. 
+    disrnn_config.x_names.
   observation_names is a mapper from the way input observations are coded into
     human readable labels. This is just for visualization and does not impact
     computation. The names in the update rule dictionary will reflect the human
-    readable names.   
-  Update rules are saved in a nested dictionary 
+    readable names.
+  Update rules are saved in a nested dictionary
     (latent, observation, update rule).
     latent, keys are strings, names of latents in 1 based indexing
-    observation, keys are strings, names of observations in 
+    observation, keys are strings, names of observations in
       observation_names
     update rule, keys are state_bins, and delta_states | delta_latent_X
-      state_bins, vector of latent values where the update rule is 
+      state_bins, vector of latent values where the update rule is
         evaluated
-      delta_states, if the update rule depends on just one latent. 
+      delta_states, if the update rule depends on just one latent.
         vector of changes in latent states.
       delta_latent_X, if the update rule depends on more than one latent
-        then this is a dictionary with keys being the values of the 
+        then this is a dictionary with keys being the values of the
         latent X at which the update rule is evaluated
   """
 
@@ -607,14 +607,14 @@ def plot_update_rules(
 ) -> tuple[dict, dict]:
   """
   Computes and then plots update rules.
-  Update rules are saved in a nested dictionary 
+  Update rules are saved in a nested dictionary
     (latent, observation, update rule)
   observation_types are the discrete list of input observations to use
     to compute update rules. If the observation is continuous, you can
-    simply pick specific values to plot. We only check the 
-    dimensionality of the observation_types, we do not verify the 
+    simply pick specific values to plot. We only check the
+    dimensionality of the observation_types, we do not verify the
     input values are valid. The order of the list is determined by
-    disrnn_config.x_names. 
+    disrnn_config.x_names.
   observation_names is a mapper from the way input observations are coded into
     human readable labels. This is just for visualization and does not impact
     computation. The names in the update rule dictionary will reflect the human
