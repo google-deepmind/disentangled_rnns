@@ -230,10 +230,10 @@ def get_pclicks_dataset(rat_i: int = 0) -> rnn_utils.DatasetRNNCategorical:
     right_bups_trial = ratdata_mat['rawdata']['rightbups'][0, trial_i][0]
     # Assemble into binned click counts
     binned_left_bups_trial, _ = np.histogram(
-        left_bups_trial*100, bins=np.arange(stim_dur)
+        left_bups_trial * 100, bins=np.arange(stim_dur)
     )
     binned_right_bups_trial, _ = np.histogram(
-        right_bups_trial*100, bins=np.arange(stim_dur)
+        right_bups_trial * 100, bins=np.arange(stim_dur)
     )
 
     binned_left_bups[trial_i, stim_start_bin:] = binned_left_bups_trial
