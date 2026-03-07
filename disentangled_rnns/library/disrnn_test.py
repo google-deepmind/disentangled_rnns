@@ -128,7 +128,7 @@ class DisrnnTest(absltest.TestCase):
     # element is the penalty
     self.assertEqual(network_outputs.shape, (n_sessions, n_trials, 3))
     self.assertEqual(
-        network_states.shape, 
+        network_states.shape,
         (n_sessions, n_trials, self.disrnn_config.latent_size),
     )
 
