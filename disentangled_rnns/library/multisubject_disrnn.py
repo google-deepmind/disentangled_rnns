@@ -94,8 +94,8 @@ class MultisubjectDisRnn(disrnn.HkDisentangledRNN):
     # Input: subject_embedding
     # This bottleneck is applied directly to the subject_embedding.
     self._subj_emb_global_sigma, _ = disrnn.get_initial_bottleneck_params(
-      shape=(self._subject_embedding_size,),
-      name='subj_emb_global',
+        shape=(self._subject_embedding_size,),
+        name='subj_emb_global',
     )
 
   def _build_multisubject_update_bottlenecks(self):
@@ -304,7 +304,7 @@ def get_auxiliary_metrics(
   )
 
   cs_o, cs_c = _count_states(
-    np.array(choice_subj_s), open_thresh, closed_thresh
+      np.array(choice_subj_s), open_thresh, closed_thresh
   )
   cl_o, cl_c = _count_states(np.array(choice_lat_s), open_thresh, closed_thresh)
 
@@ -322,7 +322,7 @@ def get_auxiliary_metrics(
 
   # Get total sigma (the sum of all bottleneck sigmas)
   all_sigmas_sum = (
-      jnp.sum(latent_s) 
+      jnp.sum(latent_s)
       + jnp.sum(upd_subj_s)
       + jnp.sum(upd_obs_s)
       + jnp.sum(upd_lat_s)
