@@ -42,6 +42,7 @@ class PclicksTest(absltest.TestCase):
     )
     decisions, _ = pclicks.drift_diffusion_model(xs)
     self.assertEqual(decisions.shape, (10,))
+    
 
 if __name__ == "__main__":
   absltest.main()
