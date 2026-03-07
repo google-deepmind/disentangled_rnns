@@ -177,25 +177,25 @@ def get_pclicks_dataset(rat_i: int = 0) -> rnn_utils.DatasetRNNCategorical:
   # A list of URLs for datasets from individual rats
   url_path = 'https://github.com/Brody-Lab/brunton_dataset/raw/main/data/'
   url_filenames = [
-    'chrono_B052_rawdata.mat',
-    'chrono_B053_rawdata.mat',
-    'chrono_B065_rawdata.mat',
-    'chrono_B069_rawdata.mat',
-    'chrono_B074_rawdata.mat',
-    'chrono_B083_rawdata.mat',
-    'chrono_B090_rawdata.mat',
-    'chrono_B093_rawdata.mat',
-    'chrono_B097_rawdata.mat',
-    'chrono_B102_rawdata.mat',
-    'chrono_B103_rawdata.mat',
-    'chrono_B104_rawdata.mat',
-    'chrono_B105_rawdata.mat',
-    'chrono_B106_rawdata.mat',
-    'chrono_B107_rawdata.mat',
-    'chrono_B111_rawdata.mat',
-    'chrono_B112_rawdata.mat',
-    'chrono_B113_rawdata.mat',
-    'chrono_B115_rawdata.mat',
+      'chrono_B052_rawdata.mat',
+      'chrono_B053_rawdata.mat',
+      'chrono_B065_rawdata.mat',
+      'chrono_B069_rawdata.mat',
+      'chrono_B074_rawdata.mat',
+      'chrono_B083_rawdata.mat',
+      'chrono_B090_rawdata.mat',
+      'chrono_B093_rawdata.mat',
+      'chrono_B097_rawdata.mat',
+      'chrono_B102_rawdata.mat',
+      'chrono_B103_rawdata.mat',
+      'chrono_B104_rawdata.mat',
+      'chrono_B105_rawdata.mat',
+      'chrono_B106_rawdata.mat',
+      'chrono_B107_rawdata.mat',
+      'chrono_B111_rawdata.mat',
+      'chrono_B112_rawdata.mat',
+      'chrono_B113_rawdata.mat',
+      'chrono_B115_rawdata.mat',
   ]
 
   # Download the file for this rat, package a datasetRNN object
@@ -230,10 +230,10 @@ def get_pclicks_dataset(rat_i: int = 0) -> rnn_utils.DatasetRNNCategorical:
     right_bups_trial = ratdata_mat['rawdata']['rightbups'][0, trial_i][0]
     # Assemble into binned click counts
     binned_left_bups_trial, _ = np.histogram(
-      left_bups_trial*100, bins=np.arange(stim_dur)
+        left_bups_trial*100, bins=np.arange(stim_dur)
     )
     binned_right_bups_trial, _ = np.histogram(
-      right_bups_trial*100, bins=np.arange(stim_dur)
+        right_bups_trial*100, bins=np.arange(stim_dur)
     )
 
     binned_left_bups[trial_i, stim_start_bin:] = binned_left_bups_trial
