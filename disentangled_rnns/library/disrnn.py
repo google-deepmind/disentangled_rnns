@@ -200,7 +200,7 @@ class ResMLP(hk.Module):
       n_layers: int = 5,
       n_units_per_layer: int = 5,
       activation_fn: Callable[[Any], Any] = jax.nn.relu,
-      name=None
+      name=None,
   ):
     super().__init__(name=name)
 
@@ -287,7 +287,7 @@ class ResMLP(hk.Module):
 
 
 def get_initial_bottleneck_params(
-    shape: Sequence[int], 
+    shape: Sequence[int],
     name: str,
 ) -> tuple[jnp.ndarray, jnp.ndarray]:
   """Defines a bottleneck with a sigma and a multiplier."""
@@ -551,7 +551,7 @@ def log_bottlenecks(
     params,
     open_thresh: float = 0.1,
     partially_open_thresh: float = 0.25,
-    closed_thresh: float = 0.9
+    closed_thresh: float = 0.9,
 ) -> dict[str, int]:
   """Computes info about bottlenecks for the base DisRNN."""
 
