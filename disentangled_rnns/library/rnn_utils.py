@@ -52,6 +52,7 @@ class DatasetRNN(abc.ABC):
   Both inputs and targets are stored as [timestep, episode, feature]
   Serves them up in batches
   """
+
   x_names: list[str]
   y_names: list[str]
   n_classes: int | None
@@ -485,9 +486,7 @@ class DatasetRNNCategoricalWithActionMasks(DatasetRNNCategorical):
       )
 
 
-def datasets_are_compatible(
-    ds1: DatasetRNN, ds2: DatasetRNN
-) -> bool:
+def datasets_are_compatible(ds1: DatasetRNN, ds2: DatasetRNN) -> bool:
   """Checks if two DatasetRNN objects are compatible for merging.
 
   Compatible means they are of the same type and all attributes match, except
@@ -911,7 +910,9 @@ def compute_penalty(
   penalty = jnp.sum(jnp.multiply(trialwise_penalty, mask))
   n_unmasked_samples = jnp.sum(mask)
 
-  return penalty, n_unmasked_samples  # pytype: disable=bad-return-type  # jnp-type
+  return (penalty, 
+          n_unmasked_samples
+  )  # pytype: disable=bad-return-type  # jnp-type
 
 
 ## Training Loop
