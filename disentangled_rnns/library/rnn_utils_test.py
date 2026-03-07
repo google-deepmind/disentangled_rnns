@@ -35,8 +35,7 @@ def make_network():
 
 
 class TestRNNUtils(absltest.TestCase):
-  """Tests for rnn_utils.
-  """
+  """Tests for rnn_utils."""
 
   def setUp(self):
     super().setUp()
@@ -50,7 +49,7 @@ class TestRNNUtils(absltest.TestCase):
         environment,
         n_steps_per_session=n_steps_per_session,
         n_sessions=n_sessions,
-        )
+    )
 
     # "Train" for zero steps to instantiate model variables
     self.params, self.opt_state, _ = rnn_utils.train_network(
@@ -60,7 +59,8 @@ class TestRNNUtils(absltest.TestCase):
         random_key=self.random_key,
         loss='categorical',
         n_steps=0,
-        opt=optax.adam(learning_rate=0.001))
+        opt=optax.adam(learning_rate=0.001),
+    )
 
   def test_dataset_rnn(self):
     data = next(self.dataset)
@@ -78,7 +78,8 @@ class TestRNNUtils(absltest.TestCase):
     dataset = rnn_utils.DatasetRNNCategorical(
         xs=np.zeros((n_steps_per_session, n_sessions, 2)),
         ys=np.zeros((n_steps_per_session, n_sessions, 1), dtype=int),
-        batch_size=10)
+        batch_size=10,
+    )
     xs = next(dataset)['xs']
     self.assertEqual(np.shape(xs), (n_steps_per_session, 10, 2))
 
@@ -197,8 +198,7 @@ class TestRNNUtils(absltest.TestCase):
     )
 
   def test_train_network(self):
-    """Train the network for a few steps, check that the loss goes down.
-    """
+    """Train the network for a few steps, check that the loss goes down."""
     # Train the network for a few steps
     new_params, new_opt_state, losses = rnn_utils.train_network(
         make_network,
@@ -209,14 +209,15 @@ class TestRNNUtils(absltest.TestCase):
         n_steps=100,
         opt=optax.adam(learning_rate=0.01),
         opt_state=self.opt_state,
-        params=self.params)
+        params=self.params,
+    )
 
     # Check that loss has gone down
-    self.assertGreater(losses['training_loss'][0],
-                       losses['training_loss'][-1])
+    self.assertGreater(losses['training_loss'][0], losses['training_loss'][-1])
     # Check that params have changed
     self.assertFalse(
-        np.all(self.params['linear']['w'] == new_params['linear']['w']))
+        np.all(self.params['linear']['w'] == new_params['linear']['w'])
+    )
     # Check that opt state has changed
     self.assertNotEqual(self.opt_state, new_opt_state)
 
@@ -225,7 +226,8 @@ class TestRNNUtils(absltest.TestCase):
     xs = next(self.dataset)['xs']
     input_size = xs.shape[-1]
     new_params = rnn_utils.get_new_params(self.make_network,
-                                          input_size=input_size)
+                                          input_size=input_size
+    )
     self.assertNotEmpty(new_params, 'new_params should not be empty')
     self.assertIn('gru', new_params)
 
@@ -233,8 +235,9 @@ class TestRNNUtils(absltest.TestCase):
     """Test that training from new params works."""
     xs = next(self.dataset)['xs']
     input_size = xs.shape[-1]
-    new_params = rnn_utils.get_new_params(self.make_network,
-                                          input_size=input_size)
+    new_params = rnn_utils.get_new_params(
+      self.make_network, input_size=input_size
+    )
 
     _, _, losses = rnn_utils.train_network(
         self.make_network,
