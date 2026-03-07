@@ -136,7 +136,7 @@ def get_rat_bandit_dataset(rat_i: int = 0) -> rnn_utils.DatasetRNNCategorical:
       (choices_by_session, rewards_by_session), axis=2
   )
   xs = np.concatenate(
-      (0. * np.ones((1, n_sess, 2)), choice_and_reward), axis=0
+      (0.0 * np.ones((1, n_sess, 2)), choice_and_reward), axis=0
   )  # First trial's input will arbitrarily always be 0
 
   # Define neural network targets:
@@ -144,7 +144,7 @@ def get_rat_bandit_dataset(rat_i: int = 0) -> rnn_utils.DatasetRNNCategorical:
   free_choices = choices_by_session
   free_choices[instructed_by_session == 1] = -1
   # Add a dummy target at the end -- last step has input but no target
-  ys = np.concatenate((free_choices, -1*np.ones((1, n_sess, 1))), axis=0)
+  ys = np.concatenate((free_choices, -1 * np.ones((1, n_sess, 1))), axis=0)
 
   # Pack into a DatasetRNN object
   dataset_rat = rnn_utils.DatasetRNNCategorical(ys=ys, xs=xs)
@@ -176,26 +176,27 @@ def get_pclicks_dataset(rat_i: int = 0) -> rnn_utils.DatasetRNNCategorical:
 
   # A list of URLs for datasets from individual rats
   url_path = 'https://github.com/Brody-Lab/brunton_dataset/raw/main/data/'
-  url_filenames = ['chrono_B052_rawdata.mat',
-                   'chrono_B053_rawdata.mat',
-                   'chrono_B065_rawdata.mat',
-                   'chrono_B069_rawdata.mat',
-                   'chrono_B074_rawdata.mat',
-                   'chrono_B083_rawdata.mat',
-                   'chrono_B090_rawdata.mat',
-                   'chrono_B093_rawdata.mat',
-                   'chrono_B097_rawdata.mat',
-                   'chrono_B102_rawdata.mat',
-                   'chrono_B103_rawdata.mat',
-                   'chrono_B104_rawdata.mat',
-                   'chrono_B105_rawdata.mat',
-                   'chrono_B106_rawdata.mat',
-                   'chrono_B107_rawdata.mat',
-                   'chrono_B111_rawdata.mat',
-                   'chrono_B112_rawdata.mat',
-                   'chrono_B113_rawdata.mat',
-                   'chrono_B115_rawdata.mat',
-                  ]
+  url_filenames = [
+    'chrono_B052_rawdata.mat',
+    'chrono_B053_rawdata.mat',
+    'chrono_B065_rawdata.mat',
+    'chrono_B069_rawdata.mat',
+    'chrono_B074_rawdata.mat',
+    'chrono_B083_rawdata.mat',
+    'chrono_B090_rawdata.mat',
+    'chrono_B093_rawdata.mat',
+    'chrono_B097_rawdata.mat',
+    'chrono_B102_rawdata.mat',
+    'chrono_B103_rawdata.mat',
+    'chrono_B104_rawdata.mat',
+    'chrono_B105_rawdata.mat',
+    'chrono_B106_rawdata.mat',
+    'chrono_B107_rawdata.mat',
+    'chrono_B111_rawdata.mat',
+    'chrono_B112_rawdata.mat',
+    'chrono_B113_rawdata.mat',
+    'chrono_B115_rawdata.mat',
+  ]
 
   # Download the file for this rat, package a datasetRNN object
   url_filename = url_filenames[rat_i]
@@ -228,10 +229,12 @@ def get_pclicks_dataset(rat_i: int = 0) -> rnn_utils.DatasetRNNCategorical:
     left_bups_trial = ratdata_mat['rawdata']['leftbups'][0, trial_i][0]
     right_bups_trial = ratdata_mat['rawdata']['rightbups'][0, trial_i][0]
     # Assemble into binned click counts
-    binned_left_bups_trial, _ = np.histogram(left_bups_trial*100,
-                                             bins=np.arange(stim_dur))
-    binned_right_bups_trial, _ = np.histogram(right_bups_trial*100,
-                                              bins=np.arange(stim_dur))
+    binned_left_bups_trial, _ = np.histogram(
+      left_bups_trial*100, bins=np.arange(stim_dur)
+    )
+    binned_right_bups_trial, _ = np.histogram(
+      right_bups_trial*100, bins=np.arange(stim_dur)
+    )
 
     binned_left_bups[trial_i, stim_start_bin:] = binned_left_bups_trial
     binned_right_bups[trial_i, stim_start_bin:] = binned_right_bups_trial
@@ -241,8 +244,8 @@ def get_pclicks_dataset(rat_i: int = 0) -> rnn_utils.DatasetRNNCategorical:
   xs[:-1, :, 0] = np.swapaxes(binned_left_bups, 1, 0)
   xs[:-1, :, 1] = np.swapaxes(binned_right_bups, 1, 0)
 
-  ys = -1*np.ones((101, n_trials, 1))
-  ys[-1,:, 0] = choices
+  ys = -1 * np.ones((101, n_trials, 1))
+  ys[-1, :, 0] = choices
 
   dataset_rat = rnn_utils.DatasetRNNCategorical(xs, ys)
 
@@ -251,11 +254,11 @@ def get_pclicks_dataset(rat_i: int = 0) -> rnn_utils.DatasetRNNCategorical:
 
 def get_q_learning_dataset(
     alpha: float = 0.3,
-    beta: float = 3.,
+    beta: float = 3.0,
     sigma: float = 0.1,
     n_trials: int = 500,
     n_sessions: int = 20000,
-    np_rng_seed: float = 0
+    np_rng_seed: float = 0,
 ) -> rnn_utils.DatasetRNNCategorical:
   """Generates synthetic dataset from Q-Learning agent."""
   rng = np.random.default_rng(np_rng_seed)
@@ -273,7 +276,7 @@ def get_q_learning_dataset(
 
 def get_actor_critic_dataset(
     alpha_critic: float = 0.3,
-    alpha_actor_learn: float = 1.,
+    alpha_actor_learn: float = 1.0,
     alpha_actor_forget: float = 0.05,
     sigma: float = 0.1,
     n_trials: int = 500,
@@ -396,9 +399,7 @@ def dataset_list_to_multisubject(
     if not rnn_utils.datasets_are_compatible(
         dataset_list[0], dataset_list[dataset_i]
     ):
-      raise ValueError(
-          f'Dataset {dataset_i} is not compatible with dataset 0.'
-      )
+      raise ValueError(f'Dataset {dataset_i} is not compatible with dataset 0.')
     # Check datasets have the same batching. This is a bit paranoid, but
     # if they don't match the merged dataset could violate user expectations.
     if (
@@ -407,7 +408,7 @@ def dataset_list_to_multisubject(
     ):
       raise ValueError(
           f'Dataset {dataset_i} has a different batch mode or batch size than'
-          f' dataset 0.'
+          ' dataset 0.'
       )
     data = dataset_list[dataset_i].get_all()
     xs_dataset, ys_dataset = data['xs'], data['ys']
