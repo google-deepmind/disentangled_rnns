@@ -33,7 +33,7 @@ jobs:
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             CHANGED_FILES=$(git diff --name-only --diff-filter=d origin/${{ github.base_ref }}...HEAD -- '*.py')
             if [ -n "$CHANGED_FILES" ]; then
-              pyink --check --diff $CHANGED_FILES || { echo -e "\n---> Formatting check failed. Run 'pip install pyink && pyink .' locally and commit the changes." >&2; exit 1; }
+              pyink --check --diff "$CHANGED_FILES" || { echo -e "\n---> Formatting check failed. Run 'pip install pyink && pyink .' locally and commit the changes." >&2; exit 1; }
             else
               echo "No Python files changed, skipping pyink."
             fi
@@ -47,7 +47,7 @@ jobs:
             CHANGED_FILES=$(git diff --name-only --diff-filter=d origin/${{ github.base_ref }}...HEAD -- '*.py')
             if [ -n "$CHANGED_FILES" ]; then
               echo "Linting changed files: $CHANGED_FILES"
-              pylint --rcfile=.pylintrc $CHANGED_FILES
+              pylint --rcfile=.pylintrc "$CHANGED_FILES"
             else
               echo "No Python files changed, skipping pylint."
             fi
