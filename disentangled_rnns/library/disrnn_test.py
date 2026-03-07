@@ -127,9 +127,10 @@ class DisrnnTest(absltest.TestCase):
     # The first output_size elements are the predicted targets, andt the last
     # element is the penalty
     self.assertEqual(network_outputs.shape, (n_sessions, n_trials, 3))
-    self.assertEqual(network_states.shape, (n_sessions,
-                                            n_trials,
-                                            self.disrnn_config.latent_size))
+    self.assertEqual(
+      network_states.shape, 
+      (n_sessions, n_trials, self.disrnn_config.latent_size),
+    )
 
   def test_disrnn_trainable(self):
     """Smoke test to check that the disRNN can be trained."""
