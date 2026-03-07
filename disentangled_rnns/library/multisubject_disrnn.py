@@ -94,8 +94,8 @@ class MultisubjectDisRnn(disrnn.HkDisentangledRNN):
     # Input: subject_embedding
     # This bottleneck is applied directly to the subject_embedding.
     self._subj_emb_global_sigma, _ = disrnn.get_initial_bottleneck_params(
-            shape=(self._subject_embedding_size,),
-            name='subj_emb_global',
+      shape=(self._subject_embedding_size,),
+      name='subj_emb_global',
     )
 
   def _build_multisubject_update_bottlenecks(self):
@@ -265,7 +265,7 @@ def get_auxiliary_metrics(
   module_params = params['multisubject_dis_rnn']
 
   def _count_states(
-    sigmas_array: np.ndarray, open_thresh: float, closed_thresh: float
+      sigmas_array: np.ndarray, open_thresh: float, closed_thresh: float
   ):
     is_open = np.sum(sigmas_array < open_thresh)
     is_closed = np.sum(sigmas_array > closed_thresh)
@@ -303,7 +303,9 @@ def get_auxiliary_metrics(
       module_params['choice_net_latent_sigma_params']
   )
 
-  cs_o, cs_c = _count_states(np.array(choice_subj_s), open_thresh, closed_thresh)
+  cs_o, cs_c = _count_states(
+    np.array(choice_subj_s), open_thresh, closed_thresh
+  )
   cl_o, cl_c = _count_states(np.array(choice_lat_s), open_thresh, closed_thresh)
 
   choice_open = cs_o + cl_o
@@ -326,7 +328,7 @@ def get_auxiliary_metrics(
       + jnp.sum(upd_lat_s)
       + jnp.sum(choice_subj_s)
       + jnp.sum(choice_lat_s)
-      )
+  )
   total_sigma_val = float(all_sigmas_sum)
 
   return {'total_sigma': total_sigma_val, **bottleneck_dict}
