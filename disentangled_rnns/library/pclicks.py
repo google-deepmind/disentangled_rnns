@@ -12,16 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Code for generating synthetic data from the poisson clicks task.
-"""
+"""Code for generating synthetic data from the poisson clicks task."""
 import numpy as np
 
 
-def generate_clicktrains(n_trials=10000,
-                         base_click_rate=20,
-                         click_rate_diffs=(-38, -34, -27, -12, 12, 27, 34, 38),
-                         stim_duration_max=100,
-                         stim_duration_min=20):
+def generate_clicktrains(
+  n_trials=10_000,
+  base_click_rate=20,
+  click_rate_diffs=(-38, -34, -27, -12, 12, 27, 34, 38),
+  stim_duration_max=100,
+  stim_duration_min=20
+):
   """Generates random clicktrain stimuli for Poisson clicks task.
 
   Args:
@@ -86,7 +87,7 @@ def drift_diffusion_model(
   Returns:
 
   """
-  (n_timesteps, n_trials, _) = np.shape(xs)
+  n_timesteps, n_trials, _ = np.shape(xs)
 
   click_any = np.logical_or(xs[:, :, 0], xs[:, :, 1]).astype(float)
   depression_variable = np.nan * np.ones((n_timesteps, n_trials))
