@@ -910,8 +910,9 @@ def compute_penalty(
   penalty = jnp.sum(jnp.multiply(trialwise_penalty, mask))
   n_unmasked_samples = jnp.sum(mask)
 
-  return (penalty, 
-          n_unmasked_samples,
+  return (
+      penalty, 
+      n_unmasked_samples,
   )  # pytype: disable=bad-return-type  # jnp-type
 
 
