@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Disentangled RNN and plotting functions."""
+
 import dataclasses
 from typing import Callable, Any, Sequence
 
@@ -29,7 +30,7 @@ def information_bottleneck(
     multipliers: jnp.ndarray | None = None,
     noiseless_mode: bool = False,
 ) -> tuple[jnp.ndarray, jnp.ndarray]:
-  r"""Output from an information bottleneck given a vector of means and std devs.
+  r"""Gaussian informatin bottleneck with penalty based on KL divergence.
 
   Bottleneck outputs are sampled independently from Gaussian distributions with
   the given means and variances. Bottleneck costs are computed as the KL
@@ -151,7 +152,7 @@ class DisRnnConfig:
 
   l2_scale: float = 0.01
 
-  max_latent_value: float = 2.
+  max_latent_value: float = 2.0
 
   x_names: list[str] | None = None
   y_names: list[str] | None = None
@@ -192,13 +193,15 @@ class ResMLP(hk.Module):
     name: Optional name, which affects the names of the haiku parameters
   """
 
-  def __init__(self,
-               input_size: int,
-               output_size: int,
-               n_layers: int = 5,
-               n_units_per_layer: int = 5,
-               activation_fn: Callable[[Any], Any] = jax.nn.relu,
-               name=None):
+  def __init__(
+      self,
+      input_size: int,
+      output_size: int,
+      n_layers: int = 5,
+      n_units_per_layer: int = 5,
+      activation_fn: Callable[[Any], Any] = jax.nn.relu,
+      name=None,
+  ):
     super().__init__(name=name)
 
     self.n_layers = n_layers
@@ -260,9 +263,7 @@ class ResMLP(hk.Module):
 
     # Compute sum of squares of all hidden layer weights. This will be passed on
     # and can be used to compute an L2 (ridge) penalty.
-    self.l2 = (
-        jnp.sum(jnp.square(jnp.array(self._hidden_layer_weights)))
-    )
+    self.l2 = jnp.sum(jnp.square(jnp.array(self._hidden_layer_weights)))
 
   def __call__(self, inputs):
 
@@ -286,7 +287,8 @@ class ResMLP(hk.Module):
 
 
 def get_initial_bottleneck_params(
-    shape: Sequence[int], name: str,
+    shape: Sequence[int],
+    name: str,
 ) -> tuple[jnp.ndarray, jnp.ndarray]:
   """Defines a bottleneck with a sigma and a multiplier."""
   # At init the bottlenecks should all be open: sigmas small and multipliers 1
@@ -371,11 +373,9 @@ class HkDisentangledRNN(hk.RNNCore):
     """Initializes parameters for the latent bottlenecks."""
     # Latents will also go through a bottleneck after being updated. These
     # bottlenecks do not need multipliers, the network output can rescale them
-    self._latent_sigmas, _ = (
-        get_initial_bottleneck_params(
-            shape=(self._latent_size,),
-            name='latent',
-        )
+    self._latent_sigmas, _ = get_initial_bottleneck_params(
+        shape=(self._latent_size,),
+        name='latent',
     )
 
   def _build_choice_bottlenecks(self):
@@ -470,8 +470,8 @@ class HkDisentangledRNN(hk.RNNCore):
         n_units_per_layer=self._choice_net_n_units_per_layer,
         n_layers=self._choice_net_n_layers,
         activation_fn=self._activation,
-        name='choice_net'
-        )(choice_net_inputs)
+        name='choice_net',
+    )(choice_net_inputs)
     penalty_increment += self._l2_scale * choice_net_l2
 
     return predicted_targets, penalty_increment
@@ -547,10 +547,12 @@ class HkDisentangledRNN(hk.RNNCore):
     return output, new_latents
 
 
-def log_bottlenecks(params,
-                    open_thresh: float = 0.1,
-                    partially_open_thresh: float = 0.25,
-                    closed_thresh: float = 0.9) -> dict[str, int]:
+def log_bottlenecks(
+    params,
+    open_thresh: float = 0.1,
+    partially_open_thresh: float = 0.25,
+    closed_thresh: float = 0.9,
+) -> dict[str, int]:
   """Computes info about bottlenecks for the base DisRNN."""
 
   params_disrnn = params['hk_disentangled_rnn']
@@ -614,7 +616,7 @@ def log_bottlenecks(params,
       'update_bottlenecks_open': int(update_bottlenecks_open),
       'update_bottlenecks_partial': int(update_bottlenecks_partial),
       'update_bottlenecks_closed': int(update_bottlenecks_closed),
-      }
+  }
   return bottleneck_dict
 
 
@@ -624,13 +626,17 @@ def get_total_sigma(params):
   params_disrnn = params['hk_disentangled_rnn']
 
   latent_bottlenecks = reparameterize_sigma(
-      params_disrnn['latent_sigma_params'])
+      params_disrnn['latent_sigma_params']
+  )
   update_obs_bottlenecks = reparameterize_sigma(
-      params_disrnn['update_net_obs_sigma_params'])
+      params_disrnn['update_net_obs_sigma_params']
+  )
   update_latent_bottlenecks = reparameterize_sigma(
-      params_disrnn['update_net_latent_sigma_params'])
+      params_disrnn['update_net_latent_sigma_params']
+  )
   choice_bottlenecks = reparameterize_sigma(
-      params_disrnn['choice_net_sigma_params'])
+      params_disrnn['choice_net_sigma_params']
+  )
 
   return float(
       jnp.sum(latent_bottlenecks)

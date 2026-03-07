@@ -52,6 +52,7 @@ class DatasetRNN(abc.ABC):
   Both inputs and targets are stored as [timestep, episode, feature]
   Serves them up in batches
   """
+
   x_names: list[str]
   y_names: list[str]
   n_classes: int | None
@@ -485,9 +486,7 @@ class DatasetRNNCategoricalWithActionMasks(DatasetRNNCategorical):
       )
 
 
-def datasets_are_compatible(
-    ds1: DatasetRNN, ds2: DatasetRNN
-) -> bool:
+def datasets_are_compatible(ds1: DatasetRNN, ds2: DatasetRNN) -> bool:
   """Checks if two DatasetRNN objects are compatible for merging.
 
   Compatible means they are of the same type and all attributes match, except
@@ -507,7 +506,7 @@ def datasets_are_compatible(
     return False
 
   def _get_comparable_attrs(dataset: DatasetRNN) -> dict[str, Any]:
-    """Gets a dict of all attributes that must match for datasets to be compatible."""
+    """Gets attributes that must match for compatibility."""
     data_keys = ['_xs', '_ys', '_n_episodes', '_n_timesteps']
     safe_to_override_keys = ['rng', 'batch_mode', 'batch_size']
     # Get a dict of all attributes
@@ -911,7 +910,7 @@ def compute_penalty(
   penalty = jnp.sum(jnp.multiply(trialwise_penalty, mask))
   n_unmasked_samples = jnp.sum(mask)
 
-  return penalty, n_unmasked_samples  # pytype: disable=bad-return-type  # jnp-type
+  return penalty, n_unmasked_samples  # pytype: disable=bad-return-type
 
 
 ## Training Loop
@@ -1207,7 +1206,7 @@ def train_network(
       if report_progress_by in ('print', 'wandb'):
         # On colab, print does not always work, so try to use display
         if _display_available:
-          display.clear_output(wait=True)
+          display.clear_output(wait=True)  # pylint: disable=possibly-used-before-assignment
           display.display(log_str)
         else:
           print(log_str)
