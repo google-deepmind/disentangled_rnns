@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Example DisRNN workflow: Define a dataset, train network, inspect the fit.
-"""
+"""Example DisRNN workflow: Define a dataset, train network, inspect the fit."""
 
 import copy
 
@@ -34,9 +33,7 @@ flags.DEFINE_integer(
 flags.DEFINE_integer("n_sessions", 300, "Number of sessions in the dataset.")
 flags.DEFINE_float("learning_rate", 1e-3, "Optimizer learning rate.")
 flags.DEFINE_integer("n_warmup_steps", 1000, "Number of training warmup steps.")
-flags.DEFINE_integer(
-    "n_training_steps", 3000, "Number of main training steps."
-)
+flags.DEFINE_integer("n_training_steps", 3000, "Number of main training steps.")
 
 
 def main(_) -> None:
@@ -95,8 +92,11 @@ def main(_) -> None:
   disrnn_config_warmup.noiseless_mode = True
 
   # Define network builder functions
-  make_disrnn = lambda: disrnn.HkDisentangledRNN(disrnn_config)
-  make_disrnn_warmup = lambda: disrnn.HkDisentangledRNN(disrnn_config_warmup)
+  def make_disrnn():
+    return disrnn.HkDisentangledRNN(disrnn_config)
+
+  def make_disrnn_warmup():
+    return disrnn.HkDisentangledRNN(disrnn_config_warmup)
 
   # Define an optimizer
   opt = optax.adam(learning_rate=FLAGS.learning_rate)
