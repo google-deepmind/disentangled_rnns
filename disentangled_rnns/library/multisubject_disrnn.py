@@ -93,16 +93,13 @@ class MultisubjectDisRnn(disrnn.HkDisentangledRNN):
     """Initializes subject embedding bottleneck parameters."""
     # Input: subject_embedding
     # This bottleneck is applied directly to the subject_embedding.
-    self._subj_emb_global_sigma, _ = (
-        disrnn.get_initial_bottleneck_params(
+    self._subj_emb_global_sigma, _ = disrnn.get_initial_bottleneck_params(
             shape=(self._subject_embedding_size,),
             name='subj_emb_global',
-        )
     )
 
   def _build_multisubject_update_bottlenecks(self):
-    """Initializes update net bottleneck parameters, including subject embedding.
-    """
+    """Initializes update net bottleneck parameters, including subject embedding."""
     # Input: subject_embedding + observations + latents
     # Needs _obs_size from base class config to be set first.
     self._update_net_subj_sigmas, self._update_net_subj_multipliers = (
@@ -125,8 +122,7 @@ class MultisubjectDisRnn(disrnn.HkDisentangledRNN):
     )
 
   def _build_multisubject_choice_bottlenecks(self):
-    """Initializes choice MLP bottleneck parameters, including subject embedding.
-    """
+    """Initializes choice MLP bottleneck parameters, including subject embedding."""
     # Input: subject_embedding + latents (output from update_latents)
     self._choice_net_latent_sigmas, self._choice_net_latent_multipliers = (
         disrnn.get_initial_bottleneck_params(
@@ -268,8 +264,9 @@ def get_auxiliary_metrics(
   )
   module_params = params['multisubject_dis_rnn']
 
-  def _count_states(sigmas_array: np.ndarray,
-                    open_thresh: float, closed_thresh: float):
+  def _count_states(
+    sigmas_array: np.ndarray, open_thresh: float, closed_thresh: float
+  ):
     is_open = np.sum(sigmas_array < open_thresh)
     is_closed = np.sum(sigmas_array > closed_thresh)
     return int(is_open), int(is_closed)
@@ -277,36 +274,37 @@ def get_auxiliary_metrics(
   # Latent bottlenecks
   latent_s = disrnn.reparameterize_sigma(module_params['latent_sigma_params'])
   lat_open, lat_closed = _count_states(
-      np.array(latent_s), open_thresh, closed_thresh)
+      np.array(latent_s), open_thresh, closed_thresh
+  )
 
   # Update bottlenecks (sum over subj, obs, latent inputs)
   upd_subj_s = disrnn.reparameterize_sigma(
-      module_params['update_net_subj_sigma_params'])
+      module_params['update_net_subj_sigma_params']
+  )
   upd_obs_s = disrnn.reparameterize_sigma(
-      module_params['update_net_obs_sigma_params'])
+      module_params['update_net_obs_sigma_params']
+  )
   upd_lat_s = disrnn.reparameterize_sigma(
-      module_params['update_net_latent_sigma_params'])
+      module_params['update_net_latent_sigma_params']
+  )
 
-  us_o, us_c = _count_states(
-      np.array(upd_subj_s), open_thresh, closed_thresh)
-  uo_o, uo_c = _count_states(
-      np.array(upd_obs_s), open_thresh, closed_thresh)
-  ul_o, ul_c = _count_states(
-      np.array(upd_lat_s), open_thresh, closed_thresh)
+  us_o, us_c = _count_states(np.array(upd_subj_s), open_thresh, closed_thresh)
+  uo_o, uo_c = _count_states(np.array(upd_obs_s), open_thresh, closed_thresh)
+  ul_o, ul_c = _count_states(np.array(upd_lat_s), open_thresh, closed_thresh)
 
   update_open = us_o + uo_o + ul_o
   update_closed = us_c + uo_c + ul_c
 
   # Choice bottlenecks (sum over subj, latent inputs)
   choice_subj_s = disrnn.reparameterize_sigma(
-      module_params['choice_net_subj_sigma_params'])
+      module_params['choice_net_subj_sigma_params']
+  )
   choice_lat_s = disrnn.reparameterize_sigma(
-      module_params['choice_net_latent_sigma_params'])
+      module_params['choice_net_latent_sigma_params']
+  )
 
-  cs_o, cs_c = _count_states(
-      np.array(choice_subj_s), open_thresh, closed_thresh)
-  cl_o, cl_c = _count_states(
-      np.array(choice_lat_s), open_thresh, closed_thresh)
+  cs_o, cs_c = _count_states(np.array(choice_subj_s), open_thresh, closed_thresh)
+  cl_o, cl_c = _count_states(np.array(choice_lat_s), open_thresh, closed_thresh)
 
   choice_open = cs_o + cl_o
   choice_closed = cs_c + cl_c
@@ -322,8 +320,12 @@ def get_auxiliary_metrics(
 
   # Get total sigma (the sum of all bottleneck sigmas)
   all_sigmas_sum = (
-      jnp.sum(latent_s) + jnp.sum(upd_subj_s) + jnp.sum(upd_obs_s) +
-      jnp.sum(upd_lat_s) + jnp.sum(choice_subj_s) + jnp.sum(choice_lat_s)
+      jnp.sum(latent_s) 
+      + jnp.sum(upd_subj_s)
+      + jnp.sum(upd_obs_s)
+      + jnp.sum(upd_lat_s)
+      + jnp.sum(choice_subj_s)
+      + jnp.sum(choice_lat_s)
       )
   total_sigma_val = float(all_sigmas_sum)
 
