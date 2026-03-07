@@ -13,15 +13,16 @@
 # limitations under the License.
 
 """Code for generating synthetic data from the poisson clicks task."""
+
 import numpy as np
 
 
 def generate_clicktrains(
-  n_trials=10_000,
-  base_click_rate=20,
-  click_rate_diffs=(-38, -34, -27, -12, 12, 27, 34, 38),
-  stim_duration_max=100,
-  stim_duration_min=20
+    n_trials=10_000,
+    base_click_rate=20,
+    click_rate_diffs=(-38, -34, -27, -12, 12, 27, 34, 38),
+    stim_duration_max=100,
+    stim_duration_min=20
 ):
   """Generates random clicktrain stimuli for Poisson clicks task.
 
