@@ -27,7 +27,9 @@ import optax
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_integer("n_steps_per_session", 200, "Number of steps per session in the dataset.")
+flags.DEFINE_integer(
+  "n_steps_per_session", 200, "Number of steps per session in the dataset."
+)
 flags.DEFINE_integer("n_sessions", 300, "Number of sessions in the dataset.")
 flags.DEFINE_float("learning_rate", 1e-3, "Optimizer learning rate.")
 flags.DEFINE_integer("n_warmup_steps", 1000, "Number of training warmup steps.")
