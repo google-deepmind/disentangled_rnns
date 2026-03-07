@@ -30,7 +30,7 @@ import numpy as np
 
 @dataclasses.dataclass
 class DisRnnWNeuralActivityConfig(disrnn.DisRnnConfig):
-  """Specifies configuration for a Disentangled RNN with neural_activity prediction.
+  """Configuration for a Disentangled RNN with neural_activity prediction.
 
   Attributes:
     neural_activity_net_n_units_per_layer: Number of units per layer in the
