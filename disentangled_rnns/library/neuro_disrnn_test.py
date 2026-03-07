@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for neuro_disrnn."""
+
 from absl.testing import absltest
 from disentangled_rnns.library import neuro_disrnn
 from disentangled_rnns.library import rnn_utils
@@ -86,7 +88,7 @@ class NeuroDisrnnTest(absltest.TestCase):
     )
 
   def test_neuro_disrnn_output_shape(self):
-    """Check that the output shapes of the disRNN with neural_activity are correct."""
+    """Check output shapes of disRNN with neural_activity."""
     xs = self.q_dataset.get_all()['xs']
     n_sessions, n_trials = xs.shape[:2]
 
@@ -106,7 +108,7 @@ class NeuroDisrnnTest(absltest.TestCase):
     )
 
   def test_neuro_disrnn_trainable(self):
-    """Smoke test to check that the disRNN with neural_activity can be trained."""
+    """Smoke test for disRNN with neural_activity training."""
     n_steps = 10
     _, _, _ = rnn_utils.train_network(
         make_network=lambda: neuro_disrnn.HkNeuroDisentangledRNN(

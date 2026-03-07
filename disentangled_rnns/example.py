@@ -95,8 +95,11 @@ def main(_) -> None:
   disrnn_config_warmup.noiseless_mode = True
 
   # Define network builder functions
-  make_disrnn = lambda: disrnn.HkDisentangledRNN(disrnn_config)
-  make_disrnn_warmup = lambda: disrnn.HkDisentangledRNN(disrnn_config_warmup)
+  def make_disrnn():
+    return disrnn.HkDisentangledRNN(disrnn_config)
+
+  def make_disrnn_warmup():
+    return disrnn.HkDisentangledRNN(disrnn_config_warmup)
 
   # Define an optimizer
   opt = optax.adam(learning_rate=FLAGS.learning_rate)

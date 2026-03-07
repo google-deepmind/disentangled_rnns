@@ -209,7 +209,7 @@ def get_q_learning_with_dopamine_dataset(
     beta: float = 3,
     n_trials: int = 500,
 ) -> rnn_utils.DatasetRNNMixed:
-  """Generates synthetic dataset of behavior and dopamine from Q-Learning agent."""
+  """Generates synthetic behavior and dopamine from Q-Learning agent."""
   np.random.seed(0)
   agent = AgentQ(alpha=alpha, beta=beta)
   environment = two_armed_bandits.EnvironmentBanditsDrift(sigma=0.1)
@@ -229,7 +229,7 @@ def get_reward_seeking_with_dopamine_dataset(
     beta: float = 3,
     n_trials: int = 500,
 ) -> rnn_utils.DatasetRNNMixed:
-  """Generates synthetic dataset of behavior and dopamine from a reward-seeking agent."""
+  """Generates synthetic behavior and dopamine from reward-seeking agent."""
   np.random.seed(0)
   agent = AgentRewardSeeking(alpha=alpha, beta=beta)
   environment = two_armed_bandits.EnvironmentBanditsDrift(sigma=0.1)

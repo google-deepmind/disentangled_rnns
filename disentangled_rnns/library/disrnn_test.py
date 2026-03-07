@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for disrnn."""
+
 from absl.testing import absltest
 from disentangled_rnns.library import disrnn
 from disentangled_rnns.library import get_datasets

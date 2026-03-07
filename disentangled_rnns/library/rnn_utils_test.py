@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for rnn_utils."""
+
 import json
 from absl.testing import absltest
 from disentangled_rnns.library import rnn_utils
@@ -108,14 +110,14 @@ class TestRNNUtils(absltest.TestCase):
     self.assertEqual(xs_batch1.shape, (n_timesteps, batch_s, n_features))
     np.testing.assert_array_equal(xs_batch1[0, :, 0], [0, 1, 2, 0, 1])
     # Expected start index after 1st batch: (0 + 5) % 3 = 2
-    self.assertEqual(dataset._current_start_index, 2)
+    self.assertEqual(dataset._current_start_index, 2)  # pylint: disable=protected-access
 
     # Second batch expected indices: tile([2,0,1], 2)[:5] = [2, 0, 1, 2, 0]
     xs_batch2 = next(dataset)['xs']
     self.assertEqual(xs_batch2.shape, (n_timesteps, batch_s, n_features))
     np.testing.assert_array_equal(xs_batch2[0, :, 0], [2, 0, 1, 2, 0])
     # Expected start index after 2nd batch: (2 + 5) % 3 = 1
-    self.assertEqual(dataset._current_start_index, 1)
+    self.assertEqual(dataset._current_start_index, 1)  # pylint: disable=protected-access
 
   def test_dataset_rnn_rolling_batch_lt_nepisodes(self):
     """Test rolling batch mode when batch_size < n_episodes."""
@@ -141,13 +143,13 @@ class TestRNNUtils(absltest.TestCase):
     self.assertEqual(xs_batch1.shape, (n_timesteps, batch_s, n_features))
     np.testing.assert_array_equal(xs_batch1[0, :, 0], [0, 1])
     # Expected start index after 1st batch: (0 + 2) % 3 = 2
-    self.assertEqual(dataset._current_start_index, 2)
+    self.assertEqual(dataset._current_start_index, 2)  # pylint: disable=protected-access
 
     # Second batch: [2, 0]
     xs_batch2 = next(dataset)['xs']
     np.testing.assert_array_equal(xs_batch2[0, :, 0], [2, 0])
     # Expected start index after 2nd batch: (2 + 2) % 3 = 1
-    self.assertEqual(dataset._current_start_index, 1)
+    self.assertEqual(dataset._current_start_index, 1)  # pylint: disable=protected-access
 
   def test_dataset_rnn_rolling_batch_eq_nepisodes(self):
     """Test rolling batch mode when batch_size == n_episodes."""
@@ -173,13 +175,13 @@ class TestRNNUtils(absltest.TestCase):
     self.assertEqual(xs_batch1.shape, (n_timesteps, batch_s, n_features))
     np.testing.assert_array_equal(xs_batch1[0, :, 0], [0, 1, 2])
     # Expected start index after 1st batch: (0 + 3) % 3 = 0
-    self.assertEqual(dataset._current_start_index, 0)
+    self.assertEqual(dataset._current_start_index, 0)  # pylint: disable=protected-access
 
     # Second batch: [0, 1, 2]
     xs_batch2 = next(dataset)['xs']
     np.testing.assert_array_equal(xs_batch2[0, :, 0], [0, 1, 2])
     # Expected start index after 2nd batch: (0 + 3) % 3 = 0
-    self.assertEqual(dataset._current_start_index, 0)
+    self.assertEqual(dataset._current_start_index, 0)  # pylint: disable=protected-access
 
   def test_split_dataset(self):
     dataset_train, dataset_eval = rnn_utils.split_dataset(self.dataset, 2)

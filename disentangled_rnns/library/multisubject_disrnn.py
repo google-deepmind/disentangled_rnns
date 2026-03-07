@@ -45,10 +45,9 @@ class MultisubjectDisRnnConfig(disrnn.DisRnnConfig):
   choice_net_subj_penalty: float = 0.0
 
   def __post_init__(self):
-    # If the first observation is a subject ID, remove it from the list of
-    # observation names before calling the base class's __post_init__
-    if self.x_names is not None and self.x_names[0] == 'Subject ID':
-      self.x_names = self.x_names[1:]
+    x_names = self.x_names  # pylint: disable=access-member-before-definition
+    if x_names is not None and x_names[0] == 'Subject ID':
+      self.x_names = x_names[1:]
     super().__post_init__()
     # We expect that the first element of the input will be an integer subject
     # ID. Add this to the list of observation names to make it explicit.
@@ -101,8 +100,7 @@ class MultisubjectDisRnn(disrnn.HkDisentangledRNN):
     )
 
   def _build_multisubject_update_bottlenecks(self):
-    """Initializes update net bottleneck parameters, including subject embedding.
-    """
+    """Initializes update net bottleneck parameters."""
     # Input: subject_embedding + observations + latents
     # Needs _obs_size from base class config to be set first.
     self._update_net_subj_sigmas, self._update_net_subj_multipliers = (
@@ -125,8 +123,7 @@ class MultisubjectDisRnn(disrnn.HkDisentangledRNN):
     )
 
   def _build_multisubject_choice_bottlenecks(self):
-    """Initializes choice MLP bottleneck parameters, including subject embedding.
-    """
+    """Initializes choice MLP bottleneck parameters."""
     # Input: subject_embedding + latents (output from update_latents)
     self._choice_net_latent_sigmas, self._choice_net_latent_multipliers = (
         disrnn.get_initial_bottleneck_params(

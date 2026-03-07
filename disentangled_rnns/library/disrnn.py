@@ -29,7 +29,7 @@ def information_bottleneck(
     multipliers: jnp.ndarray | None = None,
     noiseless_mode: bool = False,
 ) -> tuple[jnp.ndarray, jnp.ndarray]:
-  r"""Output from an information bottleneck given a vector of means and std devs.
+  r"""Gaussian informatin bottleneck with penalty based on KL divergence.
 
   Bottleneck outputs are sampled independently from Gaussian distributions with
   the given means and variances. Bottleneck costs are computed as the KL

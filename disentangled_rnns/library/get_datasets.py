@@ -60,7 +60,7 @@ def get_rat_bandit_dataset(rat_i: int = 0) -> rnn_utils.DatasetRNNCategorical:
   urllib.request.urlretrieve(url, data_path)
 
   # Load dataset into memory
-  with open(data_path, 'r') as f:
+  with open(data_path, 'r', encoding='utf-8') as f:
     dataset = json.load(f)
 
   # Clean up after ourselves by removing the downloaded file

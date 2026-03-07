@@ -793,8 +793,10 @@ def plot_choice_rule_2d(
   cbar.ax.tick_params(labelsize=small)
   cbar.set_label("Choice Logit", fontsize=medium)
   ax.set_title("Choice Rule", fontsize=large)
-  ax.set_xlabel(f"Latent {choice_dict['x_latent']}", fontsize=medium)
-  ax.set_ylabel(f"Latent {choice_dict['y_latent']}", fontsize=medium)
+  x_latent = choice_dict["x_latent"]
+  y_latent = choice_dict["y_latent"]
+  ax.set_xlabel(f"Latent {x_latent}", fontsize=medium)
+  ax.set_ylabel(f"Latent {y_latent}", fontsize=medium)
   ax.tick_params(axis="both", labelsize=small)
   return fig
 
