@@ -226,7 +226,7 @@ class TestRNNUtils(absltest.TestCase):
     xs = next(self.dataset)['xs']
     input_size = xs.shape[-1]
     new_params = rnn_utils.get_new_params(
-      self.make_network, input_size=input_size
+        self.make_network, input_size=input_size
     )
     self.assertNotEmpty(new_params, 'new_params should not be empty')
     self.assertIn('gru', new_params)
@@ -248,7 +248,7 @@ class TestRNNUtils(absltest.TestCase):
         n_steps=100,
         opt=optax.adam(learning_rate=0.01),
         opt_state=None,
-        params=new_params
+        params=new_params,
     )
     self.assertGreater(losses['training_loss'][0], losses['training_loss'][-1])
 
