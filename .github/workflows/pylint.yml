@@ -16,6 +16,8 @@ jobs:
 
     steps:
       - uses: 'actions/checkout@v6'  # ratchet:exclude
+        with:
+          fetch-depth: 0
 
       - uses: 'actions/setup-python@v6'  # ratchet:exclude
         with:
@@ -28,8 +30,27 @@ jobs:
 
       - name: 'Check formatting with Pyink'
         run: |
-          pyink --check --diff . || { echo -e "\n---> Formatting check failed. Run 'pip install pyink && pyink .' locally and commit the changes." >&2; exit 1; }
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            CHANGED_FILES=$(git diff --name-only --diff-filter=d origin/${{ github.base_ref }}...HEAD -- '*.py')
+            if [ -n "$CHANGED_FILES" ]; then
+              pyink --check --diff $CHANGED_FILES || { echo -e "\n---> Formatting check failed. Run 'pip install pyink && pyink .' locally and commit the changes." >&2; exit 1; }
+            else
+              echo "No Python files changed, skipping pyink."
+            fi
+          else
+            pyink --check --diff . || { echo -e "\n---> Formatting check failed. Run 'pip install pyink && pyink .' locally and commit the changes." >&2; exit 1; }
+          fi
 
       - name: 'Run Pylint'
         run: |
-          pylint --rcfile=.pylintrc disentangled_rnns/
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            CHANGED_FILES=$(git diff --name-only --diff-filter=d origin/${{ github.base_ref }}...HEAD -- '*.py')
+            if [ -n "$CHANGED_FILES" ]; then
+              echo "Linting changed files: $CHANGED_FILES"
+              pylint --rcfile=.pylintrc $CHANGED_FILES
+            else
+              echo "No Python files changed, skipping pylint."
+            fi
+          else
+            pylint --rcfile=.pylintrc disentangled_rnns/
+          fi
