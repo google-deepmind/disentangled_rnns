@@ -22,7 +22,7 @@ def generate_clicktrains(
     base_click_rate=20,
     click_rate_diffs=(-38, -34, -27, -12, 12, 27, 34, 38),
     stim_duration_max=100,
-    stim_duration_min=20
+    stim_duration_min=20,
 ):
   """Generates random clicktrain stimuli for Poisson clicks task.
 
