@@ -422,9 +422,7 @@ class AgentNetwork:
     rnn_state = hk.without_apply_rng(hk.transform(get_initial_state))
 
     self._initial_state = rnn_state.apply(params)
-    self._model_fun = jax.jit(
-        lambda xs, state: model.apply(params, xs, state)
-    )
+    self._model_fun = jax.jit(lambda xs, state: model.apply(params, xs, state))
     self._xs = np.zeros((1, 2))
     self.new_session()
 
