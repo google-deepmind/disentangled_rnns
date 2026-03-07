@@ -1,0 +1,32 @@
+name: 'lint'
+
+on:
+  pull_request:
+  merge_group:
+
+concurrency:
+  group: '${{ github.workflow }}-${{ github.head_ref || github.ref }}'
+  cancel-in-progress: true
+
+jobs:
+  init:
+    uses: 'abcxyz/actions/.github/workflows/lint-init.yml@main' # ratchet:exclude
+
+  lint:
+    runs-on: 'ubuntu-latest'
+    needs:
+      - 'init'
+    if: |
+      needs.init.outputs.lint_targets != '[]'
+    permissions:
+      contents: 'read'
+    strategy:
+      fail-fast: false
+      max-parallel: 100
+      matrix:
+        lint_target: '${{ fromJSON(needs.init.outputs.lint_targets) }}'
+    steps:
+      - name: '[${{ matrix.lint_target }}] Lint'
+        uses: 'abcxyz/actions/.github/actions/lint-all@main' # ratchet:exclude
+        with:
+          lint_target: '${{ matrix.lint_target }}'
