@@ -31,9 +31,9 @@ jobs:
       - name: 'Check formatting with Pyink'
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            CHANGED_FILES=$(git diff --name-only --diff-filter=d origin/${{ github.base_ref }}...HEAD -- '*.py')
-            if [ -n "$CHANGED_FILES" ]; then
-              pyink --check --diff "$CHANGED_FILES" || { echo -e "\n---> Formatting check failed. Run 'pip install pyink && pyink .' locally and commit the changes." >&2; exit 1; }
+            mapfile -t FILES < <(git diff --name-only --diff-filter=d origin/${{ github.base_ref }}...HEAD -- '*.py')
+            if [ ${#FILES[@]} -gt 0 ]; then
+              pyink --check --diff "${FILES[@]}" || { echo -e "\n---> Formatting check failed. Run 'pip install pyink && pyink .' locally and commit the changes." >&2; exit 1; }
             else
               echo "No Python files changed, skipping pyink."
             fi
@@ -44,10 +44,10 @@ jobs:
       - name: 'Run Pylint'
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            CHANGED_FILES=$(git diff --name-only --diff-filter=d origin/${{ github.base_ref }}...HEAD -- '*.py')
-            if [ -n "$CHANGED_FILES" ]; then
-              echo "Linting changed files: $CHANGED_FILES"
-              pylint --rcfile=.pylintrc "$CHANGED_FILES"
+            mapfile -t FILES < <(git diff --name-only --diff-filter=d origin/${{ github.base_ref }}...HEAD -- '*.py')
+            if [ ${#FILES[@]} -gt 0 ]; then
+              echo "Linting changed files: ${FILES[*]}"
+              pylint --rcfile=.pylintrc "${FILES[@]}"
             else
               echo "No Python files changed, skipping pylint."
             fi
