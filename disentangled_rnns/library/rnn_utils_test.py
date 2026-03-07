@@ -298,7 +298,8 @@ class TestRNNUtils(absltest.TestCase):
     self.assertEqual(np.shape(y_hats), (n_steps_per_session, n_sessions, 2))
     # Check states have the right shape
     self.assertEqual(
-        np.shape(states), (n_steps_per_session, n_sessions, n_hidden))
+        np.shape(states), (n_steps_per_session, n_sessions, n_hidden)
+    )
 
   def test_get_initial_state(self):
 
@@ -307,8 +308,7 @@ class TestRNNUtils(absltest.TestCase):
     self.assertEqual(np.shape(state), (1, 1, n_hidden))
 
   def test_step_network(self):
-    """Step the network forward two steps. Check the shapes all look right.
-    """
+    """Step the network forward two steps. Check the shapes all look right."""
     # Get a set of inputs
     xs = next(self.dataset)['xs']
     # Define a network state
@@ -316,16 +316,12 @@ class TestRNNUtils(absltest.TestCase):
 
     # Step the network from that state, using the first input
     _, new_state, _ = rnn_utils.step_network(
-        self.make_network,
-        params=self.params,
-        state=state,
-        xs=xs[0, 0])
+        self.make_network, params=self.params, state=state, xs=xs[0, 0]
+    )
     # Step it again
     y_hat, new_state, _ = rnn_utils.step_network(
-        self.make_network,
-        params=self.params,
-        state=new_state,
-        xs=xs[0, 0])
+        self.make_network, params=self.params, state=new_state, xs=xs[0, 0]
+    )
 
     # Check output has the right shape
     self.assertEqual(np.shape(y_hat)[0], 1)
@@ -453,6 +449,7 @@ class TestRNNUtils(absltest.TestCase):
             dataset1, dataset_incompatible_n_features
         )
     )
+
 
 if __name__ == '__main__':
   absltest.main()
