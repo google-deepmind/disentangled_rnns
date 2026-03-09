@@ -53,8 +53,18 @@ dev = [
 # Formatting configuration to follow Google style-guide
 line-length = 80
 unstable = true
+target-version = []
 pyink-indentation = 2
 pyink-use-majority-quotes = true
+pyink-annotation-pragmas = [
+  "noqa",
+  "pylint:",
+  "type: ignore",
+  "pytype:",
+  "mypy:",
+  "pyright:",
+  "pyre-",
+]
 
 [build-system]
 # Build system specify which backend is used to build/install the project (flit,
