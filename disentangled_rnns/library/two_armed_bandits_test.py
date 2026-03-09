@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for bandit agents, environments, and datasets."""
+
 from absl.testing import absltest
 from absl.testing import parameterized
 from disentangled_rnns.library import rnn_utils
@@ -56,7 +58,7 @@ class TwoArmedBanditsTest(parameterized.TestCase):
 
   @parameterized.named_parameters(named_agents_list)
   def test_update(self, agent):
-    """Checks that agent increases its choice probability after getting a reward."""
+    """Checks agent increases choice probability after reward."""
 
     choice_probs_pre = agent.get_choice_probs()
     agent.update(choice=0, reward=1)
@@ -121,7 +123,7 @@ class TwoArmedBanditsTest(parameterized.TestCase):
     self.assertIsInstance(dataset, rnn_utils.DatasetRNN)
 
   def test_run_experiment_and_create_dataset_smoke_test(self):
-    """Smoke test for run_experiment and create_dataset with different agents and environments."""
+    """Smoke test for run_experiment and create_dataset."""
     n_steps = 10
     n_sessions = 2
     agents = [

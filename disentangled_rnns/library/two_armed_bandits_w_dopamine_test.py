@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for bandit agents with dopamine RPE signals."""
+
 from absl.testing import absltest
 from absl.testing import parameterized
 from disentangled_rnns.library import rnn_utils
