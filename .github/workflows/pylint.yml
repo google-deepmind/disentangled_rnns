@@ -1,0 +1,56 @@
+name: 'Python Lint'
+
+on:
+  push:
+    branches: ['main']
+  pull_request:
+
+concurrency:
+  group: '${{ github.workflow }}-${{ github.head_ref || github.ref }}'
+  cancel-in-progress: true
+
+jobs:
+  python-lint:
+    runs-on: 'ubuntu-latest'
+    timeout-minutes: 10
+
+    steps:
+      - uses: 'actions/checkout@v6'  # ratchet:exclude
+        with:
+          fetch-depth: 0
+
+      - uses: 'actions/setup-python@v6'  # ratchet:exclude
+        with:
+          python-version: '3.11'
+
+      - name: 'Install dependencies'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: 'Check formatting with Pyink'
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            mapfile -t FILES < <(git diff --name-only --diff-filter=d origin/${{ github.base_ref }}...HEAD -- '*.py')
+            if [ ${#FILES[@]} -gt 0 ]; then
+              pyink --check --diff "${FILES[@]}" || { echo -e "\n---> Formatting check failed. Run 'pip install pyink && pyink .' locally and commit the changes." >&2; exit 1; }
+            else
+              echo "No Python files changed, skipping pyink."
+            fi
+          else
+            pyink --check --diff . || { echo -e "\n---> Formatting check failed. Run 'pip install pyink && pyink .' locally and commit the changes." >&2; exit 1; }
+          fi
+
+      - name: 'Run Pylint'
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            mapfile -t FILES < <(git diff --name-only --diff-filter=d origin/${{ github.base_ref }}...HEAD -- '*.py')
+            if [ ${#FILES[@]} -gt 0 ]; then
+              echo "Linting changed files: ${FILES[*]}"
+              pylint --rcfile=.pylintrc "${FILES[@]}"
+            else
+              echo "No Python files changed, skipping pylint."
+            fi
+          else
+            pylint --rcfile=.pylintrc disentangled_rnns/
+          fi
