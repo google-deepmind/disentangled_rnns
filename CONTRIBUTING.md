@@ -1,7 +1,10 @@
 # How to Contribute
 
-We'd love to accept your patches and contributions to this project. There are
-just a few small guidelines you need to follow.
+We'd love to accept your patches and contributions to this project. For minor
+changes or bug fixes please feel free to just send a PR. For larger changes
+you are welcome to reach out ahead of time to discuss.
+
+In either case there are some guidelines follow:
 
 ## Contributor License Agreement
 
@@ -22,6 +25,18 @@ All submissions, including submissions by project members, require review. We
 use GitHub pull requests for this purpose. Consult
 [GitHub Help](https://help.github.com/articles/about-pull-requests/) for more
 information on using pull requests.
+
+## Linting and Testing
+
+All pull requests will be automatically checked against our unit tests and the
+Pyink and Pylint linters. Issues identified by these checks will be visible in
+the Github pull request interface. These will need to be resolved before your
+pull request can be accepted.
+
+If your pull request introduces meaningful new functionality, we expect it to
+also include tests demonstrating that it works properly. These tests also defend
+your new functionality from future changes which might otherwise silently break
+it.
 
 ## Community Guidelines
 
