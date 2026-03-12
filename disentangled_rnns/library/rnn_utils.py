@@ -523,13 +523,56 @@ def datasets_are_compatible(ds1: DatasetRNN, ds2: DatasetRNN) -> bool:
   return attrs1 == attrs2
 
 
+def subset_dataset(
+    dataset: DatasetRNN,
+    session_indices: np.ndarray,
+) -> DatasetRNN:
+  """Return a new dataset containing only the specified sessions."""
+  if type(dataset) not in [
+      DatasetRNNCategorical,
+      DatasetRNNScalar,
+      DatasetRNNMixed,
+      DatasetRNNCategoricalWithActionMasks,
+  ]:
+    raise NotImplementedError(
+        f'Dataset type {type(dataset)} not recognized. Cannot subset.'
+    )
+
+  data = dataset.get_all()
+  xs, ys = data['xs'], data['ys']
+
+  if isinstance(dataset, DatasetRNNCategoricalWithActionMasks):
+    valid_actions_masks = data['valid_actions_masks']
+    return dataset.__class__(
+        xs[:, session_indices, :],
+        ys[:, session_indices, :],
+        valid_actions_masks[:, session_indices, :],
+        x_names=dataset.x_names,
+        y_names=dataset.y_names,
+        n_classes=dataset.n_classes,
+        batch_size=dataset.batch_size,
+        batch_mode=dataset.batch_mode,
+        rng=dataset.rng,
+    )  # pytype: disable=not-instantiable
+  else:
+    return dataset.__class__(
+        xs[:, session_indices, :],
+        ys[:, session_indices, :],
+        x_names=dataset.x_names,
+        y_names=dataset.y_names,
+        n_classes=dataset.n_classes,
+        batch_size=dataset.batch_size,
+        batch_mode=dataset.batch_mode,
+        rng=dataset.rng,
+    )  # pytype: disable=not-instantiable
+
+
 def split_dataset(
     dataset: DatasetRNN, eval_every_n: int, eval_offset: int = 1
 ) -> tuple[DatasetRNN, DatasetRNN]:
   """Split a dataset into train and eval sets."""
   data = dataset.get_all()
-  xs, ys = data['xs'], data['ys']
-  valid_actions_masks = data.get('valid_actions_masks', None)
+  xs = data['xs']
 
   n_sessions = xs.shape[1]
   train_sessions = np.ones(n_sessions, dtype=bool)
@@ -541,63 +584,8 @@ def split_dataset(
   train_sessions[np.arange(eval_offset, n_sessions, eval_every_n)] = False
   eval_sessions = np.logical_not(train_sessions)
 
-  if type(dataset) not in [
-      DatasetRNNCategorical,
-      DatasetRNNScalar,
-      DatasetRNNMixed,
-      DatasetRNNCategoricalWithActionMasks,
-  ]:
-    # This is out of an abundance of caution. The logic below assumes data
-    # fields xs and ys. We anticipate new classes which generalize this but we
-    # will need to update this function to support them.
-    raise NotImplementedError(
-        f'Dataset type {type(dataset)} not recognized. Cannot split.'
-    )
-
-  if isinstance(dataset, DatasetRNNCategoricalWithActionMasks):
-    dataset_train = dataset.__class__(
-        xs[:, train_sessions, :],
-        ys[:, train_sessions, :],
-        valid_actions_masks[:, train_sessions, :],
-        x_names=dataset.x_names,
-        y_names=dataset.y_names,
-        n_classes=dataset.n_classes,
-        batch_size=dataset.batch_size,
-        batch_mode=dataset.batch_mode,
-        rng=dataset.rng,
-    )  # pytype: disable=not-instantiable
-    dataset_eval = dataset.__class__(
-        xs[:, eval_sessions, :],
-        ys[:, eval_sessions, :],
-        valid_actions_masks[:, eval_sessions, :],
-        x_names=dataset.x_names,
-        y_names=dataset.y_names,
-        n_classes=dataset.n_classes,
-        batch_size=dataset.batch_size,
-        batch_mode=dataset.batch_mode,
-        rng=dataset.rng,
-    )  # pytype: disable=not-instantiable
-  else:
-    dataset_train = dataset.__class__(
-        xs[:, train_sessions, :],
-        ys[:, train_sessions, :],
-        x_names=dataset.x_names,
-        y_names=dataset.y_names,
-        n_classes=dataset.n_classes,
-        batch_size=dataset.batch_size,
-        batch_mode=dataset.batch_mode,
-        rng=dataset.rng,
-    )  # pytype: disable=not-instantiable
-    dataset_eval = dataset.__class__(
-        xs[:, eval_sessions, :],
-        ys[:, eval_sessions, :],
-        x_names=dataset.x_names,
-        y_names=dataset.y_names,
-        n_classes=dataset.n_classes,
-        batch_size=dataset.batch_size,
-        batch_mode=dataset.batch_mode,
-        rng=dataset.rng,
-    )  # pytype: disable=not-instantiable
+  dataset_train = subset_dataset(dataset, train_sessions)
+  dataset_eval = subset_dataset(dataset, eval_sessions)
   return dataset_train, dataset_eval
 
 
