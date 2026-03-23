@@ -336,7 +336,7 @@ def compute_update_rules(
     state_bins = np.linspace(-axis_lim, axis_lim, 20)
 
     for observation_i in range(len(observations)):
-      observation = observations[observation_i]
+      observation = list(observations[observation_i])
       if subj_ind is not None:
         observation = [subj_ind] + observation
       delta_states = np.zeros(shape=(len(state_bins), 1))
@@ -364,7 +364,7 @@ def compute_update_rules(
     state_bins_input = np.linspace(-axis_lim / 2, axis_lim / 2, 5)
 
     for observation_i in range(len(observations)):
-      observation = observations[observation_i]
+      observation = list(observations[observation_i])
       if subj_ind is not None:
         observation = [subj_ind] + observation
 
