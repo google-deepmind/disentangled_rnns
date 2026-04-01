@@ -35,7 +35,7 @@ right -> Connect to a hosted runtime)
     also demonstrates some of the tools available for inspecting the fit DisRNN
     and interpreting the resulting model.
 *   The
-    [Train Multisubject DisRNN](https://colab.research.google.com/github/google-deepmind/disentangled_rnns/blob/main/disentangled_rnns/notebooks/train_multisubject_disrnn.ipynb])
+    [Train Multisubject DisRNN](https://colab.research.google.com/github/google-deepmind/disentangled_rnns/blob/main/disentangled_rnns/notebooks/train_multisubject_disrnn.ipynb)
     notebook demonstrates fitting a synthetic dataset containing data from
     multiple "individuals" which vary parametrically in their cognitive
     strategy. We use a "Multisubject DisRNN" to fit both similarities and
