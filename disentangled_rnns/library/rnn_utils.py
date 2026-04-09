@@ -226,7 +226,7 @@ class DatasetRNNCategorical(DatasetRNN):
   def __init__(
       self,
       xs: np.typing.NDArray[np.float32],
-      ys: np.typing.NDArray[np.int32],
+      ys: np.typing.NDArray[np.number],
       *,
       batch_mode: Literal['single', 'rolling', 'random'] = 'random',
       batch_size: int | None = 1024,
@@ -243,12 +243,16 @@ class DatasetRNNCategorical(DatasetRNN):
           'multiple distinct types of categorical targets, feel free to '
           'implement this and send a CL'
       )
-    # For categorical ys, ensure they are integers
+    # For categorical ys, ensure they are integers or close to integers
     if not np.issubdtype(ys.dtype, np.integer):
-      raise ValueError(
-          'For DatasetRNNCategorical, ys must be integers. Got type'
-          f' {ys.dtype} instead.'
-      )
+      uniques = np.unique(ys)
+      if np.all(np.isclose(uniques, np.round(uniques))):
+        ys = np.round(ys).astype(np.int32)
+      else:
+        raise ValueError(
+            'For DatasetRNNCategorical, ys must be integers or floats close to'
+            f' integers. Instead got type {ys.dtype} and values {uniques}.'
+        )
     # Infer or check the number of classes. It should be equal to or greater
     # than the number of unique nonnegative values
     uniques = np.unique(ys)

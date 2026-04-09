@@ -87,6 +87,23 @@ class GetDatasetsTest(absltest.TestCase):
           [dataset1, dataset2], subject_ids=[0, -1]
       )
 
+  def test_dataset_list_to_multisubject_from_loop(self):
+    """Test creating multisubject dataset from a loop of single subject datasets."""
+    learning_rates = [0.1, 0.2]
+    datasets = []
+    ids = []
+    for i, lr in enumerate(learning_rates):
+      dataset = get_datasets.get_q_learning_dataset(
+          n_trials=2, n_sessions=2, alpha=lr
+      )
+      datasets.append(dataset)
+      ids.append(i)
+
+    multisubject_dataset = get_datasets.dataset_list_to_multisubject(
+        datasets, subject_ids=ids
+    )
+    self.assertIsInstance(multisubject_dataset, rnn_utils.DatasetRNN)
+
 
 if __name__ == "__main__":
   absltest.main()
