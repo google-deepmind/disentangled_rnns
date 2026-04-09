@@ -24,6 +24,12 @@ To release a new version (e.g. from `1.0.0` -> `2.0.0`):
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-04-08
+
+ - Allow DatasetRNNCategorical to accept floats that are close to ints. This
+   fixes an issue in which dataset_list_to_multisubject was failing on these
+   kinds of datasets.
+
 ## [0.1.5] - 2026-03-07
 
 - Fix bug in two_armed_bandits.AgentNetwork. Add example to the colab of using
@@ -70,3 +76,4 @@ a release and act as a baseline for future releases.
 [0.1.3]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.3
 [0.1.4]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.4
 [0.1.5]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.5
+[0.1.5]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.6
