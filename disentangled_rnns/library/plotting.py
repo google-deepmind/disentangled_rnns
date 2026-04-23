@@ -343,7 +343,7 @@ def compute_update_rules(
 
       # Iterate over state bins and get update value
       for s_i in np.arange(len(state_bins)):
-        state = reference_state
+        state = reference_state.copy()
         state[0, unit_i] = state_bins[s_i]
         _, next_state = step_hk(params, key, observation, state)
         next_state = np.array(next_state)
@@ -372,7 +372,7 @@ def compute_update_rules(
       for si_i in np.arange(len(state_bins_input)):
         delta_states = np.zeros(shape=(len(state_bins), 1))
         for s_i in np.arange(len(state_bins)):
-          state = reference_state
+          state = reference_state.copy()
           state[0, unit_i] = state_bins[s_i]
           state[0, unit_input] = state_bins_input[si_i]
 
