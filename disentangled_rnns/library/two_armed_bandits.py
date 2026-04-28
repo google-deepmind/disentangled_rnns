@@ -341,6 +341,7 @@ class AgentLeakyActorCritic:
       alpha_critic: float,
       alpha_actor_learn: float,
       alpha_actor_forget: float,
+      initial_v: float = 0.5,
   ):
     """Initialize the agent.
 
@@ -348,16 +349,18 @@ class AgentLeakyActorCritic:
       alpha_critic: The critic's learning rate
       alpha_actor_learn: The actor's learning rate
       alpha_actor_forget: The actor's forgetting rate
+      initial_v: The initial value for the critic's state variable V
     """
     self._alpha_critic = alpha_critic
     self._alpha_actor_learn = alpha_actor_learn
     self._alpha_actor_forget = alpha_actor_forget
+    self._initial_v = initial_v
     self.new_session()
 
   def new_session(self):
     """Reset the agent for the beginning of a new session."""
     self.theta = 0.0 * np.ones(2)
-    self.v = 0.5
+    self.v = self._initial_v
 
   def get_choice_probs(self) -> np.ndarray:
     choice_probs = special.softmax(self.theta)
