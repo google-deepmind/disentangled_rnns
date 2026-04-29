@@ -23,7 +23,6 @@ import haiku as hk
 import jax
 import numpy as np
 
-
 N_HIDDEN = 5
 
 
@@ -183,9 +182,7 @@ class TwoArmedBanditsTest(parameterized.TestCase):
 
     init_state_fn = hk.without_apply_rng(hk.transform(init_state_fn))
     state = init_state_fn.apply(params)
-    direct_model_jit = jax.jit(
-        lambda xs, s: direct_model.apply(params, xs, s)
-    )
+    direct_model_jit = jax.jit(lambda xs, s: direct_model.apply(params, xs, s))
 
     trial_inputs = [
         (1, 1),
@@ -202,7 +199,9 @@ class TwoArmedBanditsTest(parameterized.TestCase):
       direct_probs = np.asarray(jax.nn.softmax(output_logits[0]))
 
       np.testing.assert_allclose(
-          agent_probs, direct_probs, atol=1e-5,
+          agent_probs,
+          direct_probs,
+          atol=1e-5,
           err_msg=f'Choice probs differ at step {t}',
       )
 

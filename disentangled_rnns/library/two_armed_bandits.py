@@ -27,7 +27,6 @@ import numpy as np
 from scipy import special
 import seaborn as sns
 
-
 abstractmethod = abc.abstractmethod
 
 ################
@@ -404,7 +403,8 @@ class AgentNetwork:
   """
 
   def __init__(
-      self, make_network: Callable[[], hk.RNNCore],
+      self,
+      make_network: Callable[[], hk.RNNCore],
       params: rnn_utils.RnnParams,
       n_actions: int = 2,
   ):
