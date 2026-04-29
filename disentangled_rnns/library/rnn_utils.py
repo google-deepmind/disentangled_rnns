@@ -1234,7 +1234,8 @@ def eval_network(
     make_network: Callable[[], hk.RNNCore],
     params: RnnParams,
     xs: np.ndarray,
-) -> tuple[np.ndarray, Any]:
+    return_states: bool = True,
+) -> tuple[np.ndarray, Any] | np.ndarray:
   """Runs an RNN and returns its outputs and all internal states.
 
   Args:
@@ -1242,6 +1243,7 @@ def eval_network(
     params: A set of params suitable for that network
     xs: A batch of inputs `[timesteps, episodes, features]` suitable for the
       model
+    return_states: If True, also return the internal states of the network.
 
   Returns:
     network_outputs: Output provided by the network on each timestep. A numpy
@@ -1250,8 +1252,8 @@ def eval_network(
       element will be the penalty attributable to that timestep. Previous
       elements will reflect predicted targets -- logits in the case of
       categorical targets and means in the case of continuous targets.
-      states: Network states at each timestep. A numpy array of shape
-        [timesteps, episodes, hidden_size].
+      states: If return_states is True, network states at each timestep. A numpy
+      array of shape [timesteps, episodes, hidden_size].
   """
   # If loaded from json, params might be a nested dict of lists. Convert to np.
   params = to_np(params)
@@ -1260,12 +1262,19 @@ def eval_network(
     core = make_network()
     batch_size = jnp.shape(xs)[1]
     state = core.initial_state(batch_size)
-    ys, states = hk.dynamic_unroll(core, xs, state, return_all_states=True)
-    return ys, states
+    if return_states:
+      return hk.dynamic_unroll(core, xs, state, return_all_states=True)
+    ys, _ = hk.dynamic_unroll(core, xs, state, return_all_states=False)
+    return ys
 
   model = hk.transform(unroll_network)
   key = jax.random.PRNGKey(np.random.randint(2**32))
   apply = jax.jit(model.apply)
+
+  if not return_states:
+    y_hats = apply(params, key, xs)
+    return np.array(y_hats)
+
   y_hats, states = apply(params, key, xs)
 
   if isinstance(states, tuple) or isinstance(states, list) and len(states) == 1:
