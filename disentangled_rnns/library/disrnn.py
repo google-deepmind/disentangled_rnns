@@ -562,17 +562,17 @@ def log_bottlenecks(
   )
   update_obs_sigmas = np.array(
       reparameterize_sigma(
-          np.transpose(params_disrnn['update_net_obs_sigma_params'])
+          np.transpose(params_disrnn['update_net_obs_sigma_params'])  # pyrefly: ignore[bad-argument-type]
       )
   )
   update_latent_sigmas = np.array(
       reparameterize_sigma(
-          np.transpose(params_disrnn['update_net_latent_sigma_params'])
+          np.transpose(params_disrnn['update_net_latent_sigma_params'])  # pyrefly: ignore[bad-argument-type]
       )
   )
   choice_sigmas = np.array(
       reparameterize_sigma(
-          np.transpose(params_disrnn['choice_net_sigma_params'])
+          np.transpose(params_disrnn['choice_net_sigma_params'])  # pyrefly: ignore[bad-argument-type]
       )
   )
 

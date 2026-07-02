@@ -174,7 +174,7 @@ def plot_bottlenecks(
   )
   neural_activity_sigmas = np.array(
       disrnn.reparameterize_sigma(
-          np.transpose(params['neural_activity_net_sigma_params'])
+          np.transpose(params['neural_activity_net_sigma_params'])  # pyrefly: ignore[bad-argument-type]
       )
   )
 
@@ -485,7 +485,7 @@ def log_bottlenecks(
 
   neural_activity_sigmas = np.array(
       disrnn.reparameterize_sigma(
-          np.transpose(params_disrnn['neural_activity_net_sigma_params'])
+          np.transpose(params_disrnn['neural_activity_net_sigma_params'])  # pyrefly: ignore[bad-argument-type]
       )
   )
 
@@ -577,7 +577,7 @@ def get_auxiliary_metrics(
       'neural_activity_mse_train': np.array(neural_activity_mse_train),
       'neural_activity_mse_eval': np.array(neural_activity_mse_eval),
   }
-  return {
+  return {  # pyrefly: ignore[bad-return]
       **neural_activity_specific_metrics,
       **bottleneck_metrics,
       'total_sigma': total_sigma_val,

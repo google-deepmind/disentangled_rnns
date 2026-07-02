@@ -137,7 +137,7 @@ def run_experiment(
 
     attempted_choice = agent.get_choice()
     choice, reward, _ = environment.step(attempted_choice)
-    agent.update(choice, reward)
+    agent.update(choice, reward)  # pyrefly: ignore[bad-argument-type]
     rpe = agent.get_rpe()
 
     choices[step] = choice
@@ -193,8 +193,8 @@ def create_dataset(
     )
 
   dataset = rnn_utils.DatasetRNNMixed(
-      xs=xs,
-      ys=ys,
+      xs=xs,  # pyrefly: ignore[bad-argument-type]
+      ys=ys,  # pyrefly: ignore[bad-argument-type]
       x_names=['prev choice', 'prev reward'],
       y_names=['choice', 'dopamine'],
       n_classes=2,

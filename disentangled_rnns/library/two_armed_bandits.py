@@ -443,7 +443,7 @@ class AgentNetwork:
   def get_choice(self) -> tuple[int, np.ndarray]:
     choice_probs = self.get_choice_probs()
     choice = np.random.choice(2, p=choice_probs)
-    return choice
+    return choice  # pyrefly: ignore[bad-return]
 
   def update(self, choice: int, reward: int):
     _, self._rnn_state = self._model_fun(self._xs, self._rnn_state)
@@ -484,9 +484,9 @@ def run_experiment(
     # First agent makes a choice
     attempted_choice = agent.get_choice()
     # Then environment computes a reward
-    choice, reward, _ = environment.step(attempted_choice)
+    choice, reward, _ = environment.step(attempted_choice)  # pyrefly: ignore[bad-argument-type]
     # Finally agent learns
-    agent.update(choice, reward)
+    agent.update(choice, reward)  # pyrefly: ignore[bad-argument-type]
     # Log choice and reward
     choices[step] = choice
     rewards[step] = reward
@@ -535,7 +535,7 @@ def create_dataset(
     ys[:, sess_i] = np.expand_dims(experiment.choices, 1)
 
   dataset = rnn_utils.DatasetRNNCategorical(
-      xs=xs,
+      xs=xs,  # pyrefly: ignore[bad-argument-type]
       ys=ys,
       x_names=['prev choice', 'prev reward'],
       y_names=['choice'],
@@ -592,7 +592,7 @@ def plot_2ab_sessdata(
   # Check whether we have scalars we'd like to plot.
   if scalars is None:
     scalar_names = []
-    scalars = []
+    scalars = []  # pyrefly: ignore[bad-assignment]
     ymax = 1
     ymin = 0
     scalar_colors = []
@@ -613,9 +613,9 @@ def plot_2ab_sessdata(
     ylabel = 'Agent State'
   elif scalar_types == 'other':
     scalar_names = []
-    scalars = []
-    ymax = np.max(scalars)
-    ymin = np.min(scalars)
+    scalars = []  # pyrefly: ignore[bad-assignment]
+    ymax = np.max(scalars)  # pyrefly: ignore[no-matching-overload]
+    ymin = np.min(scalars)  # pyrefly: ignore[no-matching-overload]
     scalar_colors = []
     ylabel = ''
   else:
@@ -629,7 +629,7 @@ def plot_2ab_sessdata(
   # Plot the scalars
   for scalar_i in range(len(scalar_names)):
     plt.plot(
-        scalars[:, scalar_i], color=scalar_colors[scalar_i % len(scalar_colors)]
+        scalars[:, scalar_i], color=scalar_colors[scalar_i % len(scalar_colors)]  # pyrefly: ignore[unsupported-operation]
     )
   if show_legend:
     plt.legend(scalar_names)

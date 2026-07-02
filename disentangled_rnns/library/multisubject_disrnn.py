@@ -51,7 +51,7 @@ class MultisubjectDisRnnConfig(disrnn.DisRnnConfig):
     super().__post_init__()
     # We expect that the first element of the input will be an integer subject
     # ID. Add this to the list of observation names to make it explicit.
-    self.x_names = ['Subject ID'] + self.x_names
+    self.x_names = ['Subject ID'] + self.x_names  # pyrefly: ignore[unsupported-operation]
 
 
 class MultisubjectDisRnn(disrnn.HkDisentangledRNN):

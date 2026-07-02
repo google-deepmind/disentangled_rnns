@@ -197,7 +197,7 @@ class DatasetRNN(abc.ABC):
       # Generate indices starting from the current index, wrapping using modulo
       indices = np.arange(
           self._current_start_index,
-          self._current_start_index + self.batch_size,
+          self._current_start_index + self.batch_size,  # pyrefly: ignore[unsupported-operation]
       )
       batch_inds = indices % self._n_episodes
 
@@ -205,7 +205,7 @@ class DatasetRNN(abc.ABC):
       xs_batch, ys_batch = self._xs[:, batch_inds], self._ys[:, batch_inds]
       # Update the starting index for the next batch, wrapping around
       self._current_start_index = (
-          self._current_start_index + self.batch_size
+          self._current_start_index + self.batch_size  # pyrefly: ignore[unsupported-operation]
       ) % self._n_episodes
       return {'xs': xs_batch, 'ys': ys_batch}
 
@@ -258,7 +258,7 @@ class DatasetRNNCategorical(DatasetRNN):
     uniques = np.unique(ys)
     n_classes_expected = np.sum(uniques >= 0)
     if n_classes is None:
-      n_classes = n_classes_expected
+      n_classes = n_classes_expected  # pyrefly: ignore[bad-assignment]
     else:
       if n_classes < n_classes_expected:
         raise ValueError(
@@ -332,7 +332,7 @@ class DatasetRNNMixed(DatasetRNN):
     # than the number of unique nonnegative values
     n_classes_expected = np.sum(uniques >= 0)
     if n_classes is None:
-      n_classes = n_classes_expected
+      n_classes = n_classes_expected  # pyrefly: ignore[bad-assignment]
     else:
       if n_classes < n_classes_expected:
         raise ValueError(
@@ -455,7 +455,7 @@ class DatasetRNNCategoricalWithActionMasks(DatasetRNNCategorical):
       # Generate indices starting from the current index, wrapping using modulo
       indices = np.arange(
           self._current_start_index,
-          self._current_start_index + self.batch_size,
+          self._current_start_index + self.batch_size,  # pyrefly: ignore[unsupported-operation]
       )
       batch_inds = indices % self._n_episodes
 
@@ -467,7 +467,7 @@ class DatasetRNNCategoricalWithActionMasks(DatasetRNNCategorical):
       )
       # Update the starting index for the next batch, wrapping around
       self._current_start_index = (
-          self._current_start_index + self.batch_size
+          self._current_start_index + self.batch_size  # pyrefly: ignore[unsupported-operation]
       ) % self._n_episodes
       return {
           'xs': xs_batch,

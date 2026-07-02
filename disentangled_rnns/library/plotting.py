@@ -51,7 +51,7 @@ def plot_bottlenecks(
     subject_embedding_size = disrnn_config.subject_embedding_size
     update_input_names = [
         f"SubjEmb {i+0}" for i in range(subject_embedding_size)
-    ] + disrnn_config.x_names[1:]
+    ] + disrnn_config.x_names[1:]  # pyrefly: ignore[unsupported-operation]
     # For update_sigmas: concatenate transposed reparameterized sigmas
     # Order of inputs to update nets: subject_embedding, observations, latents
     update_subj_sigmas_t = np.transpose(
@@ -104,7 +104,7 @@ def plot_bottlenecks(
     )
     choice_sigmas = np.array(
         disrnn.reparameterize_sigma(
-            np.transpose(params_disrnn["choice_net_sigma_params"])
+            np.transpose(params_disrnn["choice_net_sigma_params"])  # pyrefly: ignore[bad-argument-type]
         )
     )
   else:
@@ -190,7 +190,7 @@ def plot_bottlenecks(
   )
   # X-axis corresponds to the inputs to the update network:
   # [subject embeddings, observations, latents]
-  xlabels = update_input_names + [f"Latent {i}" for i in latent_names]
+  xlabels = update_input_names + [f"Latent {i}" for i in latent_names]  # pyrefly: ignore[unsupported-operation]
   axes[2].set_xticks(
       ticks=range(len(xlabels)),
       labels=xlabels,
@@ -263,7 +263,7 @@ def compute_update_rules(
     # pylint: disable=C3001
     make_network = lambda: multisubject_disrnn.MultisubjectDisRnn(disrnn_config)
     # pylint: enable=C3001
-    obs_names = disrnn_config.x_names[1:]  # First x_name is "Subject ID"
+    obs_names = disrnn_config.x_names[1:]  # First x_name is "Subject ID"  # pyrefly: ignore[unsupported-operation]
     param_prefix = "multisubject_dis_rnn"
     subj_embedding_size = disrnn_config.subject_embedding_size
     update_subj_s_t = np.transpose(
@@ -398,8 +398,8 @@ def compute_update_rules(
   if observation_types is None:
     # This is what was hard coded originally
     observation_types = [[0, 0], [0, 1], [1, 0], [1, 1]]
-  observation_types = np.array(observation_types)
-  if np.shape(observation_types)[1] != disrnn_config.obs_size:
+  observation_types = np.array(observation_types)  # pyrefly: ignore[bad-assignment]
+  if np.shape(observation_types)[1] != disrnn_config.obs_size:  # pyrefly: ignore[no-matching-overload]
     raise ValueError(
         "Observation Types doesn't match the size of observations to network"
     )
@@ -413,7 +413,7 @@ def compute_update_rules(
     for obs_i in range(disrnn_config.obs_size):
       if not all(
           key in observation_names[obs_i]
-          for key in np.unique(observation_types[:, obs_i])
+          for key in np.unique(observation_types[:, obs_i])  # pyrefly: ignore[bad-index, unsupported-operation]
       ):
         raise ValueError(
             "Observation Names must contain a key for all observation types,"
@@ -437,7 +437,7 @@ def compute_update_rules(
 
       # Filter list of observation types based on sensitivity of this latent
       latent_obs = observation_types.copy()
-      default_vals = observation_types[0]
+      default_vals = observation_types[0]  # pyrefly: ignore[unsupported-operation]
       for obs_i in range(disrnn_config.obs_size):
         if not obs_sensitive[obs_i]:
           latent_obs[:, obs_i] = default_vals[obs_i]
@@ -453,7 +453,7 @@ def compute_update_rules(
             names = observation_names[obs_i]
             for i in range(len(titles)):
               name_str = names.get(latent_obs[i][obs_i], latent_obs[i][obs_i])
-              titles[i] = titles[i] + obs_names[obs_i] + f": {name_str}\n"
+              titles[i] = titles[i] + obs_names[obs_i] + f": {name_str}\n"  # pyrefly: ignore[unsupported-operation]
 
       # Cast to tuples for immutability and backwards compatability
       titles = tuple([x.rstrip() for x in titles])  # remove whitespace
@@ -929,7 +929,7 @@ def compute_choice_rule(
     choice_logits = y_hats[:, 1] - y_hats[:, 0]
 
     output[f"policy_latent_{policy_latent_idx_in_latent_space + 1}_vals"] = (
-        policy_latent_vals
+        policy_latent_vals  # pyrefly: ignore[bad-assignment]
     )
     output["choice_logits"] = choice_logits
     output["yhats"] = y_hats
@@ -971,10 +971,10 @@ def compute_choice_rule(
 
     output["yhats"] = y_hats[0]
     output[f"policy_latent_{policy_latent_idx1_in_latent_space + 1}_vals"] = (
-        latent0_vals
+        latent0_vals  # pyrefly: ignore[bad-assignment]
     )
     output[f"policy_latent_{policy_latent_idx2_in_latent_space + 1}_vals"] = (
-        latent1_vals
+        latent1_vals  # pyrefly: ignore[bad-assignment]
     )
     output["x_latent"] = policy_latent_idx1_in_latent_space + 1
     output["y_latent"] = policy_latent_idx2_in_latent_space + 1

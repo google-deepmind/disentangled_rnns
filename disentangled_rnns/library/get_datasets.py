@@ -261,7 +261,7 @@ def get_q_learning_dataset(
     np_rng_seed: float = 0,
 ) -> rnn_utils.DatasetRNNCategorical:
   """Generates synthetic dataset from Q-Learning agent."""
-  rng = np.random.default_rng(np_rng_seed)
+  rng = np.random.default_rng(np_rng_seed)  # pyrefly: ignore[bad-argument-type]
   agent = two_armed_bandits.AgentQ(alpha=alpha, beta=beta)
   environment = two_armed_bandits.EnvironmentBanditsDrift(sigma=sigma)
   dataset = two_armed_bandits.create_dataset(
