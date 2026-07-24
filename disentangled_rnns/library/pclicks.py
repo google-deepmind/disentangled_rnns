@@ -150,3 +150,98 @@ def drift_diffusion_model(
     decisions[trial_i] = int(decision)
 
   return decisions, (decision_variable, depression_variable)
+
+
+def race_model(
+    xs,
+    noise_per_click=0.5,
+    noise_per_timestep=0,
+    bound=10.0,
+    lapse=0,
+):
+  """Runs a race model on clicktrains to produce choices.
+
+  Two independent accumulators race towards a bound. The first accumulator
+  to cross the bound determines the choice. If neither crosses, the decision
+  is a coin flip.
+
+  Args:
+    xs: Click trains, as output by generate_clicktrains.
+    noise_per_click: Sensory noise per click.
+    noise_per_timestep: Accumulator noise per timestep.
+    bound: Decision bound for each accumulator.
+    lapse: Lapse rate.
+
+  Returns:
+    decisions: Array of 0/1 choices for each trial.
+    decision_variables: Tuple of (left, right) accumulator traces.
+  """
+  n_timesteps, n_trials, _ = np.shape(xs)
+
+  diffusion_noise = np.random.normal(
+      loc=0, scale=noise_per_timestep, size=(n_timesteps, n_trials, 2)
+  )
+
+  noisy_clicks_left = np.random.normal(
+      loc=xs[:, :, 0],
+      scale=noise_per_click * xs[:, :, 0],
+      size=(n_timesteps, n_trials),
+  )
+  noisy_clicks_right = np.random.normal(
+      loc=xs[:, :, 1],
+      scale=noise_per_click * xs[:, :, 1],
+      size=(n_timesteps, n_trials),
+  )
+
+  decision_variable_left = np.cumsum(noisy_clicks_left, axis=0) + np.cumsum(
+      diffusion_noise[:, :, 0], axis=0
+  )
+  decision_variable_right = np.cumsum(noisy_clicks_right, axis=0) + np.cumsum(
+      diffusion_noise[:, :, 1], axis=0
+  )
+
+  left_crossed = decision_variable_left > bound
+  right_crossed = decision_variable_right > bound
+
+  # argmax on a boolean array returns the first True index (first crossing).
+  # Returns 0 if no crossing occurred.
+  first_left_crossing = np.argmax(left_crossed, axis=0)
+  first_right_crossing = np.argmax(right_crossed, axis=0)
+
+  # Check whether each accumulator actually crossed the bound.
+  left_ever_crossed = np.any(left_crossed, axis=0)
+  right_ever_crossed = np.any(right_crossed, axis=0)
+
+  # Clamp accumulators at the bound after first crossing.
+  for trial_i in range(n_trials):
+    if left_ever_crossed[trial_i]:
+      decision_variable_left[first_left_crossing[trial_i]:, trial_i] = bound
+    if right_ever_crossed[trial_i]:
+      decision_variable_right[first_right_crossing[trial_i]:, trial_i] = bound
+
+  decisions = np.zeros(n_trials, dtype=int)
+  for trial_i in range(n_trials):
+    if not left_ever_crossed[trial_i] and not right_ever_crossed[trial_i]:
+      # Neither accumulator crossed the bound: flip a coin.
+      decision = np.random.randint(0, 2)
+    elif left_ever_crossed[trial_i] and not right_ever_crossed[trial_i]:
+      # Only left crossed: left wins.
+      decision = 0
+    elif right_ever_crossed[trial_i] and not left_ever_crossed[trial_i]:
+      # Only right crossed: right wins.
+      decision = 1
+    elif first_left_crossing[trial_i] < first_right_crossing[trial_i]:
+      # Both crossed, left crossed first: left wins.
+      decision = 0
+    elif first_right_crossing[trial_i] < first_left_crossing[trial_i]:
+      # Both crossed, right crossed first: right wins.
+      decision = 1
+    else:
+      # Both crossed at exactly the same timestep: flip a coin.
+      decision = np.random.randint(0, 2)
+
+    if np.random.random() < lapse:
+      decision = 1 - decision
+    decisions[trial_i] = decision
+
+  return decisions, (decision_variable_left, decision_variable_right)

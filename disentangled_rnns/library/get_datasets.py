@@ -147,7 +147,11 @@ def get_rat_bandit_dataset(rat_i: int = 0) -> rnn_utils.DatasetRNNCategorical:
   ys = np.concatenate((free_choices, -1 * np.ones((1, n_sess, 1))), axis=0)
 
   # Pack into a DatasetRNN object
-  dataset_rat = rnn_utils.DatasetRNNCategorical(ys=ys, xs=xs)
+  dataset_rat = rnn_utils.DatasetRNNCategorical(
+      ys=ys, xs=xs,
+      x_names=['Previous Choice', 'Previous Reward'],
+      y_names=['Choice'],
+  )
 
   return dataset_rat
 
@@ -247,7 +251,11 @@ def get_pclicks_dataset(rat_i: int = 0) -> rnn_utils.DatasetRNNCategorical:
   ys = -1 * np.ones((101, n_trials, 1))
   ys[-1, :, 0] = choices
 
-  dataset_rat = rnn_utils.DatasetRNNCategorical(xs, ys)
+  dataset_rat = rnn_utils.DatasetRNNCategorical(
+      xs, ys,
+      x_names=['Left Clicks', 'Right Clicks'],
+      y_names=['Choice'],
+  )
 
   return dataset_rat
 
@@ -333,7 +341,48 @@ def get_bounded_accumulator_dataset(
   )
   ys = -1 * np.ones((stim_duration_max + 1, n_trials, 1), dtype=int)
   ys[-1, :, 0] = decisions
-  dataset = rnn_utils.DatasetRNNCategorical(xs, ys)
+  dataset = rnn_utils.DatasetRNNCategorical(
+      xs, ys,
+      x_names=['Left Clicks', 'Right Clicks'],
+      y_names=['Choice'],
+  )
+  return dataset
+
+
+def get_race_model_dataset(
+    n_trials: int = 200000,
+    stim_duration_max: int = 50,
+    stim_duration_min: int = 10,
+    base_click_rate: float = 10,
+    click_rate_diffs: np.ndarray = np.array([-2.5, -1, 0, 1, 2.5]),
+    noise_per_click: float = 0.01,
+    noise_per_timestep: float = 0.0,
+    bound: float = 10.0,
+    lapse: float = 0.0,
+) -> rnn_utils.DatasetRNNCategorical:
+  """Generates synthetic dataset from Race Model."""
+  xs, _ = pclicks.generate_clicktrains(
+      n_trials=n_trials,
+      stim_duration_max=stim_duration_max,
+      stim_duration_min=stim_duration_min,
+      base_click_rate=base_click_rate,
+      click_rate_diffs=click_rate_diffs,
+  )
+
+  decisions, _ = pclicks.race_model(
+      xs,
+      noise_per_click=noise_per_click,
+      noise_per_timestep=noise_per_timestep,
+      bound=bound,
+      lapse=lapse,
+  )
+  ys = -1 * np.ones((stim_duration_max + 1, n_trials, 1), dtype=int)
+  ys[-1, :, 0] = decisions
+  dataset = rnn_utils.DatasetRNNCategorical(
+      xs, ys,
+      x_names=['Left Clicks', 'Right Clicks'],
+      y_names=['Choice'],
+  )
   return dataset
 
 
