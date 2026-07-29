@@ -436,7 +436,7 @@ def compute_update_rules(
         obs_sensitive[i] = np.any(update_net_inputs == subj_embedding_size + i)
 
       # Filter list of observation types based on sensitivity of this latent
-      latent_obs = observation_types.copy()
+      latent_obs = observation_types.copy()  # pyrefly: ignore[missing-attribute]
       default_vals = observation_types[0]  # pyrefly: ignore[unsupported-operation]
       for obs_i in range(disrnn_config.obs_size):
         if not obs_sensitive[obs_i]:
