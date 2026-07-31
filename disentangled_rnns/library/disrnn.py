@@ -177,6 +177,21 @@ class DisRnnConfig:
           f'Activation {self.activation} not found in jax.nn. Provided value '
           f'was {self.activation}'
       ) from e
+  _NON_NEGATIVE_FIELDS = frozenset({
+      'latent_penalty',
+      'update_net_obs_penalty',
+      'update_net_latent_penalty',
+      'choice_net_latent_penalty',
+      'l2_scale',
+  })
+
+  def __setattr__(self, name, value):
+    if name in self._NON_NEGATIVE_FIELDS and value < 0:
+      raise ValueError(
+          f'{name} must be non-negative, got {value}. '
+          f'(Did you write e.g. 1-3 instead of 1e-3?)'
+      )
+    super().__setattr__(name, value)
 
 
 class ResMLP(hk.Module):
