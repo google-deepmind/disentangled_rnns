@@ -871,38 +871,41 @@ def avg_nll_and_log_mse(
 
 
 @jax.jit
-def compute_penalty(
-    targets: np.ndarray, outputs: np.ndarray
-) -> tuple[float, int]:
-  """Computes the total penalty from network outputs, masking invalid timesteps.
+def count_unmasked_samples(targets: np.ndarray) -> int:
+  """Counts the number of valid (unmasked) timestep-trial pairs in targets.
 
-  A timestep is considered invalid and masked if all its target values are
-  invalid. For categorical targets, -1 is invalid. For continuous targets, NaN
-  is invalid. The penalty is assumed to be the last feature in the `outputs`
-  array.
+  A timestep is considered invalid if all its target values are invalid.
+  For categorical targets, -1 is invalid. For continuous targets, NaN is
+  invalid.
 
   Args:
-    targets: The ground truth targets, used for masking.
+    targets: The ground truth targets.
+
+  Returns:
+    The number of valid timestep-trial pairs.
+  """
+  categorical_mask = jnp.logical_not(targets == -1)
+  continuous_mask = jnp.logical_not(jnp.isnan(targets))
+  mask = jnp.logical_and(categorical_mask, continuous_mask)
+  mask = jnp.any(mask, axis=-1)
+  return jnp.sum(mask)  # pytype: disable=bad-return-type
+
+
+def compute_penalty(outputs: np.ndarray) -> float:
+  """Computes the total penalty from network outputs.
+
+  The penalty is summed over all timesteps unconditionally. This ensures that
+  information bottleneck costs are always fully accounted for, even on
+  timesteps without valid targets.
+
+  Args:
     outputs: The network outputs, where the last feature is the penalty.
 
   Returns:
-    A tuple containing:
-      - penalty: The total penalty over all valid timesteps.
-      - n_unmasked_samples: The number of valid timesteps.
+    The total penalty over all timesteps.
   """
-  # Categorical mask: Exclude targets exactly equal to -1
-  categorical_mask = jnp.logical_not(targets == -1)
-  # Continuous mask: exclude targets that are NaN
-  continuous_mask = jnp.logical_not(jnp.isnan(targets))
-  mask = jnp.logical_and(categorical_mask, continuous_mask)
-  # A trial is unmasked if any of its targets are unmasked.
-  mask = jnp.any(mask, axis=-1)
-
   trialwise_penalty = outputs[:, :, -1]
-  penalty = jnp.sum(jnp.multiply(trialwise_penalty, mask))
-  n_unmasked_samples = jnp.sum(mask)
-
-  return penalty, n_unmasked_samples  # pytype: disable=bad-return-type
+  return jnp.sum(trialwise_penalty)  # pytype: disable=bad-return-type
 
 
 ## Training Loop
@@ -1034,7 +1037,8 @@ def train_network(
     # (n_steps, n_episodes, n_targets+1)
     model_output = model.apply(params, random_key, batch['xs'])
     y_hats = model_output[:, :, :-1]
-    penalty, n_unmasked_samples = compute_penalty(batch['ys'], model_output)
+    penalty = compute_penalty(model_output)
+    n_unmasked_samples = count_unmasked_samples(batch['ys'])
     penalty_scale = get_loss_param(loss_param, 'penalty_scale', 1.0)
     loss = (
         mse(batch['ys'], y_hats) + penalty_scale * penalty / n_unmasked_samples
@@ -1057,7 +1061,7 @@ def train_network(
     # (n_steps, n_episodes, n_targets)
     model_output = model.apply(params, random_key, batch['xs'])
     output_logits = model_output[:, :, :-1]
-    penalty, _ = compute_penalty(batch['ys'], model_output)
+    penalty = compute_penalty(model_output)
     nll, n_unmasked_samples = categorical_neg_log_likelihood(
         batch['ys'], output_logits
     )
@@ -1108,7 +1112,8 @@ def train_network(
     supervised_loss = avg_nll_and_log_mse(
         batch['ys'], y_hats, likelihood_weight=likelihood_weight
     )
-    penalty, n_unmasked_samples = compute_penalty(batch['ys'], y_hats)
+    penalty = compute_penalty(y_hats)
+    n_unmasked_samples = count_unmasked_samples(batch['ys'])
     avg_penalty = penalty / n_unmasked_samples
     loss = supervised_loss + penalty_scale * avg_penalty
     return loss
