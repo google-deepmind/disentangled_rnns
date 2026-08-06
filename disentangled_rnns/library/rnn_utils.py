@@ -728,7 +728,7 @@ def likelihood_and_sse(
   )
   # All trials with an invalid categorical target are masked.
   continuous_ys = jnp.where(mask, continuous_ys, jnp.nan)
-  sum_squared_error = sse(continuous_ys, continuous_y_hats)
+  sum_squared_error = sse(continuous_ys, continuous_y_hats)  # pyrefly: ignore[bad-argument-type]
 
   return log_likelihood * likelihood_weight + sum_squared_error * (
       1 - likelihood_weight
@@ -780,7 +780,7 @@ def normalized_likelihood_and_mse(
   normlik_categorical = normalized_likelihood(
       categorical_ys, categorical_y_hats
   )
-  normlik_mse = mse(continuous_ys, continuous_y_hats)
+  normlik_mse = mse(continuous_ys, continuous_y_hats)  # pyrefly: ignore[bad-argument-type]
   return normlik_categorical * likelihood_weight + normlik_mse * (
       1 - likelihood_weight
   )
@@ -855,7 +855,7 @@ def avg_nll_and_log_mse(
   )
   avg_nll = nll / n_unmasked_samples
 
-  mse_val = mse(continuous_ys, continuous_y_hats)
+  mse_val = mse(continuous_ys, continuous_y_hats)  # pyrefly: ignore[bad-argument-type]
 
   # This is a trick to scale the gradients from the mse as:
   # derivative(log(1+mse)) = 1 / (1 + mse) * derivative(1+mse)
@@ -867,7 +867,7 @@ def avg_nll_and_log_mse(
 
   # Likelihood weight should ideally be set to 0.5, but can be used as a toggle
   # to train on just one objective at a time (e.g. likelihood or mse).
-  return avg_nll * likelihood_weight + log_mse_val * (1 - likelihood_weight)
+  return avg_nll * likelihood_weight + log_mse_val * (1 - likelihood_weight)  # pyrefly: ignore[bad-return]
 
 
 @jax.jit
@@ -1165,7 +1165,7 @@ def train_network(
     if training_dataset.batch_mode != 'single':
       train_batch = next(training_dataset)
 
-    loss, params, opt_state = train_step(
+    loss, params, opt_state = train_step(  # pyrefly: ignore[bad-assignment]
         params, opt_state, train_batch, subkey_train
     )
 
@@ -1175,7 +1175,7 @@ def train_network(
         raise ValueError('NaN in params')
       if np.isnan(loss):
         raise ValueError('NaN in loss')
-      if loss > 1e50:
+      if loss > 1e50:  # pyrefly: ignore[unsupported-operation]
         raise ValueError('Loss is too large')
 
       # Test on validation data
