@@ -271,20 +271,20 @@ def get_auxiliary_metrics(
     return int(is_open), int(is_closed)
 
   # Latent bottlenecks
-  latent_s = disrnn.reparameterize_sigma(module_params['latent_sigma_params'])
+  latent_s = disrnn.reparameterize_sigma(module_params['latent_log_sigmas'])
   lat_open, lat_closed = _count_states(
       np.array(latent_s), open_thresh, closed_thresh
   )
 
   # Update bottlenecks (sum over subj, obs, latent inputs)
   upd_subj_s = disrnn.reparameterize_sigma(
-      module_params['update_net_subj_sigma_params']
+      module_params['update_net_subj_log_sigmas']
   )
   upd_obs_s = disrnn.reparameterize_sigma(
-      module_params['update_net_obs_sigma_params']
+      module_params['update_net_obs_log_sigmas']
   )
   upd_lat_s = disrnn.reparameterize_sigma(
-      module_params['update_net_latent_sigma_params']
+      module_params['update_net_latent_log_sigmas']
   )
 
   us_o, us_c = _count_states(np.array(upd_subj_s), open_thresh, closed_thresh)
@@ -296,10 +296,10 @@ def get_auxiliary_metrics(
 
   # Choice bottlenecks (sum over subj, latent inputs)
   choice_subj_s = disrnn.reparameterize_sigma(
-      module_params['choice_net_subj_sigma_params']
+      module_params['choice_net_subj_log_sigmas']
   )
   choice_lat_s = disrnn.reparameterize_sigma(
-      module_params['choice_net_latent_sigma_params']
+      module_params['choice_net_latent_log_sigmas']
   )
 
   cs_o, cs_c = _count_states(

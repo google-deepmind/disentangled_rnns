@@ -86,18 +86,17 @@ def information_bottleneck(
 
 
 def reparameterize_sigma(
-    hk_param: jnp.ndarray, min_sigma: float = 1e-5
+    hk_param: jnp.ndarray,
 ) -> jnp.ndarray:
   """Reparamaterizes bottleneck sigma for easy fitting.
 
   Args:
     hk_param: The haiku parameter corresponding to a bottleneck sigma. Range
       from -inf to +inf
-    min_sigma: The minimum value of the standard deviation.
   Returns:
     sigma: The bottleneck standard deviation. Range from min_sigma to inf.
   """
-  return jnp.abs(hk_param) + min_sigma
+  return jnp.exp(hk_param)
 
 
 @dataclasses.dataclass
@@ -294,7 +293,7 @@ class ResMLP(hk.Module):
           + self._hidden_layer_biases[hidden_layer_i]
       )
       layer_output = self.activation_fn(layer_activations)
-      stream += layer_output
+      stream = stream + layer_output / jnp.sqrt(self.n_layers)
     # Linear projection to the appropriate output size
     output = jnp.dot(stream, self._output_weights) + self._output_biases
 
@@ -308,7 +307,7 @@ def get_initial_bottleneck_params(
   """Defines a bottleneck with a sigma and a multiplier."""
   # At init the bottlenecks should all be open: sigmas small and multipliers 1
   sigma_params = hk.get_parameter(
-      name + '_sigma_params',
+      name + '_log_sigmas',
       shape,
       init=hk.initializers.RandomUniform(minval=0.0, maxval=0.05),
   )
@@ -573,21 +572,21 @@ def log_bottlenecks(
   params_disrnn = params['hk_disentangled_rnn']
 
   latent_sigmas = np.array(
-      reparameterize_sigma(params_disrnn['latent_sigma_params'])
+      reparameterize_sigma(params_disrnn['latent_log_sigmas'])
   )
   update_obs_sigmas = np.array(
       reparameterize_sigma(
-          np.transpose(params_disrnn['update_net_obs_sigma_params'])  # pyrefly: ignore[bad-argument-type]
+          np.transpose(params_disrnn['update_net_obs_log_sigmas'])  # pyrefly: ignore[bad-argument-type]
       )
   )
   update_latent_sigmas = np.array(
       reparameterize_sigma(
-          np.transpose(params_disrnn['update_net_latent_sigma_params'])  # pyrefly: ignore[bad-argument-type]
+          np.transpose(params_disrnn['update_net_latent_log_sigmas'])  # pyrefly: ignore[bad-argument-type]
       )
   )
   choice_sigmas = np.array(
       reparameterize_sigma(
-          np.transpose(params_disrnn['choice_net_sigma_params'])  # pyrefly: ignore[bad-argument-type]
+          np.transpose(params_disrnn['choice_net_log_sigmas'])  # pyrefly: ignore[bad-argument-type]
       )
   )
 
@@ -641,16 +640,16 @@ def get_total_sigma(params):
   params_disrnn = params['hk_disentangled_rnn']
 
   latent_bottlenecks = reparameterize_sigma(
-      params_disrnn['latent_sigma_params']
+      params_disrnn['latent_log_sigmas']
   )
   update_obs_bottlenecks = reparameterize_sigma(
-      params_disrnn['update_net_obs_sigma_params']
+      params_disrnn['update_net_obs_log_sigmas']
   )
   update_latent_bottlenecks = reparameterize_sigma(
-      params_disrnn['update_net_latent_sigma_params']
+      params_disrnn['update_net_latent_log_sigmas']
   )
   choice_bottlenecks = reparameterize_sigma(
-      params_disrnn['choice_net_sigma_params']
+      params_disrnn['choice_net_log_sigmas']
   )
 
   return float(

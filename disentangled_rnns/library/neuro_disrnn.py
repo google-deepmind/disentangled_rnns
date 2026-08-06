@@ -167,14 +167,14 @@ def plot_bottlenecks(
 ) -> plt.Figure:
   """Plot the bottleneck sigmas from an hk.DisentangledRNN."""
   params = params['hk_neuro_disentangled_rnn']
-  latent_dim = params['latent_sigma_params'].shape[0]
+  latent_dim = params['latent_log_sigmas'].shape[0]
 
   latent_sigmas = np.array(
-      disrnn.reparameterize_sigma(params['latent_sigma_params'])
+      disrnn.reparameterize_sigma(params['latent_log_sigmas'])
   )
   neural_activity_sigmas = np.array(
       disrnn.reparameterize_sigma(
-          np.transpose(params['neural_activity_net_sigma_params'])  # pyrefly: ignore[bad-argument-type]
+          np.transpose(params['neural_activity_net_log_sigmas'])  # pyrefly: ignore[bad-argument-type]
       )
   )
 
@@ -282,7 +282,7 @@ def plot_neural_activity_rules(
 
   # Get sigmas and multipliers for the neural_activity network's inputs.
   neural_activity_sigmas = disrnn.reparameterize_sigma(
-      params_disrnn['neural_activity_net_sigma_params']
+      params_disrnn['neural_activity_net_log_sigmas']
   )
   neural_activity_multipliers = params_disrnn['neural_activity_net_multipliers']
 
@@ -485,7 +485,7 @@ def log_bottlenecks(
 
   neural_activity_sigmas = np.array(
       disrnn.reparameterize_sigma(
-          np.transpose(params_disrnn['neural_activity_net_sigma_params'])  # pyrefly: ignore[bad-argument-type]
+          np.transpose(params_disrnn['neural_activity_net_log_sigmas'])  # pyrefly: ignore[bad-argument-type]
       )
   )
 
@@ -524,7 +524,7 @@ def get_total_sigma(params):
   params_disrnn = params['hk_disentangled_rnn']
 
   neural_activity_bottlenecks = disrnn.reparameterize_sigma(
-      params_disrnn['neural_activity_net_sigma_params']
+      params_disrnn['neural_activity_net_log_sigmas']
   )
 
   return float(jnp.sum(neural_activity_bottlenecks) + prev_sigma_total)

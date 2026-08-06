@@ -68,13 +68,13 @@ class DisrnnTest(absltest.TestCase):
         'hk_disentangled_rnn/~predict_targets/choice_net'
     ]
 
-    self.assertIn('update_net_obs_sigma_params', params)
+    self.assertIn('update_net_obs_log_sigmas', params)
     self.assertIn('update_net_obs_multipliers', params)
-    self.assertIn('update_net_latent_sigma_params', params)
+    self.assertIn('update_net_latent_log_sigmas', params)
     self.assertIn('update_net_latent_multipliers', params)
 
-    self.assertIn('latent_sigma_params', params)
-    self.assertIn('choice_net_sigma_params', params)
+    self.assertIn('latent_log_sigmas', params)
+    self.assertIn('choice_net_log_sigmas', params)
     self.assertIn('choice_net_multipliers', params)
     self.assertIn('latent_inits', params)
 
@@ -84,13 +84,13 @@ class DisrnnTest(absltest.TestCase):
     net_input_size = latent_size + obs_size
 
     self.assertEqual(
-        params['update_net_obs_sigma_params'].shape, (obs_size, latent_size)
+        params['update_net_obs_log_sigmas'].shape, (obs_size, latent_size)
     )
     self.assertEqual(
         params['update_net_obs_multipliers'].shape, (obs_size, latent_size)
     )
     self.assertEqual(
-        params['update_net_latent_sigma_params'].shape,
+        params['update_net_latent_log_sigmas'].shape,
         (latent_size, latent_size),
     )
     self.assertEqual(
@@ -98,8 +98,8 @@ class DisrnnTest(absltest.TestCase):
         (latent_size, latent_size),
     )
 
-    self.assertEqual(params['latent_sigma_params'].shape, (latent_size,))
-    self.assertEqual(params['choice_net_sigma_params'].shape, (latent_size,))
+    self.assertEqual(params['latent_log_sigmas'].shape, (latent_size,))
+    self.assertEqual(params['choice_net_log_sigmas'].shape, (latent_size,))
     self.assertEqual(params['choice_net_multipliers'].shape, (latent_size,))
     self.assertEqual(params['latent_inits'].shape, (latent_size,))
     self.assertEqual(
