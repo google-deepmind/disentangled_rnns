@@ -24,6 +24,19 @@ To release a new version (e.g. from `1.0.0` -> `2.0.0`):
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-08-06
+
+- Improve numerical stability of deep DisRNN training, reducing NaN failures
+  from ~48% to ~7% in stress tests with 8-layer update networks:
+  - Scale ResMLP residual connections by 1/sqrt(n_layers) to prevent stream
+    magnitude growth in deep networks.
+  - Raise minimum bottleneck sigma from 1e-5 to 1e-4 to bound KL gradients
+    and prevent NaN from extreme values of d/dσ log(σ²) = 2/σ.
+  - Add learning rate warmup (100 steps) to prevent aggressive early updates
+    with random initializations.
+  - Keep L2 regularization active during noiseless training phase to constrain
+    weight growth.
+
 ## [0.1.6] - 2026-04-08
 
  - Allow DatasetRNNCategorical to accept floats that are close to ints. This
@@ -70,10 +83,11 @@ a release and act as a baseline for future releases.
 
 * Initial release
 
-[Unreleased]: https://github.com/google-deepmind/disentangled_rnns/compare/v0.1.1...HEAD
-[0.1.1]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.1
-[0.1.2]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.2
-[0.1.3]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.3
-[0.1.4]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.4
+[Unreleased]: https://github.com/google-deepmind/disentangled_rnns/compare/v0.1.7...HEAD
+[0.1.7]: https://github.com/google-deepmind/disentangled_rnns/compare/v0.1.6...v0.1.7
+[0.1.6]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.6
 [0.1.5]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.5
-[0.1.5]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.6
+[0.1.4]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.4
+[0.1.3]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.3
+[0.1.2]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.2
+[0.1.1]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.1

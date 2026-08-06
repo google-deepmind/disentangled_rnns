@@ -86,7 +86,7 @@ def information_bottleneck(
 
 
 def reparameterize_sigma(
-    hk_param: jnp.ndarray, min_sigma: float = 1e-5
+    hk_param: jnp.ndarray, min_sigma: float = 1e-4
 ) -> jnp.ndarray:
   """Reparamaterizes bottleneck sigma for easy fitting.
 
@@ -294,7 +294,7 @@ class ResMLP(hk.Module):
           + self._hidden_layer_biases[hidden_layer_i]
       )
       layer_output = self.activation_fn(layer_activations)
-      stream += layer_output
+      stream = stream + layer_output / jnp.sqrt(self.n_layers)
     # Linear projection to the appropriate output size
     output = jnp.dot(stream, self._output_weights) + self._output_biases
 
