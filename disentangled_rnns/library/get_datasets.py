@@ -278,6 +278,7 @@ def get_actor_critic_dataset(
     alpha_critic: float = 0.3,
     alpha_actor_learn: float = 1.0,
     alpha_actor_forget: float = 0.05,
+    initial_v: float = 0.5,
     sigma: float = 0.1,
     n_trials: int = 500,
     n_sessions: int = 20000,
@@ -289,6 +290,7 @@ def get_actor_critic_dataset(
       alpha_critic=alpha_critic,
       alpha_actor_learn=alpha_actor_learn,
       alpha_actor_forget=alpha_actor_forget,
+      initial_v=initial_v,
   )
   environment = two_armed_bandits.EnvironmentBanditsDrift(sigma=sigma)
   dataset = two_armed_bandits.create_dataset(
