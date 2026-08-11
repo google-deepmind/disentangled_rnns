@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Disentangled RNN and plotting functions."""
+"""Disentangled RNN."""
 
 import dataclasses
 from typing import Callable, Any, Sequence
