@@ -13,10 +13,10 @@ jobs:
       cancel-in-progress: true
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
     # Install deps
-    - uses: actions/setup-python@v6
+    - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
       with:
         python-version: "3.11"
         # Uncomment to cache of pip dependencies (if tests too slow)
@@ -47,7 +47,7 @@ jobs:
 
     steps:
     # Publish the package (if local `__version__` > pip version)
-    - uses: etils-actions/pypi-auto-publish@v1
+    - uses: etils-actions/pypi-auto-publish@e3c4b4afc3a5b12a44734da938741995538e8223 # v1
       with:
         pypi-token: ${{ secrets.PYPI_API_TOKEN }}
         gh-token: ${{ secrets.GITHUB_TOKEN }}
