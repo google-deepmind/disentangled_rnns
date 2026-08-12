@@ -104,21 +104,21 @@ class MultisubjectDisrnnTest(absltest.TestCase):
     ]
 
     # Check parameters directly under 'multisubject_dis_rnn'
-    self.assertIn('latent_sigma_params', params)
+    self.assertIn('latent_log_sigmas', params)
     self.assertIn('latent_inits', params)
 
     # Update network bottleneck parameters
-    self.assertIn('update_net_subj_sigma_params', params)
+    self.assertIn('update_net_subj_log_sigmas', params)
     self.assertIn('update_net_subj_multipliers', params)
-    self.assertIn('update_net_obs_sigma_params', params)
+    self.assertIn('update_net_obs_log_sigmas', params)
     self.assertIn('update_net_obs_multipliers', params)
-    self.assertIn('update_net_latent_sigma_params', params)
+    self.assertIn('update_net_latent_log_sigmas', params)
     self.assertIn('update_net_latent_multipliers', params)
 
     # Choice network bottleneck parameters
-    self.assertIn('choice_net_subj_sigma_params', params)
+    self.assertIn('choice_net_subj_log_sigmas', params)
     self.assertIn('choice_net_subj_multipliers', params)
-    self.assertIn('choice_net_latent_sigma_params', params)
+    self.assertIn('choice_net_latent_log_sigmas', params)
     self.assertIn('choice_net_latent_multipliers', params)
 
     # Check shapes based on config
@@ -132,13 +132,13 @@ class MultisubjectDisrnnTest(absltest.TestCase):
     choice_net_units = multisubject_disrnn_config.choice_net_n_units_per_layer
 
     self.assertEqual(
-        params['latent_sigma_params'].shape, (latent_size,)
+        params['latent_log_sigmas'].shape, (latent_size,)
     )  # From super()._build_latent_bottlenecks()
     self.assertEqual(params['latent_inits'].shape, (latent_size,))
 
     # Update network bottleneck shapes
     self.assertEqual(
-        params['update_net_subj_sigma_params'].shape,
+        params['update_net_subj_log_sigmas'].shape,
         (subj_emb_size, latent_size),
     )
     self.assertEqual(
@@ -146,13 +146,13 @@ class MultisubjectDisrnnTest(absltest.TestCase):
         (subj_emb_size, latent_size),
     )
     self.assertEqual(
-        params['update_net_obs_sigma_params'].shape, (obs_size, latent_size)
+        params['update_net_obs_log_sigmas'].shape, (obs_size, latent_size)
     )
     self.assertEqual(
         params['update_net_obs_multipliers'].shape, (obs_size, latent_size)
     )
     self.assertEqual(
-        params['update_net_latent_sigma_params'].shape,
+        params['update_net_latent_log_sigmas'].shape,
         (latent_size, latent_size),
     )
     self.assertEqual(
@@ -162,13 +162,13 @@ class MultisubjectDisrnnTest(absltest.TestCase):
 
     # Choice network bottleneck shapes
     self.assertEqual(
-        params['choice_net_subj_sigma_params'].shape, (subj_emb_size,)
+        params['choice_net_subj_log_sigmas'].shape, (subj_emb_size,)
     )
     self.assertEqual(
         params['choice_net_subj_multipliers'].shape, (subj_emb_size,)
     )
     self.assertEqual(
-        params['choice_net_latent_sigma_params'].shape, (latent_size,)
+        params['choice_net_latent_log_sigmas'].shape, (latent_size,)
     )
     self.assertEqual(
         params['choice_net_latent_multipliers'].shape, (latent_size,)

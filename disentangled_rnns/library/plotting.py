@@ -56,17 +56,17 @@ def plot_bottlenecks(
     # Order of inputs to update nets: subject_embedding, observations, latents
     update_subj_sigmas_t = np.transpose(
         disrnn.reparameterize_sigma(
-            params_disrnn["update_net_subj_sigma_params"]
+            params_disrnn["update_net_subj_log_sigmas"]
         )
     )
     update_obs_sigmas_t = np.transpose(
         disrnn.reparameterize_sigma(
-            params_disrnn["update_net_obs_sigma_params"]
+            params_disrnn["update_net_obs_log_sigmas"]
         )
     )
     update_latent_sigmas_t = np.transpose(
         disrnn.reparameterize_sigma(
-            params_disrnn["update_net_latent_sigma_params"]
+            params_disrnn["update_net_latent_log_sigmas"]
         )
     )
     update_sigmas = np.concatenate(
@@ -77,10 +77,10 @@ def plot_bottlenecks(
     # For choice_sigmas: concatenate reparameterized sigmas
     # Order of inputs to choice net: subject_embedding, latents
     choice_subj_sigmas = disrnn.reparameterize_sigma(
-        params_disrnn["choice_net_subj_sigma_params"]
+        params_disrnn["choice_net_subj_log_sigmas"]
     )
     choice_latent_sigmas = disrnn.reparameterize_sigma(
-        params_disrnn["choice_net_latent_sigma_params"]
+        params_disrnn["choice_net_latent_log_sigmas"]
     )
     choice_sigmas = np.concatenate((choice_subj_sigmas, choice_latent_sigmas))
   elif isinstance(disrnn_config, disrnn.DisRnnConfig):
@@ -91,12 +91,12 @@ def plot_bottlenecks(
     # Order of inputs to update nets: observations, latents
     update_obs_sigmas_t = np.transpose(
         disrnn.reparameterize_sigma(
-            params_disrnn["update_net_obs_sigma_params"]
+            params_disrnn["update_net_obs_log_sigmas"]
         )
     )
     update_latent_sigmas_t = np.transpose(
         disrnn.reparameterize_sigma(
-            params_disrnn["update_net_latent_sigma_params"]
+            params_disrnn["update_net_latent_log_sigmas"]
         )
     )
     update_sigmas = np.concatenate(
@@ -104,7 +104,7 @@ def plot_bottlenecks(
     )
     choice_sigmas = np.array(
         disrnn.reparameterize_sigma(
-            np.transpose(params_disrnn["choice_net_sigma_params"])  # pyrefly: ignore[bad-argument-type]
+            np.transpose(params_disrnn["choice_net_log_sigmas"])  # pyrefly: ignore[bad-argument-type]
         )
     )
   else:
@@ -114,7 +114,7 @@ def plot_bottlenecks(
     )
 
   latent_sigmas = np.array(
-      disrnn.reparameterize_sigma(params_disrnn["latent_sigma_params"])
+      disrnn.reparameterize_sigma(params_disrnn["latent_log_sigmas"])
   )
 
   if sort_latents:
@@ -268,17 +268,17 @@ def compute_update_rules(
     subj_embedding_size = disrnn_config.subject_embedding_size
     update_subj_s_t = np.transpose(
         disrnn.reparameterize_sigma(
-            params[param_prefix]["update_net_subj_sigma_params"]
+            params[param_prefix]["update_net_subj_log_sigmas"]
         )
     )
     update_obs_s_t = np.transpose(
         disrnn.reparameterize_sigma(
-            params[param_prefix]["update_net_obs_sigma_params"]
+            params[param_prefix]["update_net_obs_log_sigmas"]
         )
     )
     update_latent_s_t = np.transpose(
         disrnn.reparameterize_sigma(
-            params[param_prefix]["update_net_latent_sigma_params"]
+            params[param_prefix]["update_net_latent_log_sigmas"]
         )
     )
     update_sigmas = np.concatenate(
@@ -293,12 +293,12 @@ def compute_update_rules(
     subj_embedding_size = 0
     update_obs_s_t = np.transpose(
         disrnn.reparameterize_sigma(
-            params[param_prefix]["update_net_obs_sigma_params"]
+            params[param_prefix]["update_net_obs_log_sigmas"]
         )
     )
     update_latent_s_t = np.transpose(
         disrnn.reparameterize_sigma(
-            params[param_prefix]["update_net_latent_sigma_params"]
+            params[param_prefix]["update_net_latent_log_sigmas"]
         )
     )
     update_sigmas = np.concatenate((update_obs_s_t, update_latent_s_t), axis=1)
@@ -389,7 +389,7 @@ def compute_update_rules(
     return update_dict
 
   latent_sigmas = np.array(
-      disrnn.reparameterize_sigma(params[param_prefix]["latent_sigma_params"])
+      disrnn.reparameterize_sigma(params[param_prefix]["latent_log_sigmas"])
   )
 
   latent_order = np.argsort(latent_sigmas)
@@ -841,17 +841,17 @@ def compute_choice_rule(
     subj_embedding_size = disrnn_config.subject_embedding_size
     params_prefix = "multisubject_dis_rnn"
     choice_subj_s = disrnn.reparameterize_sigma(
-        params[params_prefix]["choice_net_subj_sigma_params"]
+        params[params_prefix]["choice_net_subj_log_sigmas"]
     )
     choice_latent_s = disrnn.reparameterize_sigma(
-        params[params_prefix]["choice_net_latent_sigma_params"]
+        params[params_prefix]["choice_net_latent_log_sigmas"]
     )
     choice_net_sigmas = np.concatenate((choice_subj_s, choice_latent_s))
   elif isinstance(disrnn_config, disrnn.DisRnnConfig):
     subj_embedding_size = 0
     params_prefix = "hk_disentangled_rnn"
     choice_net_sigmas = disrnn.reparameterize_sigma(
-        params[params_prefix]["choice_net_sigma_params"]
+        params[params_prefix]["choice_net_log_sigmas"]
     )
   else:
     raise ValueError(
@@ -882,7 +882,7 @@ def compute_choice_rule(
       "choice_net": params[params_prefix + "/~predict_targets/choice_net"]
   }
 
-  # Determine which latents to vary based on their choice_net_sigma_params.
+  # Determine which latents to vary based on their choice_net_log_sigmas.
   # choice_net_sigmas has shape (subj_embedding_size + latent_size,).
   latent_to_choice_net_sigmas = choice_net_sigmas[subj_embedding_size:]
 
