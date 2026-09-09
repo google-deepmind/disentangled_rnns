@@ -110,8 +110,8 @@ def get_rat_bandit_dataset(rat_i: int = 0) -> rnn_utils.DatasetRNNCategorical:
   # Each iteration processes one session
   for sess_i in np.arange(n_sess):
     # Get the choices, rewards, viols, and instructed for just this session
-    sess_start = sess_starts[sess_i]
-    sess_end = sess_starts[sess_i + 1]
+    sess_start = sess_starts[sess_i]  # pyrefly: ignore[bad-index]
+    sess_end = sess_starts[sess_i + 1]  # pyrefly: ignore[bad-index]
     viols_sess = viols[sess_start:sess_end]
     rewards_sess = rewards[sess_start:sess_end]
     choices_sess = choices[sess_start:sess_end]
@@ -124,9 +124,9 @@ def get_rat_bandit_dataset(rat_i: int = 0) -> rnn_utils.DatasetRNNCategorical:
     sess_length_noviols = len(choices_sess)
 
     # Add them to the matrices
-    rewards_by_session[0:sess_length_noviols, sess_i, 0] = rewards_sess
-    choices_by_session[0:sess_length_noviols, sess_i, 0] = choices_sess
-    instructed_by_session[0:sess_length_noviols, sess_i, 0] = (
+    rewards_by_session[0:sess_length_noviols, sess_i, 0] = rewards_sess  # pyrefly: ignore[unsupported-operation]
+    choices_by_session[0:sess_length_noviols, sess_i, 0] = choices_sess  # pyrefly: ignore[unsupported-operation]
+    instructed_by_session[0:sess_length_noviols, sess_i, 0] = (  # pyrefly: ignore[unsupported-operation]
         instructed_choice_sess
     )
 
@@ -236,8 +236,8 @@ def get_pclicks_dataset(rat_i: int = 0) -> rnn_utils.DatasetRNNCategorical:
         right_bups_trial * 100, bins=np.arange(stim_dur)
     )
 
-    binned_left_bups[trial_i, stim_start_bin:] = binned_left_bups_trial
-    binned_right_bups[trial_i, stim_start_bin:] = binned_right_bups_trial
+    binned_left_bups[trial_i, stim_start_bin:] = binned_left_bups_trial  # pyrefly: ignore[unsupported-operation]
+    binned_right_bups[trial_i, stim_start_bin:] = binned_right_bups_trial  # pyrefly: ignore[unsupported-operation]
 
   # Re-arrange into inputs (xs) and targets (ys) for training RNN
   xs = np.zeros((101, n_trials, 2))
