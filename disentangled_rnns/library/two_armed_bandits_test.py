@@ -59,7 +59,10 @@ def get_disrnn_agent_network():
       choice_net_n_layers=1,
       noiseless_mode=True,
   )
-  make_network = lambda: _make_disrnn_network(disrnn_config)
+
+  def make_network():
+    return _make_disrnn_network(disrnn_config)
+
   params, _, _ = rnn_utils.train_network(
       make_network,
       training_dataset=rnn_utils.DatasetRNNCategorical(
@@ -230,6 +233,32 @@ class TwoArmedBanditsTest(parameterized.TestCase):
       self.assertIn(choice, [0, 1])
       choice, reward, _ = environment.step(choice)
       agent.update(choice, reward)
+
+  @parameterized.named_parameters(
+      ('GRU', get_agent_network),
+      ('DisRNN', get_disrnn_agent_network),
+  )
+  def test_agent_network_new_session_restores_predictions(self, agent_factory):
+    """Session predictions must not depend on previous sessions' inputs."""
+    agent = agent_factory()
+    trial_inputs = [(1, 1), (0, 1), (1, 0)]
+    expected_probs = []
+    for choice, reward in trial_inputs:
+      expected_probs.append(agent.get_choice_probs())
+      agent.update(choice, reward)
+
+    for session in range(2):
+      agent.new_session()
+      for trial, (choice, reward) in enumerate(trial_inputs):
+        with self.subTest(session=session, trial=trial):
+          np.testing.assert_allclose(
+              agent.get_choice_probs(), expected_probs[trial], atol=1e-6
+          )
+          # Reading the probabilities must not advance the recurrent state.
+          np.testing.assert_allclose(
+              agent.get_choice_probs(), expected_probs[trial], atol=1e-6
+          )
+        agent.update(choice, reward)
 
   def test_run_experiment_and_create_dataset_smoke_test(self):
     """Smoke test for run_experiment and create_dataset."""
