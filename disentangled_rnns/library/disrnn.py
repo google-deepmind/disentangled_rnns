@@ -129,8 +129,10 @@ class DisRnnConfig:
     activation: String defining an activation function. Must be in jax.nn.
     max_latent_value: Cap on the possible absolute value of a latent. Used to
       prevent runaway latents resulting in NaNs
-    x_names: Names of the observation vector elements. Must have length obs_size
-    y_names: Names of the target vector elements. Must have length target_size
+    x_names: Names of the observation vector elements. Must have length
+      obs_size. Used by plotting functions.
+    y_names: Names of the target vector elements. Can have any length. Used by
+      plotting functions.
   """
 
   obs_size: int = 2
@@ -168,6 +170,9 @@ class DisRnnConfig:
           f'Based on obs_size {self.obs_size}, expected x_names to have '
           f'length {self.obs_size} but got {self.x_names}'
       )
+
+    if self.y_names is None:
+      self.y_names = ['Targets']
 
     # Check activation is in jax.nn
     try:
