@@ -1534,7 +1534,7 @@ class NpJnpJsonEncoder(json.JSONEncoder):
       return o.tolist()
 
     # JAX types
-    if isinstance(o, (jnp.bool_)):
+    if isinstance(o, (jnp.bool_)):  # pyrefly: ignore[invalid-argument]
       return bool(o)
     if isinstance(o, jnp.integer):
       return int(o)
