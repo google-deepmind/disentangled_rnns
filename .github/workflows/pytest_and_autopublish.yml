@@ -1,7 +1,12 @@
 name: Unittests & Auto-publish
 
-# Allow to trigger the workflow manually (e.g. when deps changes)
-on: [push, workflow_dispatch]
+# Run on pushes to `main`, and on every pull request.
+# Also allow to trigger the workflow manually (e.g. when deps changes).
+on:
+  push:
+    branches: ['main']
+  pull_request:
+  workflow_dispatch:
 
 jobs:
   pytest-job:
