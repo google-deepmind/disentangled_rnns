@@ -64,6 +64,7 @@ pyink-annotation-pragmas = [
   "mypy:",
   "pyright:",
   "pyre-",
+  "pyrefly:",
 ]
 
 [build-system]
