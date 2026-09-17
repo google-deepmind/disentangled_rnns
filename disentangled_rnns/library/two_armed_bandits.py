@@ -429,12 +429,12 @@ class AgentNetwork:
 
     self._initial_state = rnn_state.apply(params)
     self._model_fun = jax.jit(lambda xs, state: model.apply(params, xs, state))
-    self._xs = np.zeros((1, 2))
     self._n_actions = n_actions
     self.new_session()
 
   def new_session(self):
     self._rnn_state = self._initial_state
+    self._xs = np.zeros((1, 2))
 
   def get_choice_probs(self) -> np.ndarray:
     output_logits, _ = self._model_fun(self._xs, self._rnn_state)
@@ -487,7 +487,8 @@ def run_experiment(
     # First agent makes a choice
     attempted_choice = agent.get_choice()
     # Then environment computes a reward
-    choice, reward, _ = environment.step(attempted_choice)  # pyrefly: ignore[bad-argument-type]
+    # pyrefly: ignore[bad-argument-type]
+    choice, reward, _ = environment.step(attempted_choice)
     # Finally agent learns
     agent.update(choice, reward)  # pyrefly: ignore[bad-argument-type]
     # Log choice and reward
@@ -632,7 +633,9 @@ def plot_2ab_sessdata(
   # Plot the scalars
   for scalar_i in range(len(scalar_names)):
     plt.plot(
-        scalars[:, scalar_i], color=scalar_colors[scalar_i % len(scalar_colors)]  # pyrefly: ignore[unsupported-operation]
+        # pyrefly: ignore[unsupported-operation]
+        scalars[:, scalar_i],
+        color=scalar_colors[scalar_i % len(scalar_colors)],
     )
   if show_legend:
     plt.legend(scalar_names)
