@@ -9,10 +9,15 @@ concurrency:
   group: '${{ github.workflow }}-${{ github.head_ref || github.ref }}'
   cancel-in-progress: true
 
+# Deny all permissions by default; each job opts in to what it needs.
+permissions: {}
+
 jobs:
   python-lint:
     runs-on: 'ubuntu-latest'
     timeout-minutes: 10
+    permissions:
+      contents: read
 
     steps:
       - uses: 'actions/checkout@v6'  # ratchet:exclude

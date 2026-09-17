@@ -8,10 +8,15 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Deny all permissions by default; each job opts in to what it needs.
+permissions: {}
+
 jobs:
   pytest-job:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
 
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}
@@ -52,7 +57,14 @@ jobs:
 
     steps:
     # Publish the package (if local `__version__` > pip version)
-    - uses: etils-actions/pypi-auto-publish@v1
+    #
+    # Select a specific version of the pypi-auto-publish tool using a SHA hash, which is more secure
+    # than a version number. This is because the version number is a mutable pointer that could
+    # be redirected by a malicious actor if pypi-auto-publish were compromised. This is important
+    # for pypi-auto-publish because it is used to publish our code to the public PyPI repository.
+    # If we decide to update to a new version of pypi-auto-publish, we should update both the SHA
+    # hash and the version number. We shouldn't need to do this often.
+    - uses: etils-actions/pypi-auto-publish@d0603b1e896ce8b754fd7df30731623c93546e89  # v1.5.6
       with:
         pypi-token: ${{ secrets.PYPI_API_TOKEN }}
         gh-token: ${{ secrets.GITHUB_TOKEN }}
