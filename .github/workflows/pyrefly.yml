@@ -1,0 +1,75 @@
+name: 'Pyrefly'
+
+# Type-checks the package with pyrefly, but fails only on errors that the pull
+# request itself introduces.
+#
+# Google's internal build type-checks this package with pyrefly, while Github CI
+# historically did not. That gap meant a contributor could have a completely
+# green pull request that nonetheless broke the internal build -- which is
+# exactly what happened when a formatter rewrapped two lines and detached their
+# suppression comments.
+#
+# The repository has a large number of pre-existing, suppressed errors, so
+# failing on any error at all would require a suppression sweep before this
+# check could be enabled. Comparing against the base branch avoids that: only
+# the delta matters. See .github/pyrefly_new_errors.py.
+
+on:
+  pull_request:
+    branches: ['main']
+
+concurrency:
+  group: '${{ github.workflow }}-${{ github.head_ref || github.ref }}'
+  cancel-in-progress: true
+
+# Deny all permissions by default; each job opts in to what it needs.
+permissions: {}
+
+jobs:
+  pyrefly-new-errors:
+    name: 'Check for new type errors'
+    runs-on: 'ubuntu-latest'
+    timeout-minutes: 20
+    permissions:
+      contents: read
+
+    steps:
+      - uses: 'actions/checkout@v6'  # ratchet:exclude
+        with:
+          # Needed so that the base branch is available to compare against.
+          fetch-depth: 0
+          # Do not leave the checkout token in .git/config for later steps.
+          persist-credentials: false
+
+      - uses: 'actions/setup-python@v6'  # ratchet:exclude
+        with:
+          python-version: '3.11'
+
+      # The comparison script is copied out of the working tree because the
+      # steps below check out the base branch, which would otherwise swap this
+      # file for its older version.
+      - name: 'Stage the comparison script'
+        run: cp .github/pyrefly_new_errors.py "${RUNNER_TEMP}/"
+
+      - name: 'Install dependencies'
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyrefly
+          # An editable install means the package resolves to the working tree,
+          # so checking out the base branch below changes what pyrefly sees
+          # without needing a second install.
+          pip install -e .
+
+      - name: 'Check the pull request'
+        run: |
+          pyrefly check --output-format json -o "${RUNNER_TEMP}/pr.json" || true
+
+      - name: 'Check the base branch'
+        run: |
+          git checkout --detach "origin/${{ github.base_ref }}"
+          pyrefly check --output-format json -o "${RUNNER_TEMP}/baseline.json" || true
+
+      - name: 'Fail on newly introduced errors'
+        run: |
+          python3 "${RUNNER_TEMP}/pyrefly_new_errors.py" \
+            "${RUNNER_TEMP}/baseline.json" "${RUNNER_TEMP}/pr.json"

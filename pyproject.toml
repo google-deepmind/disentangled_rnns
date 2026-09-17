@@ -67,6 +67,36 @@ pyink-annotation-pragmas = [
   "pyrefly:",
 ]
 
+[tool.pyrefly]
+# This package is also type-checked by pyrefly inside Google, where the checker
+# runs with a slightly different set of enabled errors. The settings below
+# mirror the configuration Google publishes for exactly this purpose, so that
+# results here approximate the internal ones rather than diverging. Upstream
+# describes it as the "closest" configuration rather than an identical one, so
+# some drift between the two is still possible.
+#
+# These values are copied from the pyrefly configuration Google ships for open
+# source developers, which is checked in at //third_party/pyrefly/pyrefly.toml.
+project-includes = ["disentangled_rnns"]
+infer-with-first-use = false
+check-unannotated-defs = true
+infer-return-types = "never"
+
+[tool.pyrefly.errors]
+# Errors that the internal checker does not report. Enabling them here would
+# flag code that is considered fine inside Google.
+implicit-import = false
+unused-coroutine = false
+protocol-implicitly-defined-attribute = false
+redundant-condition = false
+unreachable = false
+unsafe-overlap = false
+redefinition = false
+bad-dunder-all = false
+bad-override-mutable-attribute = false
+bad-override-param-name = false
+abstract-method-call = false
+
 [build-system]
 # Build system specify which backend is used to build/install the project (flit,
 # poetry, setuptools,...). All backends are supported by `pip install`
