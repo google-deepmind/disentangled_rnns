@@ -52,7 +52,7 @@ def get_optimizer_with_frozen_params(
   # substring. If so, we mark it as trainable.
   def _is_trainable(path):
     for p in path:
-      for trainable_param_name in trainable_param_names:  # pyrefly: ignore[not-iterable]
+      for trainable_param_name in trainable_param_names or ():
         if trainable_param_name in p:
           return True
     return False
@@ -76,5 +76,8 @@ def get_optimizer_with_frozen_params(
       params,
   )
   # Choose the optimizer based on the partition.
-  opt = optax.multi_transform(partition_optimizers, param_partitions)  # pyrefly: ignore[bad-argument-type]
+  opt = optax.multi_transform(
+      partition_optimizers,
+      param_partitions,  # pyrefly: ignore[bad-argument-type]
+  )
   return opt
