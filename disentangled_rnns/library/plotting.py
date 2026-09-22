@@ -34,9 +34,15 @@ import numpy as np
 small = 15
 medium = 18
 large = 20
-mpl.rcParams["grid.color"] = "none"
-mpl.rcParams["axes.facecolor"] = "white"
-plt.rcParams["svg.fonttype"] = "none"
+
+
+def _plot_style_context():
+  """Returns a matplotlib rc_context for DisRNN plot styling."""
+  return mpl.rc_context({
+      "grid.color": "none",
+      "axes.facecolor": "white",
+      "svg.fonttype": "none",
+  })
 
 
 def plot_bottlenecks(
@@ -50,8 +56,8 @@ def plot_bottlenecks(
     params_disrnn = params["multisubject_dis_rnn"]
     subject_embedding_size = disrnn_config.subject_embedding_size
     update_input_names = [
-        f"SubjEmb {i+0}" for i in range(subject_embedding_size)
-    ] + disrnn_config.x_names[1:]  # pyrefly: ignore[unsupported-operation]
+        f"SubjEmb {i+1}" for i in range(subject_embedding_size)
+    ] + (disrnn_config.x_names or [])[1:]
     # For update_sigmas: concatenate transposed reparameterized sigmas
     # Order of inputs to update nets: subject_embedding, observations, latents
     update_subj_sigmas_t = np.transpose(
@@ -146,62 +152,64 @@ def plot_bottlenecks(
     update_sigmas = update_sigmas[:, update_sigma_order]
 
   latent_names = np.arange(1, disrnn_config.latent_size + 1)
-  fig, axes = plt.subplots(1, 3, figsize=(15, 5))
 
-  # Plot Latent Bottlenecks on axes[0]
-  im1 = axes[0].imshow(np.swapaxes([1 - latent_sigmas], 0, 1), cmap="Oranges")
-  im1.set_clim(vmin=0, vmax=1)
-  axes[0].set_yticks(
-      ticks=range(disrnn_config.latent_size),
-      labels=latent_names,
-      fontsize=small,
-  )
-  axes[0].set_xticks(ticks=[])
-  axes[0].set_ylabel("Latent #", fontsize=medium)
-  axes[0].set_title("Latent Bottlenecks", fontsize=large)
+  with _plot_style_context():
+    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
 
-  # Plot Choice Bottlenecks on axes[1]
-  # These bottlenecks apply to the inputs of the choice network:
-  # [subject embeddings, latents]
-  choice_input_dim = subject_embedding_size + disrnn_config.latent_size
-  choice_input_names = np.concatenate((
-      [f"SubjEmb {i+1}" for i in range(subject_embedding_size)],
-      [f"Latent {i}" for i in latent_names],
-  ))
-  im2 = axes[1].imshow(np.swapaxes([1 - choice_sigmas], 0, 1), cmap="Oranges")
-  im2.set_clim(vmin=0, vmax=1)
-  axes[1].set_yticks(
-      ticks=range(choice_input_dim), labels=choice_input_names, fontsize=small
-  )
-  axes[1].set_xticks(ticks=[])
-  axes[1].set_ylabel("Choice Network Input", fontsize=medium)
-  axes[1].set_title("Choice Network Bottlenecks", fontsize=large)
+    # Plot Latent Bottlenecks on axes[0]
+    im1 = axes[0].imshow(np.swapaxes([1 - latent_sigmas], 0, 1), cmap="Oranges")
+    im1.set_clim(vmin=0, vmax=1)
+    axes[0].set_yticks(
+        ticks=range(disrnn_config.latent_size),
+        labels=latent_names,
+        fontsize=small,
+    )
+    axes[0].set_xticks(ticks=[])
+    axes[0].set_ylabel("Latent #", fontsize=medium)
+    axes[0].set_title("Latent Bottlenecks", fontsize=large)
 
-  # Plot Update Bottlenecks on axes[2]
-  im3 = axes[2].imshow(1 - update_sigmas, cmap="Oranges")
-  im3.set_clim(vmin=0, vmax=1)
-  cbar = fig.colorbar(im3, ax=axes[2])
-  # Y-axis corresponds to the target latent (sorted if sort_latents=True)
-  cbar.ax.tick_params(labelsize=small)
-  axes[2].set_yticks(
-      ticks=range(disrnn_config.latent_size),
-      labels=latent_names,
-      fontsize=small,
-  )
-  # X-axis corresponds to the inputs to the update network:
-  # [subject embeddings, observations, latents]
-  xlabels = update_input_names + [f"Latent {i}" for i in latent_names]  # pyrefly: ignore[unsupported-operation]
-  axes[2].set_xticks(
-      ticks=range(len(xlabels)),
-      labels=xlabels,
-      rotation="vertical",
-      fontsize=small,
-  )
-  axes[2].set_ylabel("Latent #", fontsize=medium)
-  axes[2].set_xlabel("Update Network Inputs", fontsize=medium)
-  axes[2].set_title("Update Network Bottlenecks", fontsize=large)
-  fig.tight_layout()  # Adjust layout to prevent overlap
-  return fig
+    # Plot Choice Bottlenecks on axes[1]
+    # These bottlenecks apply to the inputs of the choice network:
+    # [subject embeddings, latents]
+    choice_input_dim = subject_embedding_size + disrnn_config.latent_size
+    choice_input_names = np.concatenate((
+        [f"SubjEmb {i+1}" for i in range(subject_embedding_size)],
+        [f"Latent {i}" for i in latent_names],
+    ))
+    im2 = axes[1].imshow(np.swapaxes([1 - choice_sigmas], 0, 1), cmap="Oranges")
+    im2.set_clim(vmin=0, vmax=1)
+    axes[1].set_yticks(
+        ticks=range(choice_input_dim), labels=choice_input_names, fontsize=small
+    )
+    axes[1].set_xticks(ticks=[])
+    axes[1].set_ylabel("Choice Network Input", fontsize=medium)
+    axes[1].set_title("Choice Network Bottlenecks", fontsize=large)
+
+    # Plot Update Bottlenecks on axes[2]
+    im3 = axes[2].imshow(1 - update_sigmas, cmap="Oranges")
+    im3.set_clim(vmin=0, vmax=1)
+    cbar = fig.colorbar(im3, ax=axes[2])
+    # Y-axis corresponds to the target latent (sorted if sort_latents=True)
+    cbar.ax.tick_params(labelsize=small)
+    axes[2].set_yticks(
+        ticks=range(disrnn_config.latent_size),
+        labels=latent_names,
+        fontsize=small,
+    )
+    # X-axis corresponds to the inputs to the update network:
+    # [subject embeddings, observations, latents]
+    xlabels = update_input_names + [f"Latent {i}" for i in latent_names]  # pyrefly: ignore[unsupported-operation]
+    axes[2].set_xticks(
+        ticks=range(len(xlabels)),
+        labels=xlabels,
+        rotation="vertical",
+        fontsize=small,
+    )
+    axes[2].set_ylabel("Latent #", fontsize=medium)
+    axes[2].set_xlabel("Update Network Inputs", fontsize=medium)
+    axes[2].set_title("Update Network Bottlenecks", fontsize=large)
+    fig.tight_layout()  # Adjust layout to prevent overlap
+    return fig
 
 
 def compute_update_rules(
@@ -211,6 +219,7 @@ def compute_update_rules(
     observation_names: Sequence[Mapping[Any, str]] | None = None,
     subj_ind: int | None = None,
     axis_lim: float = 2.1,
+    sort_latents: bool = True,
 ) -> dict[str, Any]:
   """Generates the update rules of a HkDisentangledRNN.
 
@@ -229,6 +238,8 @@ def compute_update_rules(
     subj_ind: Subject index, used in multisubject mode. If None in multisubject
       mode, defaults to 0.
     axis_lim: The axis limit for the update rule computation.
+    sort_latents: If True, order and number latents by increasing latent_sigmas.
+      If False, use the raw network latent index order.
 
   Returns:
     A nested dictionary (latent, observation, update rule):
@@ -383,7 +394,7 @@ def compute_update_rules(
 
       update_dict[titles[observation_i]] = {
           "state_bins": state_bins,
-          f"delta_latent_{unit_input+1}": delta_states_dict,
+          f"delta_latent_{latent_rank[int(unit_input)]}": delta_states_dict,
       }
 
     return update_dict
@@ -392,7 +403,13 @@ def compute_update_rules(
       disrnn.reparameterize_sigma(params[param_prefix]["latent_sigma_params"])
   )
 
-  latent_order = np.argsort(latent_sigmas)
+  if sort_latents:
+    latent_order = np.argsort(latent_sigmas)
+  else:
+    latent_order = np.arange(disrnn_config.latent_size)
+  latent_rank = {
+      int(raw_idx): rank + 1 for rank, raw_idx in enumerate(latent_order)
+  }
 
   # check input observation types are good
   if observation_types is None:
@@ -492,7 +509,7 @@ def compute_update_rules(
         )
       # TODO(siddhantjain, kevinjmiller) we plot the first in index order,
       # we should plot all of them
-      update_dict[str(latent_i + 1)] = latent_dict
+      update_dict[str(latent_rank[int(latent_i)])] = latent_dict
 
   return update_dict
 
@@ -533,10 +550,9 @@ def plot_latent_update(
     if "delta_states" in latent_dict[observation]:
       # Set up color map
       colormap = mpl.colormaps["viridis"].resampled(3)
-      colors = colormap.colors
       state_bins = latent_dict[observation]["state_bins"]
       delta_states = latent_dict[observation]["delta_states"]
-      ax.plot(state_bins, delta_states, color=colors[1])
+      ax.plot(state_bins, delta_states, color=colormap(1))
     else:
       key = [x for x in latent_dict[observation].keys() if "delta_latent" in x][
           0
@@ -545,11 +561,10 @@ def plot_latent_update(
       delta_dict = latent_dict[observation][key]
       delta_vals = sorted(delta_dict.keys())
       colormap = mpl.colormaps["viridis"].resampled(len(delta_vals))
-      colors = colormap.colors
       legend_elements = []
       for delta_i, delta_val in enumerate(delta_vals):
         delta_states = delta_dict[delta_val]
-        lines = ax.plot(state_bins, delta_states, color=colors[delta_i])
+        lines = ax.plot(state_bins, delta_states, color=colormap(delta_i))
         legend_elements.append(lines[0])
       if index == 0:
         legend_labels = [
@@ -626,6 +641,7 @@ def plot_update_rules(
     subj_ind: int | None = None,
     axis_lim: float | None = None,
     plot_combined: bool = False,
+    sort_latents: bool = True,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
   """Computes and then plots update rules.
 
@@ -646,6 +662,8 @@ def plot_update_rules(
       maximum latent value.
     plot_combined: If True, plot all observations on a single axis. If False,
       plot on separate axes.
+    sort_latents: If True, order and number latents by increasing latent_sigmas.
+      If False, use the raw network latent index order.
 
   Returns:
     A tuple of (update_dict, figs), where update_dict is a nested dictionary
@@ -665,6 +683,7 @@ def plot_update_rules(
       observation_names=observation_names,
       subj_ind=subj_ind,
       axis_lim=axis_lim,
+      sort_latents=sort_latents,
   )
 
   # plot each active latent
@@ -684,6 +703,7 @@ def plot_choice_rule(
     disrnn_config: disrnn.DisRnnConfig,
     subj_embedding: np.ndarray | None = None,
     axis_lim: float = 2.1,
+    sort_latents: bool = True,
 ) -> plt.Figure | None:
   """Computes and plots the choice rule of a DisRNN.
 
@@ -693,6 +713,8 @@ def plot_choice_rule(
     subj_embedding: The subject embedding to use. If None, use a zero vector
       (loosely: the average subject)
     axis_lim: The axis limit for the plot.
+    sort_latents: If True, number latents by increasing latent_sigmas. If False,
+      use the raw network latent index.
 
   Returns:
     A matplotlib Figure object, or None if choice depends on no latents.
@@ -702,6 +724,7 @@ def plot_choice_rule(
       disrnn_config=disrnn_config,
       subj_embedding=subj_embedding,
       axis_lim=axis_lim,
+      sort_latents=sort_latents,
   )
 
   fig = plot_choice_rule_inner(choice_dict, axis_lim)
@@ -806,6 +829,7 @@ def compute_choice_rule(
     disrnn_config: disrnn.DisRnnConfig,
     subj_embedding: np.ndarray | None = None,
     axis_lim: float = 2.1,
+    sort_latents: bool = True,
 ) -> dict[str, Any]:
   """Computes the choice rule of a DisRNN.
 
@@ -815,6 +839,8 @@ def compute_choice_rule(
     subj_embedding: The subject embedding to use. If None, use a zero vector
       (loosely: the average subject).
     axis_lim: The axis limit for the plot.
+    sort_latents: If True, number latents by increasing latent_sigmas. If False,
+      use the raw network latent index.
 
   Returns:
     A dictionary with the choice rule containing:
@@ -893,6 +919,17 @@ def compute_choice_rule(
       "choice_net": params[params_prefix + "/~predict_targets/choice_net"]
   }
 
+  latent_sigmas = np.array(
+      disrnn.reparameterize_sigma(params[params_prefix]["latent_sigma_params"])
+  )
+  if sort_latents:
+    latent_order = np.argsort(latent_sigmas)
+  else:
+    latent_order = np.arange(disrnn_config.latent_size)
+  latent_rank = {
+      int(raw_idx): rank + 1 for rank, raw_idx in enumerate(latent_order)
+  }
+
   # Determine which latents to vary based on their choice_net_sigma_params.
   # choice_net_sigmas has shape (subj_embedding_size + latent_size,).
   latent_to_choice_net_sigmas = choice_net_sigmas[subj_embedding_size:]
@@ -925,6 +962,7 @@ def compute_choice_rule(
   if n_latents_to_plot == 1:
     # Choice Rule 1D: A curve
     policy_latent_idx_in_latent_space = varying_latents_plot_indices[0]
+    policy_latent_rank = latent_rank[int(policy_latent_idx_in_latent_space)]
     policy_latent_vals = np.linspace(-axis_lim, axis_lim, n_vals)
     xs = np.zeros((
         n_vals,
@@ -939,7 +977,7 @@ def compute_choice_rule(
     y_hats = choice_net_output[0]
     choice_logits = y_hats[:, 1] - y_hats[:, 0]
 
-    output[f"policy_latent_{policy_latent_idx_in_latent_space + 1}_vals"] = (
+    output[f"policy_latent_{policy_latent_rank}_vals"] = (
         policy_latent_vals  # pyrefly: ignore[bad-assignment]
     )
     output["choice_logits"] = choice_logits
@@ -954,6 +992,8 @@ def compute_choice_rule(
 
     policy_latent_idx1_in_latent_space = varying_latents_plot_indices[0]
     policy_latent_idx2_in_latent_space = varying_latents_plot_indices[1]
+    policy_latent_rank1 = latent_rank[int(policy_latent_idx1_in_latent_space)]
+    policy_latent_rank2 = latent_rank[int(policy_latent_idx2_in_latent_space)]
 
     latent_vals = np.linspace(-axis_lim, axis_lim, n_vals)
 
@@ -981,14 +1021,14 @@ def compute_choice_rule(
     choice_logits_2d = choice_logits_2d.reshape((n_vals, n_vals))
 
     output["yhats"] = y_hats[0]
-    output[f"policy_latent_{policy_latent_idx1_in_latent_space + 1}_vals"] = (
+    output[f"policy_latent_{policy_latent_rank1}_vals"] = (
         latent0_vals  # pyrefly: ignore[bad-assignment]
     )
-    output[f"policy_latent_{policy_latent_idx2_in_latent_space + 1}_vals"] = (
+    output[f"policy_latent_{policy_latent_rank2}_vals"] = (
         latent1_vals  # pyrefly: ignore[bad-assignment]
     )
-    output["x_latent"] = policy_latent_idx1_in_latent_space + 1
-    output["y_latent"] = policy_latent_idx2_in_latent_space + 1
+    output["x_latent"] = policy_latent_rank1
+    output["y_latent"] = policy_latent_rank2
     output["choice_logits_2d"] = choice_logits_2d
 
   return output

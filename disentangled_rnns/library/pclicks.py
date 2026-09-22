@@ -142,8 +142,10 @@ def drift_diffusion_model(
           * np.sign(decision_variable[first_bound_crossing[trial_i], trial_i])
       )
 
-    decision = (np.sign(decision_variable[-1, trial_i]) + 1) / 2
-    decision = (decision + 1) / 2  # Convert from +-1 to 0 or 1
+    if decision_variable[-1, trial_i] == 0:
+      decision = int(np.random.randint(2))
+    else:
+      decision = int((np.sign(decision_variable[-1, trial_i]) + 1) // 2)
 
     if np.random.random() < lapse:
       decision = 1 - decision

@@ -44,6 +44,35 @@ class PclicksTest(absltest.TestCase):
     )
     decisions, _ = pclicks.drift_diffusion_model(xs)
     self.assertEqual(decisions.shape, (10,))
+    self.assertTrue(set(decisions).issubset({0, 1}))
+
+  def test_drift_diffusion_model_lapse(self):
+    """Verify lapse flips both left (0 -> 1) and right (1 -> 0) choices."""
+    xs, _ = pclicks.generate_clicktrains(n_trials=5)
+
+    # Exclusively right clicks (negative evidence -> unlapsed decision == 0).
+    xs[:, :, :] = 0.0
+    xs[:5, :, 1] = 1.0
+    decisions_no_lapse, _ = pclicks.drift_diffusion_model(
+        xs, noise_per_click=0.0, noise_per_timestep=0.0, lapse=0.0
+    )
+    decisions_full_lapse, _ = pclicks.drift_diffusion_model(
+        xs, noise_per_click=0.0, noise_per_timestep=0.0, lapse=1.0
+    )
+    self.assertEqual(list(decisions_no_lapse), [0] * 5)
+    self.assertEqual(list(decisions_full_lapse), [1] * 5)
+
+    # Exclusively left clicks (positive evidence -> unlapsed decision == 1).
+    xs[:, :, :] = 0.0
+    xs[:5, :, 0] = 1.0
+    decisions_no_lapse, _ = pclicks.drift_diffusion_model(
+        xs, noise_per_click=0.0, noise_per_timestep=0.0, lapse=0.0
+    )
+    decisions_full_lapse, _ = pclicks.drift_diffusion_model(
+        xs, noise_per_click=0.0, noise_per_timestep=0.0, lapse=1.0
+    )
+    self.assertEqual(list(decisions_no_lapse), [1] * 5)
+    self.assertEqual(list(decisions_full_lapse), [0] * 5)
 
 
 if __name__ == "__main__":

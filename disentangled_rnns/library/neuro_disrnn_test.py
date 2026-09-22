@@ -124,9 +124,29 @@ class NeuroDisrnnTest(absltest.TestCase):
   def test_neuro_disrnn_plotting(self):
     neuro_disrnn_config = self.neuro_disrnn_config
     neuro_disrnn_params = self.neuro_disrnn_params
-    neuro_disrnn.plot_bottlenecks(neuro_disrnn_params, neuro_disrnn_config)
-    neuro_disrnn.plot_update_rules(neuro_disrnn_params, neuro_disrnn_config)
-    neuro_disrnn.plot_choice_rule(neuro_disrnn_params, neuro_disrnn_config)
+    fig_b = neuro_disrnn.plot_bottlenecks(
+        neuro_disrnn_params, neuro_disrnn_config
+    )
+    update_dict, figs_u = neuro_disrnn.plot_update_rules(
+        neuro_disrnn_params, neuro_disrnn_config
+    )
+    fig_c = neuro_disrnn.plot_choice_rule(
+        neuro_disrnn_params, neuro_disrnn_config
+    )
+    fig_n = neuro_disrnn.plot_neural_activity_rules(
+        neuro_disrnn_params, neuro_disrnn_config
+    )
+    self.assertIsNotNone(fig_b)
+    self.assertIsInstance(update_dict, dict)
+    self.assertIsInstance(figs_u, dict)
+    self.assertIsNotNone(fig_c)
+    self.assertIsNotNone(fig_n)
+
+  def test_neuro_disrnn_config_validation(self):
+    with self.assertRaises(ValueError):
+      self.neuro_disrnn_config.neural_activity_net_latent_penalty = -0.1
+    with self.assertRaises(AttributeError):
+      setattr(self.neuro_disrnn_config, 'unknown_penalty', 0.1)
 
   def test_neuro_disrnn_config_validation(self):
     with self.assertRaises(ValueError):

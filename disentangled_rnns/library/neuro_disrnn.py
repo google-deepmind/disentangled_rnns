@@ -17,6 +17,7 @@
 from collections.abc import Callable
 import copy
 import dataclasses
+from typing import Any
 
 from disentangled_rnns.library import disrnn
 from disentangled_rnns.library import plotting
@@ -242,6 +243,7 @@ def plot_neural_activity_rules(
     params: rnn_utils.RnnParams,
     disrnn_config: DisRnnWNeuralActivityConfig,
     axis_lim: float = 2.1,
+    sort_latents: bool = True,
 ) -> plt.Figure | None:
   """Plots the neural_activity rule of a DisRNN with neural_activity prediction.
 
@@ -257,6 +259,8 @@ def plot_neural_activity_rules(
     disrnn_config: A DisRnnWNeuralActivityConfig object, expected to have
       neural_activity-related attributes.
     axis_lim: The axis limit for the plot.
+    sort_latents: If True, number latents by increasing latent_sigmas. If False,
+      use the raw network latent index.
 
   Returns:
     A matplotlib Figure object, or None if no inputs are influential.
@@ -284,6 +288,16 @@ def plot_neural_activity_rules(
 
   activation_fn = getattr(jax.nn, config.activation)
   latent_size = config.latent_size
+
+  latent_sigmas = np.array(
+      disrnn.reparameterize_sigma(params_disrnn['latent_sigma_params'])
+  )
+  latent_order = (
+      np.argsort(latent_sigmas) if sort_latents else np.arange(latent_size)
+  )
+  latent_rank = {
+      int(raw_idx): rank + 1 for rank, raw_idx in enumerate(latent_order)
+  }
 
   # Get sigmas and multipliers for the neural_activity network's inputs.
   neural_activity_sigmas = disrnn.reparameterize_sigma(
@@ -329,13 +343,9 @@ def plot_neural_activity_rules(
   }
 
   # Plotting logic.
-  fig, _ = plt.subplots(
-      2, 2, figsize=(10, 8), sharex=True, sharey=True, constrained_layout=True
-  )
   small = 8
   medium = 12
   large = 16
-  fig.suptitle('Neural Activity Prediction vs. Latents', fontsize=large)
 
   n_vals = 50
   latent_vals = np.linspace(-axis_lim, axis_lim, n_vals)
@@ -374,7 +384,7 @@ def plot_neural_activity_rules(
           label=f'Choice={choice_val}, Reward={reward_val}',
       )
 
-    ax.set_xlabel(f'Latent {latent_idx + 1}', fontsize=medium)
+    ax.set_xlabel(f'Latent {latent_rank[int(latent_idx)]}', fontsize=medium)
     ax.set_ylabel('Neural Activity', fontsize=medium)
     ax.set_title('Neural Activity Prediction vs. Latent', fontsize=large)
     ax.legend(fontsize=small)
@@ -387,34 +397,27 @@ def plot_neural_activity_rules(
       2, 2, figsize=(10, 8), sharex=True, sharey=True, constrained_layout=True
   )
   fig.suptitle('Neural Activity Prediction vs. Latents', fontsize=large)
-  overall_min = None
-  overall_max = None
-  for i, (choice_val, reward_val) in enumerate(
-      [(0, 0), (0, 1), (1, 0), (1, 1)]
-  ):
-    ax = axes.flatten()[i]
-    # Add choice and reward as inputs to the neural_activity net.
+  conditions = [(0, 0), (0, 1), (1, 0), (1, 1)]
+  latent_idx1, latent_idx2 = varying_latents_plot_indices
+  xv, yv = np.meshgrid(latent_vals, latent_vals)
+  preds_by_condition = []
+  for choice_val, reward_val in conditions:
     base_inputs = np.zeros(latent_size + 2)
     base_inputs[latent_size] = choice_val
     base_inputs[latent_size + 1] = reward_val
-
-    latent_idx1, latent_idx2 = varying_latents_plot_indices
-    xv, yv = np.meshgrid(latent_vals, latent_vals)
     xs = np.tile(base_inputs, (n_vals * n_vals, 1))
     xs[:, latent_idx1] = xv.flatten()
     xs[:, latent_idx2] = yv.flatten()
-    neural_activity_preds = apply(
-        neural_activity_net_params, jax.random.PRNGKey(0), xs
-    )
-    neural_activity_preds = neural_activity_preds.reshape((n_vals, n_vals))
+    preds = apply(neural_activity_net_params, jax.random.PRNGKey(0), xs)
+    preds_by_condition.append(np.asarray(preds).reshape((n_vals, n_vals)))
 
-    if i == 0:
-      # Set the overall min and max to be a bit larger than the max absolute
-      # prediction. We use the first plot to set the overall min and max as
-      # the plots are all on the same scale.
-      max_abs_pred = np.max(np.abs(neural_activity_preds))
-      overall_min = -max_abs_pred * 1.1
-      overall_max = max_abs_pred * 1.1
+  max_abs_pred = max(float(np.max(np.abs(p))) for p in preds_by_condition)
+  overall_min = -max_abs_pred * 1.1
+  overall_max = max_abs_pred * 1.1
+
+  for i, (choice_val, reward_val) in enumerate(conditions):
+    ax = axes.flatten()[i]
+    neural_activity_preds = preds_by_condition[i]
 
     im = ax.imshow(
         neural_activity_preds,
@@ -429,9 +432,9 @@ def plot_neural_activity_rules(
       cbar = fig.colorbar(im, ax=ax)
       cbar.ax.tick_params(labelsize=small)
 
-    ax.set_xlabel(f'Latent {latent_idx1 + 1}', fontsize=medium)
+    ax.set_xlabel(f'Latent {latent_rank[int(latent_idx1)]}', fontsize=medium)
     if i % 2 == 0:
-      ax.set_ylabel(f'Latent {latent_idx2 + 1}', fontsize=medium)
+      ax.set_ylabel(f'Latent {latent_rank[int(latent_idx2)]}', fontsize=medium)
 
     ax.set_title(f'Choice={choice_val}, Reward={reward_val}', fontsize=medium)
     ax.tick_params(axis='both', labelsize=small)
@@ -444,6 +447,7 @@ def plot_choice_rule(
     params: rnn_utils.RnnParams,
     disrnn_config: DisRnnWNeuralActivityConfig,
     axis_lim: float = 2.1,
+    sort_latents: bool = True,
 ) -> plt.Figure | None:
   """Plots the choice rule of a DisRNN with neural_activity prediction."""
 
@@ -451,8 +455,11 @@ def plot_choice_rule(
       key.replace('hk_neuro_disentangled_rnn', 'hk_disentangled_rnn'): value
       for key, value in params.items()
   }
-  plotting.plot_choice_rule(
-      params=params, disrnn_config=disrnn_config, axis_lim=axis_lim
+  return plotting.plot_choice_rule(
+      params=params,
+      disrnn_config=disrnn_config,
+      axis_lim=axis_lim,
+      sort_latents=sort_latents,
   )
 
 
@@ -460,14 +467,18 @@ def plot_update_rules(
     params: rnn_utils.RnnParams,
     disrnn_config: DisRnnWNeuralActivityConfig,
     axis_lim: float = 2.1,
-) -> plt.Figure | None:
+    sort_latents: bool = True,
+) -> tuple[dict[str, Any], dict[str, Any]]:
   """Plots the update rules of a DisRNN with neural_activity prediction."""
   params = {
       key.replace('hk_neuro_disentangled_rnn', 'hk_disentangled_rnn'): value
       for key, value in params.items()
   }
-  plotting.plot_update_rules(
-      params=params, disrnn_config=disrnn_config, axis_lim=axis_lim
+  return plotting.plot_update_rules(
+      params=params,
+      disrnn_config=disrnn_config,
+      axis_lim=axis_lim,
+      sort_latents=sort_latents,
   )
 
 
