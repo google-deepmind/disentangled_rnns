@@ -14,6 +14,8 @@
 
 """Tests for disRNN bottleneck structure, training, and plotting."""
 
+import copy
+
 from absl.testing import absltest
 from disentangled_rnns.library import disrnn
 from disentangled_rnns.library import get_datasets
@@ -115,6 +117,23 @@ class DisrnnTest(absltest.TestCase):
     plotting.plot_bottlenecks(self.disrnn_params, self.disrnn_config)
     plotting.plot_update_rules(self.disrnn_params, self.disrnn_config)
     plotting.plot_choice_rule(self.disrnn_params, self.disrnn_config)
+
+  def test_compute_choice_rule_applies_multipliers(self):
+    """Verify compute_choice_rule scales inputs by choice_net_multipliers."""
+    params_zero_mult = copy.deepcopy(self.disrnn_params)
+    params_zero_mult['hk_disentangled_rnn']['choice_net_multipliers'] = (
+        params_zero_mult['hk_disentangled_rnn']['choice_net_multipliers'] * 0.0
+    )
+    rule_default = plotting.compute_choice_rule(
+        self.disrnn_params, self.disrnn_config
+    )
+    rule_zero = plotting.compute_choice_rule(
+        params_zero_mult, self.disrnn_config
+    )
+    # With zero multipliers, choice_net receives constant zero inputs across the
+    # grid, whereas default multipliers=1 vary across the grid.
+    self.assertGreater(float(rule_default['yhats'].std()), 0.0)
+    self.assertAlmostEqual(float(rule_zero['yhats'].std()), 0.0, places=6)
 
   def test_disrnn_output_shape(self):
     xs = self.q_dataset.get_all()['xs']

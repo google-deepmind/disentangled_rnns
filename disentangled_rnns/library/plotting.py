@@ -847,12 +847,17 @@ def compute_choice_rule(
         params[params_prefix]["choice_net_latent_sigma_params"]
     )
     choice_net_sigmas = np.concatenate((choice_subj_s, choice_latent_s))
+    choice_net_multipliers = np.concatenate((
+        params[params_prefix]["choice_net_subj_multipliers"],
+        params[params_prefix]["choice_net_latent_multipliers"],
+    ))
   elif isinstance(disrnn_config, disrnn.DisRnnConfig):
     subj_embedding_size = 0
     params_prefix = "hk_disentangled_rnn"
     choice_net_sigmas = disrnn.reparameterize_sigma(
         params[params_prefix]["choice_net_sigma_params"]
     )
+    choice_net_multipliers = params[params_prefix]["choice_net_multipliers"]
   else:
     raise ValueError(
         "DisRnnConfig is neither MultisubjectDisRnnConfig nor DisRnnConfig,"
@@ -865,6 +870,12 @@ def compute_choice_rule(
   n_vals = 100
 
   def forward(xs):
+    choice_net_inputs, _ = disrnn.information_bottleneck(
+        inputs=xs,
+        sigmas=jnp.asarray(choice_net_sigmas),
+        multipliers=jnp.asarray(choice_net_multipliers),
+        noiseless_mode=True,
+    )
     choice_net_output = disrnn.ResMLP(
         input_size=disrnn_config.latent_size + subj_embedding_size,
         output_size=disrnn_config.output_size,
@@ -872,7 +883,7 @@ def compute_choice_rule(
         n_layers=disrnn_config.choice_net_n_layers,
         activation_fn=activation_fn,
         name="choice_net",
-    )(xs)
+    )(choice_net_inputs)
     return choice_net_output
 
   model = hk.transform(forward)
