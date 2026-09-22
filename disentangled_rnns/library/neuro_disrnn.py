@@ -36,12 +36,17 @@ class DisRnnWNeuralActivityConfig(disrnn.DisRnnConfig):
     neural_activity_net_n_units_per_layer: Number of units per layer in the
       neural_activity network
     neural_activity_net_n_layers: Number of layers in the neural_activity net
-      targets bottlenecks
+    neural_activity_net_latent_penalty: Multiplier for bottleneck cost on inputs
+      to the neural_activity network
   """
 
   neural_activity_net_n_units_per_layer: int = 8
   neural_activity_net_n_layers: int = 2
   neural_activity_net_latent_penalty: float = 1.0
+
+  NON_NEGATIVE_FIELDS = disrnn.DisRnnConfig.NON_NEGATIVE_FIELDS | frozenset({
+      'neural_activity_net_latent_penalty',
+  })
 
 
 class HkNeuroDisentangledRNN(disrnn.HkDisentangledRNN):

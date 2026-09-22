@@ -30,12 +30,14 @@ class MultisubjectDisRnnConfig(disrnn.DisRnnConfig):
   """Extends DisRnnConfig with multisubject-specific parameters.
 
   Attributes:
-   max_n_subjects: If multisubject_mode is True, this is the maximum number of
-     subjects in the dataset. Otherwise must be zero
-   subject_embedding_size: If multisubject_mode is True, this is the number of
-     dimensions in the subject embedding. Otherwise must be zero
-   subject_embedding_penalty_scale: Multiplier for KL cost on subject embedding
-     bottleneck. This refers to the global subject embedding bottleneck.
+    max_n_subjects: Maximum number of subjects in the dataset.
+    subject_embedding_size: Number of dimensions in the subject embedding.
+    subj_penalty: Multiplier for KL cost on the global subject embedding
+      bottleneck.
+    update_net_subj_penalty: Multiplier for bottleneck cost on subject embedding
+      inputs to the update networks.
+    choice_net_subj_penalty: Multiplier for bottleneck cost on subject embedding
+      inputs to the choice network.
   """
 
   max_n_subjects: int = 0
@@ -44,9 +46,15 @@ class MultisubjectDisRnnConfig(disrnn.DisRnnConfig):
   update_net_subj_penalty: float = 0.0
   choice_net_subj_penalty: float = 0.0
 
+  NON_NEGATIVE_FIELDS = disrnn.DisRnnConfig.NON_NEGATIVE_FIELDS | frozenset({
+      'subj_penalty',
+      'update_net_subj_penalty',
+      'choice_net_subj_penalty',
+  })
+
   def __post_init__(self):
     x_names = self.x_names  # pylint: disable=access-member-before-definition
-    if x_names is not None and x_names[0] == 'Subject ID':
+    if x_names and x_names[0] == 'Subject ID':
       self.x_names = x_names[1:]
     super().__post_init__()
     # We expect that the first element of the input will be an integer subject

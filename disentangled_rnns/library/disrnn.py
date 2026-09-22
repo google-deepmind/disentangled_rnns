@@ -174,6 +174,11 @@ class DisRnnConfig:
     if self.y_names is None:
       self.y_names = ['Targets']
 
+    if self.max_latent_value <= 0:
+      raise ValueError(
+          f'max_latent_value must be positive, got {self.max_latent_value}'
+      )
+
     # Check activation is in jax.nn
     try:
       getattr(jax.nn, self.activation)
@@ -182,7 +187,8 @@ class DisRnnConfig:
           f'Activation {self.activation} not found in jax.nn. Provided value '
           f'was {self.activation}'
       ) from e
-  _NON_NEGATIVE_FIELDS = frozenset({
+
+  NON_NEGATIVE_FIELDS = frozenset({
       'latent_penalty',
       'update_net_obs_penalty',
       'update_net_latent_penalty',
@@ -191,11 +197,18 @@ class DisRnnConfig:
   })
 
   def __setattr__(self, name, value):
-    if name in self._NON_NEGATIVE_FIELDS and value < 0:
+    valid_fields = {f.name for f in dataclasses.fields(self)}
+    if name not in valid_fields:
+      raise AttributeError(
+          f'{type(self).__name__!r} object has no attribute {name!r}'
+      )
+    if name in self.NON_NEGATIVE_FIELDS and value < 0:
       raise ValueError(
           f'{name} must be non-negative, got {value}. '
           f'(Did you write e.g. 1-3 instead of 1e-3?)'
       )
+    if name == 'max_latent_value' and value <= 0:
+      raise ValueError(f'max_latent_value must be positive, got {value}')
     super().__setattr__(name, value)
 
 

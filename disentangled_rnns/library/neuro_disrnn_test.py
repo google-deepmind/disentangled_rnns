@@ -128,6 +128,12 @@ class NeuroDisrnnTest(absltest.TestCase):
     neuro_disrnn.plot_update_rules(neuro_disrnn_params, neuro_disrnn_config)
     neuro_disrnn.plot_choice_rule(neuro_disrnn_params, neuro_disrnn_config)
 
+  def test_neuro_disrnn_config_validation(self):
+    with self.assertRaises(ValueError):
+      self.neuro_disrnn_config.neural_activity_net_latent_penalty = -0.1
+    with self.assertRaises(AttributeError):
+      setattr(self.neuro_disrnn_config, 'unknown_penalty', 0.1)
+
 
 if __name__ == '__main__':
   absltest.main()

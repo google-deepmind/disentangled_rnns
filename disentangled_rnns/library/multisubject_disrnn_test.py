@@ -75,6 +75,17 @@ class MultisubjectDisrnnTest(absltest.TestCase):
     self.assertEqual(new_config.x_names, ['Subject ID', 'Choice', 'Reward'])
     self.assertEqual(new_config.obs_size, 2)
 
+    with self.assertRaises(AttributeError):
+      setattr(multisubject_disrnn_config, 'subject_penalty', 1e-3)
+    with self.assertRaises(ValueError):
+      multisubject_disrnn_config.subj_penalty = -0.1
+    with self.assertRaises(ValueError):
+      multisubject_disrnn_config.update_net_subj_penalty = -0.1
+    with self.assertRaises(ValueError):
+      multisubject_disrnn_config.choice_net_subj_penalty = -0.1
+    with self.assertRaises(ValueError):
+      multisubject_disrnn.MultisubjectDisRnnConfig(obs_size=2, x_names=[])
+
   def test_multisubject_disrnn_params(self):
     """Check that multisubject disRNN params are as expected."""
     multisubject_disrnn_config = self.multisubject_disrnn_config

@@ -155,6 +155,38 @@ class DisrnnTest(absltest.TestCase):
     self.assertIn('update_bottlenecks_open', metrics)
     self.assertGreaterEqual(metrics['total_sigma'], 0)
 
+  def test_config_validation(self):
+    """Check that DisRnnConfig rejects invalid attributes and values."""
+    config = disrnn.DisRnnConfig()
+    with self.assertRaises(AttributeError):
+      setattr(config, 'subject_penalty', 1e-3)
+    with self.assertRaises(ValueError):
+      config.latent_penalty = -0.1
+    with self.assertRaises(ValueError):
+      config.max_latent_value = 0.0
+    with self.assertRaises(ValueError):
+      disrnn.DisRnnConfig(max_latent_value=-1.0)
+
+  def test_choice_net_zero_layers(self):
+    """Test DisRnnConfig with choice_net_n_layers=0."""
+    config = disrnn.DisRnnConfig(
+        latent_size=5,
+        obs_size=2,
+        output_size=2,
+        update_net_n_units_per_layer=4,
+        update_net_n_layers=2,
+        choice_net_n_units_per_layer=2,
+        choice_net_n_layers=0,
+    )
+    params, _, losses = rnn_utils.train_network(
+        make_network=lambda: disrnn.HkDisentangledRNN(config),
+        training_dataset=self.q_dataset,
+        validation_dataset=None,
+        n_steps=5,
+    )
+    self.assertFalse(rnn_utils.nan_in_dict(params))
+    self.assertEqual(losses['training_loss'].shape[0], 2)
+
 
 if __name__ == '__main__':
   absltest.main()
