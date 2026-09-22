@@ -63,6 +63,28 @@ class CheckpointUtilsTest(absltest.TestCase):
       elif "linear2" in path:
         self.assertTrue(any(not jnp.allclose(arr, 0.0) for arr in x.values()))
 
+  def test_get_optimizer_with_all_frozen_params(self):
+    def _dummy_model(x):
+      return hk.Linear(output_size=5, name="linear1")(x)
+
+    dummy_params = hk.transform(_dummy_model).init(
+        jax.random.PRNGKey(0), jnp.ones(2)
+    )
+    dummy_grads = jax.tree.map(jnp.ones_like, dummy_params)
+    opt = optax.adam(1e-3)
+
+    for modified_opt in (
+        checkpoint_utils.get_optimizer_with_frozen_params(opt, dummy_params),
+        checkpoint_utils.get_optimizer_with_frozen_params(
+            opt, dummy_params, []
+        ),
+    ):
+      opt_state = modified_opt.init(dummy_params)
+      updates, _ = modified_opt.update(dummy_grads, opt_state, dummy_params)
+      for x in updates.values():
+        for arr in x.values():
+          self.assertTrue(jnp.allclose(arr, 0.0))
+
 
 if __name__ == "__main__":
   absltest.main()

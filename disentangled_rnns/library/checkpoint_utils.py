@@ -14,6 +14,7 @@
 
 """Utility functions for checkpoints."""
 
+from collections.abc import Sequence
 from flax import traverse_util
 import haiku as hk
 import optax
@@ -22,7 +23,8 @@ import optax
 def get_optimizer_with_frozen_params(
     opt: optax.GradientTransformation,
     params: hk.Params,
-    trainable_param_names: list[str] | None = None,
+    trainable_param_names: Sequence[str] = (),
+    verbose: bool = False,
 ) -> optax.GradientTransformation:
   """Modified an optax optimizer to freeze some parameters.
 
@@ -34,10 +36,11 @@ def get_optimizer_with_frozen_params(
     opt: The base Optax optimizer to use for trainable parameters.
     params: The model parameters (e.g., a Haiku parameter dictionary-like
       structure). This is used to identify parameter paths and partition them.
-    trainable_param_names: An optional list of strings. If a parameter's path
-      (as a tuple of strings) contains any of these strings as a substring in
-      any part of the path, it's marked as trainable. If None or empty, all
-      parameters will be frozen.
+    trainable_param_names: A sequence of strings. If a parameter's path (as a
+      tuple of strings) contains any of these strings as a substring in any part
+      of the path, it's marked as trainable. If empty, all parameters will be
+      frozen.
+    verbose: If True, print all parameter paths in `params`.
 
   Returns:
     An Optax `GradientTransformation` that applies `opt` to trainable
@@ -52,7 +55,7 @@ def get_optimizer_with_frozen_params(
   # substring. If so, we mark it as trainable.
   def _is_trainable(path):
     for p in path:
-      for trainable_param_name in trainable_param_names:  # pyrefly: ignore[not-iterable]
+      for trainable_param_name in trainable_param_names:
         if trainable_param_name in p:
           return True
     return False
@@ -71,10 +74,12 @@ def get_optimizer_with_frozen_params(
       params,
   )
 
-  traverse_util.path_aware_map(
-      lambda path, v: print(path),
-      params,
-  )
+  if verbose:
+    traverse_util.path_aware_map(
+        lambda path, v: print(path),
+        params,
+    )
+
   # Choose the optimizer based on the partition.
   opt = optax.multi_transform(partition_optimizers, param_partitions)  # pyrefly: ignore[bad-argument-type]
   return opt
