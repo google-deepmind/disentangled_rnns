@@ -14,7 +14,7 @@
 
 """Plotting functions for inspecting Disentangled RNNs."""
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 import copy
 from typing import Any
 
@@ -208,7 +208,7 @@ def compute_update_rules(
     params: rnn_utils.RnnParams,
     disrnn_config: disrnn.DisRnnConfig,
     observation_types: Sequence[Sequence[int]] | None = None,
-    observation_names: Sequence[dict[str, str]] | None = None,
+    observation_names: Sequence[Mapping[Any, str]] | None = None,
     subj_ind: int | None = None,
     axis_lim: float = 2.1,
 ) -> dict[str, Any]:
@@ -446,7 +446,7 @@ def compute_update_rules(
       # Build titles for each observation, based on sensitivity of this latent
       titles = [""] * np.shape(latent_obs)[0]
       if np.shape(latent_obs)[0] == 1:
-        titles = "All Trials"
+        titles = ["All Trials"]
       else:
         for obs_i in range(disrnn_config.obs_size):
           if obs_sensitive[obs_i]:
@@ -622,7 +622,7 @@ def plot_update_rules(
     params: rnn_utils.RnnParams,
     disrnn_config: disrnn.DisRnnConfig,
     observation_types: Sequence[Sequence[int]] | None = None,
-    observation_names: Sequence[dict[str, str]] | None = None,
+    observation_names: Sequence[Mapping[Any, str]] | None = None,
     subj_ind: int | None = None,
     axis_lim: float | None = None,
     plot_combined: bool = False,

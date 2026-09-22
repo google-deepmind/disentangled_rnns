@@ -135,6 +135,21 @@ class DisrnnTest(absltest.TestCase):
     self.assertGreater(float(rule_default['yhats'].std()), 0.0)
     self.assertAlmostEqual(float(rule_zero['yhats'].std()), 0.0, places=6)
 
+  def test_compute_update_rules_all_trials_title(self):
+    """Verify observation-insensitive latents use the 'All Trials' key."""
+    params_closed_obs = copy.deepcopy(self.disrnn_params)
+    params_closed_obs['hk_disentangled_rnn']['update_net_obs_sigma_params'] = (
+        params_closed_obs['hk_disentangled_rnn']['update_net_obs_sigma_params']
+        * 0.0
+        + 1.0
+    )
+    update_dict = plotting.compute_update_rules(
+        params_closed_obs, self.disrnn_config
+    )
+    for latent_rules in update_dict.values():
+      self.assertIn('All Trials', latent_rules)
+      self.assertNotIn('A', latent_rules)
+
   def test_disrnn_output_shape(self):
     xs = self.q_dataset.get_all()['xs']
     n_sessions, n_trials = xs.shape[:2]
