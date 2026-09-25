@@ -445,7 +445,7 @@ class AgentNetwork:
 
   def get_choice(self) -> tuple[int, np.ndarray]:
     choice_probs = self.get_choice_probs()
-    choice = np.random.choice(2, p=choice_probs)
+    choice = np.random.choice(self._n_actions, p=choice_probs)
     return choice  # pyrefly: ignore[bad-return]
 
   def update(self, choice: int, reward: int):
