@@ -17,6 +17,7 @@
 from collections.abc import Callable
 import copy
 import dataclasses
+from typing import Any
 
 from disentangled_rnns.library import disrnn
 from disentangled_rnns.library import plotting
@@ -329,13 +330,9 @@ def plot_neural_activity_rules(
   }
 
   # Plotting logic.
-  fig, _ = plt.subplots(
-      2, 2, figsize=(10, 8), sharex=True, sharey=True, constrained_layout=True
-  )
   small = 8
   medium = 12
   large = 16
-  fig.suptitle('Neural Activity Prediction vs. Latents', fontsize=large)
 
   n_vals = 50
   latent_vals = np.linspace(-axis_lim, axis_lim, n_vals)
@@ -451,7 +448,7 @@ def plot_choice_rule(
       key.replace('hk_neuro_disentangled_rnn', 'hk_disentangled_rnn'): value
       for key, value in params.items()
   }
-  plotting.plot_choice_rule(
+  return plotting.plot_choice_rule(
       params=params, disrnn_config=disrnn_config, axis_lim=axis_lim
   )
 
@@ -460,13 +457,13 @@ def plot_update_rules(
     params: rnn_utils.RnnParams,
     disrnn_config: DisRnnWNeuralActivityConfig,
     axis_lim: float = 2.1,
-) -> plt.Figure | None:
+) -> tuple[dict[str, Any], dict[str, Any]]:
   """Plots the update rules of a DisRNN with neural_activity prediction."""
   params = {
       key.replace('hk_neuro_disentangled_rnn', 'hk_disentangled_rnn'): value
       for key, value in params.items()
   }
-  plotting.plot_update_rules(
+  return plotting.plot_update_rules(
       params=params, disrnn_config=disrnn_config, axis_lim=axis_lim
   )
 
