@@ -24,6 +24,27 @@ To release a new version (e.g. from `1.0.0` -> `2.0.0`):
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-09-21
+
+- Validate penalty fields, `max_latent_value > 0`, and unknown attribute
+  assignments in `DisRnnConfig`, `MultisubjectDisRnnConfig`, and
+  `DisRnnWNeuralActivityConfig`.
+- Default `trainable_param_names` to `()` instead of `None` and gate parameter
+  path printing behind `verbose=False` in
+  `checkpoint_utils.get_optimizer_with_frozen_params`.
+- Apply learned choice bottleneck multipliers in `plotting.compute_choice_rule`.
+- Fix `"All Trials"` title string iteration bug and `observation_names` typing
+  in `plotting.compute_update_rules`.
+- Unify `SubjEmb` labels to 1-based indexing, add `sort_latents` support across
+  update, choice, and neural-activity rule plots so latent numbering matches
+  `plot_bottlenecks`, and scope `matplotlib.rcParams` overrides in `plotting`.
+- Return figure objects in `neuro_disrnn.plot_choice_rule` and
+  `neuro_disrnn.plot_update_rules`, remove the unused `plt.subplots` allocation
+  in `neuro_disrnn.plot_neural_activity_rules`, and compute 2D color scale
+  limits across all four `(choice, reward)` conditions.
+- Fix double normalization of decisions prior to applying `lapse` in
+  `pclicks.drift_diffusion_model`.
+
 ## [0.1.6] - 2026-04-08
 
  - Allow DatasetRNNCategorical to accept floats that are close to ints. This
@@ -70,10 +91,11 @@ a release and act as a baseline for future releases.
 
 * Initial release
 
-[Unreleased]: https://github.com/google-deepmind/disentangled_rnns/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/google-deepmind/disentangled_rnns/compare/v0.1.7...HEAD
 [0.1.1]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.1
 [0.1.2]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.2
 [0.1.3]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.3
 [0.1.4]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.4
 [0.1.5]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.5
-[0.1.5]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.6
+[0.1.6]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.6
+[0.1.7]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.7
