@@ -100,6 +100,31 @@ def reparameterize_sigma(
   return jnp.abs(hk_param) + min_sigma
 
 
+def inverse_reparameterize_sigma(
+    sigma: jax.typing.ArrayLike, min_sigma: float = 1e-5
+) -> jnp.ndarray:
+  """Inverse of `reparameterize_sigma`: the haiku parameter for a given sigma.
+
+  Use this to build params with specific bottleneck sigmas (e.g. in tests)
+  without depending on how sigmas are parameterized.
+
+  Args:
+    sigma: The bottleneck standard deviation. Must be at least min_sigma.
+    min_sigma: The minimum value of the standard deviation. Must match the value
+      passed to `reparameterize_sigma`.
+
+  Returns:
+    hk_param: A haiku parameter that `reparameterize_sigma` maps to sigma.
+
+  Raises:
+    ValueError: If any sigma is below min_sigma.
+  """
+  sigma = jnp.asarray(sigma)
+  if jnp.any(sigma < min_sigma):
+    raise ValueError(f'sigma must be at least min_sigma={min_sigma}.')
+  return sigma - min_sigma
+
+
 @dataclasses.dataclass
 class DisRnnConfig:
   """Specifies an architecture and configuration for a Disentangled RNN.
