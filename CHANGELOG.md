@@ -24,6 +24,9 @@ To release a new version (e.g. from `1.0.0` -> `2.0.0`):
 
 ## [Unreleased]
 
+- Add `disrnn.inverse_reparameterize_sigma`, which returns the haiku parameter
+  for a given bottleneck sigma.
+
 ## [0.1.7] - 2026-09-21
 
 - Validate penalty fields, `max_latent_value > 0`, and unknown attribute
