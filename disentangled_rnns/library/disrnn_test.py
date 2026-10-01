@@ -21,6 +21,7 @@ from disentangled_rnns.library import disrnn
 from disentangled_rnns.library import get_datasets
 from disentangled_rnns.library import plotting
 from disentangled_rnns.library import rnn_utils
+import numpy as np
 
 
 class DisrnnTest(absltest.TestCase):
@@ -138,10 +139,11 @@ class DisrnnTest(absltest.TestCase):
   def test_compute_update_rules_all_trials_title(self):
     """Verify observation-insensitive latents use the 'All Trials' key."""
     params_closed_obs = copy.deepcopy(self.disrnn_params)
+    obs_sigma_params = params_closed_obs['hk_disentangled_rnn'][
+        'update_net_obs_sigma_params'
+    ]
     params_closed_obs['hk_disentangled_rnn']['update_net_obs_sigma_params'] = (
-        params_closed_obs['hk_disentangled_rnn']['update_net_obs_sigma_params']
-        * 0.0
-        + 1.0
+        disrnn.inverse_reparameterize_sigma(np.full_like(obs_sigma_params, 1.0))
     )
     update_dict = plotting.compute_update_rules(
         params_closed_obs, self.disrnn_config
@@ -200,6 +202,21 @@ class DisrnnTest(absltest.TestCase):
       config.max_latent_value = 0.0
     with self.assertRaises(ValueError):
       disrnn.DisRnnConfig(max_latent_value=-1.0)
+
+  def test_inverse_reparameterize_sigma_round_trip(self):
+    """inverse_reparameterize_sigma undoes reparameterize_sigma."""
+    sigmas = np.array([1e-5, 1e-3, 0.01, 0.5, 1.0, 10.0])
+    np.testing.assert_allclose(
+        disrnn.reparameterize_sigma(
+            disrnn.inverse_reparameterize_sigma(sigmas)
+        ),
+        sigmas,
+        rtol=1e-6,
+    )
+
+  def test_inverse_reparameterize_sigma_below_min_raises(self):
+    with self.assertRaises(ValueError):
+      disrnn.inverse_reparameterize_sigma(np.array([0.5, 1e-6]))
 
   def test_choice_net_zero_layers(self):
     """Test DisRnnConfig with choice_net_n_layers=0."""
