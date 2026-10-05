@@ -557,7 +557,7 @@ def subset_dataset(
         batch_size=dataset.batch_size,
         batch_mode=dataset.batch_mode,
         rng=dataset.rng,
-    )  # pytype: disable=not-instantiable
+    )
   else:
     return dataset.__class__(
         xs[:, session_indices, :],
@@ -568,7 +568,7 @@ def subset_dataset(
         batch_size=dataset.batch_size,
         batch_mode=dataset.batch_mode,
         rng=dataset.rng,
-    )  # pytype: disable=not-instantiable
+    )
 
 
 def split_dataset(
@@ -617,7 +617,7 @@ def sse(ys: np.ndarray, y_hats: np.ndarray) -> float:
   errors = ys - y_hats
   masked_errors = jnp.where(mask, errors, 0.0)
   sum_squared_error = jnp.sum(jnp.square(masked_errors))
-  return sum_squared_error  # pytype: disable=bad-return-type  # jnp-type
+  return sum_squared_error  # pyrefly: ignore[bad-return]
 
 
 @jax.jit
@@ -635,7 +635,7 @@ def mse(ys: np.ndarray, y_hats: np.ndarray) -> float:
   mask = jnp.logical_not(jnp.isnan(ys))
   sq_errors = sse(ys, y_hats)
   loss = sq_errors / jnp.sum(mask)
-  return loss  # pytype: disable=bad-return-type  # jnp-type
+  return loss
 
 
 @jax.jit
@@ -678,7 +678,7 @@ def categorical_neg_log_likelihood(
   masked_log_liks = jnp.where(mask, log_liks, 0.0)
   loss = -jnp.sum(masked_log_liks)
   n_unmasked_samples = jnp.sum(mask)
-  return loss, n_unmasked_samples  # pytype: disable=bad-return-type  # jnp-type
+  return loss, n_unmasked_samples  # pyrefly: ignore[bad-return]
 
 
 def likelihood_and_sse(
@@ -728,7 +728,7 @@ def likelihood_and_sse(
   )
   # All trials with an invalid categorical target are masked.
   continuous_ys = jnp.where(mask, continuous_ys, jnp.nan)
-  sum_squared_error = sse(continuous_ys, continuous_y_hats)  # pyrefly: ignore[bad-argument-type]
+  sum_squared_error = sse(continuous_ys, continuous_y_hats)
 
   return log_likelihood * likelihood_weight + sum_squared_error * (
       1 - likelihood_weight
@@ -780,7 +780,7 @@ def normalized_likelihood_and_mse(
   normlik_categorical = normalized_likelihood(
       categorical_ys, categorical_y_hats
   )
-  normlik_mse = mse(continuous_ys, continuous_y_hats)  # pyrefly: ignore[bad-argument-type]
+  normlik_mse = mse(continuous_ys, continuous_y_hats)
   return normlik_categorical * likelihood_weight + normlik_mse * (
       1 - likelihood_weight
   )
@@ -855,7 +855,7 @@ def avg_nll_and_log_mse(
   )
   avg_nll = nll / n_unmasked_samples
 
-  mse_val = mse(continuous_ys, continuous_y_hats)  # pyrefly: ignore[bad-argument-type]
+  mse_val = mse(continuous_ys, continuous_y_hats)
 
   # This is a trick to scale the gradients from the mse as:
   # derivative(log(1+mse)) = 1 / (1 + mse) * derivative(1+mse)
@@ -867,7 +867,7 @@ def avg_nll_and_log_mse(
 
   # Likelihood weight should ideally be set to 0.5, but can be used as a toggle
   # to train on just one objective at a time (e.g. likelihood or mse).
-  return avg_nll * likelihood_weight + log_mse_val * (1 - likelihood_weight)  # pyrefly: ignore[bad-return]
+  return avg_nll * likelihood_weight + log_mse_val * (1 - likelihood_weight)
 
 
 @jax.jit
@@ -888,7 +888,7 @@ def count_unmasked_samples(targets: np.ndarray) -> int:
   continuous_mask = jnp.logical_not(jnp.isnan(targets))
   mask = jnp.logical_and(categorical_mask, continuous_mask)
   mask = jnp.any(mask, axis=-1)
-  return jnp.sum(mask)  # pytype: disable=bad-return-type
+  return jnp.sum(mask)  # pyrefly: ignore[bad-return]
 
 
 def compute_penalty(outputs: np.ndarray) -> float:
@@ -905,7 +905,7 @@ def compute_penalty(outputs: np.ndarray) -> float:
     The total penalty over all timesteps.
   """
   trialwise_penalty = outputs[:, :, -1]
-  return jnp.sum(trialwise_penalty)  # pytype: disable=bad-return-type
+  return jnp.sum(trialwise_penalty)  # pyrefly: ignore[bad-return]
 
 
 ## Training Loop
@@ -1165,7 +1165,7 @@ def train_network(
     if training_dataset.batch_mode != 'single':
       train_batch = next(training_dataset)
 
-    loss, params, opt_state = train_step(  # pyrefly: ignore[bad-assignment]
+    loss, params, opt_state = train_step(
         params, opt_state, train_batch, subkey_train
     )
 
@@ -1175,7 +1175,7 @@ def train_network(
         raise ValueError('NaN in params')
       if np.isnan(loss):
         raise ValueError('NaN in loss')
-      if loss > 1e50:  # pyrefly: ignore[unsupported-operation]
+      if loss > 1e50:
         raise ValueError('Loss is too large')
 
       # Test on validation data
@@ -1232,7 +1232,7 @@ def train_network(
 
   if training_loss and np.isnan(training_loss[-1]):
     raise ValueError('NaN in loss')
-  return params, opt_state, losses  # pytype: disable=bad-return-type
+  return params, opt_state, losses
 
 
 def eval_network(
@@ -1320,7 +1320,7 @@ def get_apply(
   model = hk.transform(step_sub)
   apply = jax.jit(model.apply)
 
-  return apply  # pytype: disable=bad-return-type  # jax-api-types
+  return apply  # pyrefly: ignore[bad-return]
 
 
 def step_network(

@@ -180,7 +180,7 @@ def plot_bottlenecks(
   )
   neural_activity_sigmas = np.array(
       disrnn.reparameterize_sigma(
-          np.transpose(params['neural_activity_net_sigma_params'])  # pyrefly: ignore[bad-argument-type]
+          np.transpose(params['neural_activity_net_sigma_params'])
       )
   )
 
@@ -501,7 +501,7 @@ def log_bottlenecks(
 
   neural_activity_sigmas = np.array(
       disrnn.reparameterize_sigma(
-          np.transpose(params_disrnn['neural_activity_net_sigma_params'])  # pyrefly: ignore[bad-argument-type]
+          np.transpose(params_disrnn['neural_activity_net_sigma_params'])
       )
   )
 

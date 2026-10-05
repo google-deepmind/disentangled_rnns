@@ -110,7 +110,7 @@ def plot_bottlenecks(
     )
     choice_sigmas = np.array(
         disrnn.reparameterize_sigma(
-            np.transpose(params_disrnn["choice_net_sigma_params"])  # pyrefly: ignore[bad-argument-type]
+            np.transpose(params_disrnn["choice_net_sigma_params"])
         )
     )
   else:
