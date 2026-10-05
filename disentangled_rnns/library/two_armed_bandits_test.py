@@ -155,6 +155,41 @@ class TwoArmedBanditsTest(parameterized.TestCase):
 
     self.assertIsInstance(dataset, rnn_utils.DatasetRNN)
 
+  @parameterized.parameters(1, 2, 3, 4)
+  def test_agent_network_configured_action_count(self, n_actions):
+    """Sample the configured action space, including actions above index one."""
+
+    def make_network():
+      return hk.DeepRNN([
+          hk.GRU(N_HIDDEN),
+          hk.Linear(
+              output_size=n_actions,
+              w_init=hk.initializers.Constant(0.0),
+              b_init=hk.initializers.Constant(np.arange(n_actions) * 1000.0),
+          ),
+      ])
+
+    params, _, _ = rnn_utils.train_network(
+        make_network,
+        training_dataset=rnn_utils.DatasetRNNCategorical(
+            xs=np.zeros((2, 1, 2)),
+            ys=np.zeros((2, 1, 1), dtype=np.int32),
+            n_classes=n_actions,
+        ),
+        validation_dataset=None,
+        n_steps=0,
+    )
+    agent = two_armed_bandits.AgentNetwork(make_network, params, n_actions)
+    environment = two_armed_bandits.EnvironmentPayoutMatrix(
+        payout_matrix=np.ones((1, 3, n_actions))
+    )
+    environment.new_session()
+    self.assertEqual(agent.get_choice_probs().shape, (n_actions,))
+    experiment = two_armed_bandits.run_experiment(agent, environment, 3)
+    # The fixed logits make the last action certain rather than probabilistic.
+    np.testing.assert_array_equal(experiment.choices, n_actions - 1)
+    np.testing.assert_array_equal(experiment.rewards, 1.0)
+
   def test_agent_network_update_state_consistency(self):
     """Check AgentNetwork's step-by-step execution matches direct forward pass.
 
