@@ -25,7 +25,8 @@ dependencies = [
 "scipy>=1.15, <2.0",
 "matplotlib>=3.9, <4.0",
 "absl-py>=2.1, <3.0",
-"seaborn~=0.13"
+"seaborn~=0.13",
+"orbax-checkpoint!=0.11.33; platform_system == 'Windows'",
 ]
 
 
