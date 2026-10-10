@@ -304,5 +304,265 @@ class TwoArmedBanditsTest(parameterized.TestCase):
         self.assertIsInstance(dataset, rnn_utils.DatasetRNN)
 
 
+class BanditReferenceGraphsTest(parameterized.TestCase):
+
+  def test_isomorphic_to_qlearning_closed_self_update_bottleneck(self):
+    """Test Q-learning isomorphism when self-update bottlenecks are closed."""
+    config = disrnn.DisRnnConfig(
+        obs_size=2,
+        output_size=2,
+        latent_size=3,
+        x_names=['prev choice', 'prev reward'],
+    )
+    params = {
+        'hk_disentangled_rnn': {
+            'latent_sigma_params': disrnn.inverse_reparameterize_sigma(
+                np.array([0.01, 0.01, 0.9])
+            ),
+            'update_net_obs_sigma_params': disrnn.inverse_reparameterize_sigma(
+                np.array([
+                    [0.01, 0.01, 0.9],
+                    [0.01, 0.01, 0.9],
+                ])
+            ),
+            'update_net_latent_sigma_params': (
+                disrnn.inverse_reparameterize_sigma(
+                    np.array([
+                        [0.9, 0.9, 0.9],
+                        [0.9, 0.9, 0.9],
+                        [0.9, 0.9, 0.9],
+                    ])
+                )
+            ),
+            'choice_net_sigma_params': disrnn.inverse_reparameterize_sigma(
+                np.array([0.01, 0.01, 0.9])
+            ),
+        }
+    }
+    self.assertTrue(two_armed_bandits.isomorphic_to_qlearning(config, params))
+
+  def test_isomorphic_to_policygradient(self):
+    """Test policy gradient isomorphism with one open latent."""
+    config = disrnn.DisRnnConfig(
+        obs_size=2,
+        output_size=2,
+        latent_size=2,
+        x_names=['prev choice', 'prev reward'],
+    )
+    params = {
+        'hk_disentangled_rnn': {
+            'latent_sigma_params': disrnn.inverse_reparameterize_sigma(
+                np.array([0.01, 0.9])
+            ),
+            'update_net_obs_sigma_params': disrnn.inverse_reparameterize_sigma(
+                np.array([
+                    [0.01, 0.9],  # prev choice -> L0
+                    [0.01, 0.9],  # prev reward -> L0
+                ])
+            ),
+            'update_net_latent_sigma_params': (
+                disrnn.inverse_reparameterize_sigma(
+                    np.array([
+                        [0.01, 0.9],  # L0 -> L0
+                        [0.9, 0.9],
+                    ])
+                )
+            ),
+            'choice_net_sigma_params': disrnn.inverse_reparameterize_sigma(
+                np.array([0.01, 0.9])
+            ),
+        }
+    }
+    self.assertTrue(
+        two_armed_bandits.isomorphic_to_policygradient(config, params)
+    )
+    self.assertFalse(two_armed_bandits.isomorphic_to_qlearning(config, params))
+
+  def test_isomorphic_to_actorcritic_closed_critic_self_update_bottleneck(self):
+    """Test Actor-Critic isomorphism when critic self-update bottleneck is closed."""
+    config = disrnn.DisRnnConfig(
+        obs_size=2,
+        output_size=2,
+        latent_size=3,
+        x_names=['prev choice', 'prev reward'],
+    )
+    # L0 = actor, L1 = critic, L2 = unused
+    params = {
+        'hk_disentangled_rnn': {
+            'latent_sigma_params': disrnn.inverse_reparameterize_sigma(
+                np.array([0.01, 0.01, 0.9])
+            ),
+            'update_net_obs_sigma_params': disrnn.inverse_reparameterize_sigma(
+                np.array([
+                    [0.01, 0.9, 0.9],  # obs 0 -> L0
+                    [0.01, 0.01, 0.9],  # obs 1 -> L0, L1
+                ])
+            ),
+            'update_net_latent_sigma_params': (
+                disrnn.inverse_reparameterize_sigma(
+                    np.array([
+                        [0.9, 0.9, 0.9],  # L0 self-bottleneck closed
+                        [
+                            0.01,
+                            0.9,
+                            0.9,
+                        ],  # L1 -> L0 open; L1 self-bottleneck closed
+                        [0.9, 0.9, 0.9],
+                    ])
+                )
+            ),
+            'choice_net_sigma_params': disrnn.inverse_reparameterize_sigma(
+                np.array([0.01, 0.9, 0.9])
+            ),
+        }
+    }
+    self.assertTrue(two_armed_bandits.isomorphic_to_actorcritic(config, params))
+
+  @parameterized.named_parameters(
+      dict(
+          testcase_name='canonical',
+          x_names=['prev choice', 'prev reward'],
+          update_net_obs_sigmas=[
+              [0.01, 0.9],  # prev choice -> L0
+              [0.01, 0.01],  # prev reward -> L0, L1
+          ],
+          expected=True,
+      ),
+      dict(
+          testcase_name='reversed_name_order',
+          x_names=['prev reward', 'prev choice'],
+          update_net_obs_sigmas=[
+              [0.01, 0.01],  # prev reward -> L0, L1
+              [0.01, 0.9],  # prev choice -> L0
+          ],
+          expected=True,
+      ),
+      dict(
+          testcase_name='swapped_input_roles',
+          x_names=['prev choice', 'prev reward'],
+          update_net_obs_sigmas=[
+              [0.01, 0.01],  # prev choice -> L0, L1
+              [0.01, 0.9],  # prev reward -> L0
+          ],
+          expected=False,
+      ),
+      dict(
+          testcase_name='extra_closed_input',
+          x_names=['prev choice', 'prev reward', 'cue'],
+          update_net_obs_sigmas=[
+              [0.01, 0.9],  # prev choice -> L0
+              [0.01, 0.01],  # prev reward -> L0, L1
+              [0.9, 0.9],  # cue -> nowhere
+          ],
+          expected=True,
+      ),
+      dict(
+          testcase_name='extra_open_input',
+          x_names=['prev choice', 'prev reward', 'cue'],
+          update_net_obs_sigmas=[
+              [0.01, 0.9],  # prev choice -> L0
+              [0.01, 0.01],  # prev reward -> L0, L1
+              [0.01, 0.9],  # cue -> L0
+          ],
+          expected=False,
+      ),
+  )
+  def test_isomorphic_to_actorcritic_input_roles(
+      self, x_names, update_net_obs_sigmas, expected
+  ):
+    """Test that inputs are matched by name, and closed inputs are ignored."""
+    config = disrnn.DisRnnConfig(
+        obs_size=len(x_names),
+        output_size=2,
+        latent_size=2,
+        x_names=x_names,
+    )
+    # L0 = policy, L1 = value
+    params = {
+        'hk_disentangled_rnn': {
+            'latent_sigma_params': disrnn.inverse_reparameterize_sigma(
+                np.array([0.01, 0.01])
+            ),
+            'update_net_obs_sigma_params': disrnn.inverse_reparameterize_sigma(
+                np.array(update_net_obs_sigmas)
+            ),
+            'update_net_latent_sigma_params': (
+                disrnn.inverse_reparameterize_sigma(
+                    np.array([
+                        [0.9, 0.9],  # L0 -> nowhere else
+                        [0.01, 0.9],  # L1 -> L0
+                    ])
+                )
+            ),
+            'choice_net_sigma_params': disrnn.inverse_reparameterize_sigma(
+                np.array([0.01, 0.9])
+            ),
+        }
+    }
+    self.assertEqual(
+        two_armed_bandits.isomorphic_to_actorcritic(config, params),
+        expected,
+    )
+
+  @parameterized.named_parameters(
+      dict(
+          testcase_name='qlearning_default_x_names',
+          isomorphic_fn=two_armed_bandits.isomorphic_to_qlearning,
+          x_names=['Observation 0', 'Observation 1'],
+      ),
+      dict(
+          testcase_name='policygradient_wrong_x_names',
+          isomorphic_fn=two_armed_bandits.isomorphic_to_policygradient,
+          x_names=['choice', 'reward'],
+      ),
+      dict(
+          testcase_name='actorcritic_one_wrong_x_name',
+          isomorphic_fn=two_armed_bandits.isomorphic_to_actorcritic,
+          x_names=['prev choice', 'reward'],
+      ),
+  )
+  def test_isomorphic_to_bandit_model_wrong_names_raise(
+      self, isomorphic_fn, x_names
+  ):
+    """Test that configs without the two-armed bandit names raise."""
+    config = disrnn.DisRnnConfig(
+        obs_size=2,
+        output_size=2,
+        latent_size=2,
+        x_names=x_names,
+    )
+    # The name check happens before params are read.
+    with self.assertRaisesRegex(
+        ValueError, 'no parameters can make the graphs isomorphic'
+    ):
+      isomorphic_fn(config, {})
+
+  @parameterized.named_parameters(
+      dict(
+          testcase_name='qlearning',
+          isomorphic_fn=two_armed_bandits.isomorphic_to_qlearning,
+      ),
+      dict(
+          testcase_name='policygradient',
+          isomorphic_fn=two_armed_bandits.isomorphic_to_policygradient,
+      ),
+      dict(
+          testcase_name='actorcritic',
+          isomorphic_fn=two_armed_bandits.isomorphic_to_actorcritic,
+      ),
+  )
+  def test_isomorphic_to_bandit_model_swapped_args_raise(self, isomorphic_fn):
+    """Test that passing (params, disrnn_config) gives an informative error."""
+    config = disrnn.DisRnnConfig(
+        obs_size=2,
+        output_size=2,
+        latent_size=2,
+        x_names=['prev choice', 'prev reward'],
+    )
+    params = {'hk_disentangled_rnn': {}}
+    with self.assertRaisesRegex(TypeError, 'swapped order'):
+      isomorphic_fn(params, config)
+
+
 if __name__ == '__main__':
   absltest.main()

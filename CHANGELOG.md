@@ -26,6 +26,17 @@ To release a new version (e.g. from `1.0.0` -> `2.0.0`):
 
 - Add `disrnn.inverse_reparameterize_sigma`, which returns the haiku parameter
   for a given bottleneck sigma.
+- Add `bottleneck_graph`, which builds a DisRNN's bottleneck graph as a
+  networkx DiGraph (`get_bottleneck_graph`), plots it
+  (`plot_bottleneck_graph`), and tests it for isomorphism with a reference
+  graph or another DisRNN (`graphs_isomorphic`, `disrnn_isomorphic_to_graph`,
+  `disrnns_isomorphic`). Adds `networkx`, `ipython` and `graphviz` as
+  dependencies. Plotting also needs the Graphviz `dot` program, which Colab
+  has preinstalled (elsewhere see https://graphviz.org/download/).
+- Add `two_armed_bandits.isomorphic_to_qlearning`,
+  `isomorphic_to_policygradient`, and `isomorphic_to_actorcritic`, which check
+  whether a DisRNN's bottleneck graph matches that of the corresponding bandit
+  agent.
 
 ## [0.1.7] - 2026-09-21
 
