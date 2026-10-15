@@ -24,6 +24,8 @@ To release a new version (e.g. from `1.0.0` -> `2.0.0`):
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-10-15
+
 - Add `disrnn.inverse_reparameterize_sigma`, which returns the haiku parameter
   for a given bottleneck sigma.
 - Add `bottleneck_graph`, which builds a DisRNN's bottleneck graph as a
@@ -105,7 +107,7 @@ a release and act as a baseline for future releases.
 
 * Initial release
 
-[Unreleased]: https://github.com/google-deepmind/disentangled_rnns/compare/v0.1.7...HEAD
+[Unreleased]: https://github.com/google-deepmind/disentangled_rnns/compare/v0.1.8...HEAD
 [0.1.1]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.1
 [0.1.2]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.2
 [0.1.3]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.3
@@ -113,3 +115,4 @@ a release and act as a baseline for future releases.
 [0.1.5]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.5
 [0.1.6]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.6
 [0.1.7]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.7
+[0.1.8]: https://github.com/google-deepmind/disentangled_rnns/releases/tag/v0.1.8
