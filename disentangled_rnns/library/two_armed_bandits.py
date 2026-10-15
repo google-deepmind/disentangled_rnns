@@ -19,15 +19,24 @@ from collections.abc import Callable
 from typing import Literal, NamedTuple, Union
 import warnings
 
+from disentangled_rnns.library import bottleneck_graph
+from disentangled_rnns.library import disrnn
 from disentangled_rnns.library import rnn_utils
 import haiku as hk
 import jax
 import matplotlib.pyplot as plt
+import networkx as nx
 import numpy as np
 from scipy import special
 import seaborn as sns
 
 abstractmethod = abc.abstractmethod
+
+# Input names of the datasets made by `create_dataset`. The reference bottleneck
+# graphs use these names, so they can only match a DisRNN whose config includes
+# them. `bottleneck_graph.disrnn_isomorphic_to_graph` raises if it does not.
+_PREV_CHOICE = 'prev choice'
+_PREV_REWARD = 'prev reward'
 
 ################
 # ENVIRONMENTS #
@@ -541,7 +550,7 @@ def create_dataset(
   dataset = rnn_utils.DatasetRNNCategorical(
       xs=xs,  # pyrefly: ignore[bad-argument-type]
       ys=ys,
-      x_names=['prev choice', 'prev reward'],
+      x_names=[_PREV_CHOICE, _PREV_REWARD],
       y_names=['choice'],
       n_classes=2,
       rng=rng,
@@ -679,3 +688,213 @@ def plot_2ab_sessdata(
   plt.ylabel(ylabel)
   if ylabel == 'Reward Probability':
     plt.yticks([0, 0.5, 1], ['0%', '50%', '100%'])
+
+
+###############################
+# REFERENCE BOTTLENECK GRAPHS #
+###############################
+# Bottleneck graphs of the agents above, for testing whether a DisRNN trained on
+# their data has learned their structure. See `bottleneck_graph` for how graphs
+# are built and compared.
+
+
+def _build_qlearning_graph() -> nx.DiGraph:
+  """Build a networkx graph representing the Q-learning bottleneck topology.
+
+  Q-learning structure:
+  - 2 latents, each receiving both previous choice and previous reward
+  - Self-connections on both latents
+  - Both latents connect to the output
+
+  Returns:
+    A networkx DiGraph encoding Q-learning's bottleneck graph.
+  """
+  output_name = 'Output'
+  q1 = 'Q1'
+  q2 = 'Q2'
+
+  g = nx.DiGraph()
+
+  # Input nodes
+  g.add_node(_PREV_CHOICE, name=_PREV_CHOICE, kind='input')
+  g.add_node(_PREV_REWARD, name=_PREV_REWARD, kind='input')
+
+  # Latent nodes
+  g.add_node(q1, name=q1, kind='latent')
+  g.add_node(q2, name=q2, kind='latent')
+
+  # Output node
+  g.add_node(output_name, name=output_name, kind='output')
+
+  # Inputs -> latents: both inputs feed both latents
+  g.add_edge(_PREV_CHOICE, q1)
+  g.add_edge(_PREV_CHOICE, q2)
+  g.add_edge(_PREV_REWARD, q1)
+  g.add_edge(_PREV_REWARD, q2)
+
+  # Latent self-connections
+  g.add_edge(q1, q1)
+  g.add_edge(q2, q2)
+
+  # Latents -> output: both latents feed the output
+  g.add_edge(q1, output_name)
+  g.add_edge(q2, output_name)
+
+  return g
+
+
+def isomorphic_to_qlearning(
+    disrnn_config: disrnn.DisRnnConfig,
+    params: rnn_utils.RnnParams,
+) -> bool:
+  """Check if a DisRNN has a bottleneck graph isomorphic to Q-learning.
+
+  Args:
+    disrnn_config: DisRNN config. Its `x_names` must include the two-armed
+      bandit input names ('prev choice' and 'prev reward').
+    params: DisRNN parameters.
+
+  Returns:
+    True if the DisRNN's bottleneck graph is isomorphic to Q-learning's.
+
+  Raises:
+    TypeError: If `disrnn_config` and `params` were passed in swapped order.
+    ValueError: If `disrnn_config.x_names` lacks a two-armed bandit name.
+  """
+  return bottleneck_graph.disrnn_isomorphic_to_graph(
+      disrnn_config, params, _build_qlearning_graph()
+  )
+
+
+def _build_policygradient_graph() -> nx.DiGraph:
+  """Build a networkx graph representing the policy gradient bottleneck topology.
+
+  Policy gradient structure:
+  - 1 latent, receiving both previous choice and previous reward
+  - Self-connection on the latent
+  - The latent connects to the output
+
+  Returns:
+    A networkx DiGraph encoding policy gradient's bottleneck graph.
+  """
+  output_name = 'Output'
+  policy = 'policy'
+
+  g = nx.DiGraph()
+
+  # Input nodes
+  g.add_node(_PREV_CHOICE, name=_PREV_CHOICE, kind='input')
+  g.add_node(_PREV_REWARD, name=_PREV_REWARD, kind='input')
+
+  # Latent node
+  g.add_node(policy, name=policy, kind='latent')
+
+  # Output node
+  g.add_node(output_name, name=output_name, kind='output')
+
+  # Inputs -> latent: both inputs feed the latent
+  g.add_edge(_PREV_CHOICE, policy)
+  g.add_edge(_PREV_REWARD, policy)
+
+  # Latent self-connection
+  g.add_edge(policy, policy)
+
+  # Latent -> output
+  g.add_edge(policy, output_name)
+
+  return g
+
+
+def isomorphic_to_policygradient(
+    disrnn_config: disrnn.DisRnnConfig,
+    params: rnn_utils.RnnParams,
+) -> bool:
+  """Check if a DisRNN has a bottleneck graph isomorphic to policy gradient.
+
+  Args:
+    disrnn_config: DisRNN config. Its `x_names` must include the two-armed
+      bandit input names ('prev choice' and 'prev reward').
+    params: DisRNN parameters.
+
+  Returns:
+    True if the DisRNN's bottleneck graph is isomorphic to policy gradient's.
+
+  Raises:
+    TypeError: If `disrnn_config` and `params` were passed in swapped order.
+    ValueError: If `disrnn_config.x_names` lacks a two-armed bandit name.
+  """
+  return bottleneck_graph.disrnn_isomorphic_to_graph(
+      disrnn_config, params, _build_policygradient_graph()
+  )
+
+
+def _build_actorcritic_graph() -> nx.DiGraph:
+  """Build a networkx graph representing the actor-critic bottleneck topology.
+
+  Actor-critic structure:
+  - 2 latents: policy (the actor) and value (the critic)
+  - Previous choice -> policy, previous reward -> policy, previous reward ->
+    value
+  - Self-connections on both policy and value
+  - Value -> policy cross-connection
+  - Only policy connects to the output
+
+  Returns:
+    A networkx DiGraph encoding actor-critic's bottleneck graph.
+  """
+  output_name = 'Output'
+  policy = 'policy'
+  value = 'value'
+
+  g = nx.DiGraph()
+
+  # Input nodes
+  g.add_node(_PREV_CHOICE, name=_PREV_CHOICE, kind='input')
+  g.add_node(_PREV_REWARD, name=_PREV_REWARD, kind='input')
+
+  # Latent nodes
+  g.add_node(policy, name=policy, kind='latent')
+  g.add_node(value, name=value, kind='latent')
+
+  # Output node
+  g.add_node(output_name, name=output_name, kind='output')
+
+  # Inputs -> latents
+  g.add_edge(_PREV_CHOICE, policy)
+  g.add_edge(_PREV_REWARD, policy)
+  g.add_edge(_PREV_REWARD, value)
+
+  # Latent self-connections
+  g.add_edge(policy, policy)
+  g.add_edge(value, value)
+
+  # Latent cross-connection
+  g.add_edge(value, policy)
+
+  # Latent -> output: only the policy feeds the output
+  g.add_edge(policy, output_name)
+
+  return g
+
+
+def isomorphic_to_actorcritic(
+    disrnn_config: disrnn.DisRnnConfig,
+    params: rnn_utils.RnnParams,
+) -> bool:
+  """Check if a DisRNN has a bottleneck graph isomorphic to actor-critic.
+
+  Args:
+    disrnn_config: DisRNN config. Its `x_names` must include the two-armed
+      bandit input names ('prev choice' and 'prev reward').
+    params: DisRNN parameters.
+
+  Returns:
+    True if the DisRNN's bottleneck graph is isomorphic to actor-critic's.
+
+  Raises:
+    TypeError: If `disrnn_config` and `params` were passed in swapped order.
+    ValueError: If `disrnn_config.x_names` lacks a two-armed bandit name.
+  """
+  return bottleneck_graph.disrnn_isomorphic_to_graph(
+      disrnn_config, params, _build_actorcritic_graph()
+  )
