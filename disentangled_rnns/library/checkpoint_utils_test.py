@@ -15,6 +15,7 @@
 """Tests for selective parameter freezing during training."""
 
 from absl.testing import absltest
+from absl.testing import parameterized
 from disentangled_rnns.library import checkpoint_utils
 import haiku as hk
 import jax
@@ -22,7 +23,34 @@ import jax.numpy as jnp
 import optax
 
 
-class CheckpointUtilsTest(absltest.TestCase):
+class CheckpointUtilsTest(parameterized.TestCase):
+
+  @parameterized.named_parameters(
+      ("omitted", {}),
+      ("none", {"trainable_param_names": None}),
+      ("empty", {"trainable_param_names": []}),
+  )
+  def test_freeze_all_params(self, kwargs):
+    """An omitted or empty selection freezes both gradients and weight decay."""
+    params = {
+        "linear1": {"w": jnp.array([1.0, -2.0])},
+        "linear2": {"b": jnp.array([3.0])},
+    }
+    gradients = jax.tree.map(jnp.ones_like, params)
+    optimizer = checkpoint_utils.get_optimizer_with_frozen_params(
+        optax.adamw(1e-3, weight_decay=0.1), params, **kwargs
+    )
+    state = optimizer.init(params)
+    for _ in range(2):
+      updates, state = optimizer.update(gradients, state, params)
+      updated_params = optax.apply_updates(params, updates)
+      for update in jax.tree.leaves(updates):
+        self.assertTrue(jnp.array_equal(update, jnp.zeros_like(update)))
+      for before, after in zip(
+          jax.tree.leaves(params), jax.tree.leaves(updated_params)
+      ):
+        self.assertTrue(jnp.array_equal(before, after))
+      params = updated_params
 
   def test_get_optimizer_with_frozen_params(self):
     # Create dummy parameters
