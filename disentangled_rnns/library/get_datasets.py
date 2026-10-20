@@ -147,7 +147,7 @@ def get_rat_bandit_dataset(rat_i: int = 0) -> rnn_utils.DatasetRNNCategorical:
   ys = np.concatenate((free_choices, -1 * np.ones((1, n_sess, 1))), axis=0)
 
   # Pack into a DatasetRNN object
-  dataset_rat = rnn_utils.DatasetRNNCategorical(ys=ys, xs=xs)
+  dataset_rat = rnn_utils.DatasetRNNCategorical(ys=ys, xs=xs)  # pyrefly: ignore[bad-argument-type]
 
   return dataset_rat
 
