@@ -1268,7 +1268,7 @@ def eval_network(
     return ys
 
   model = hk.transform(unroll_network)
-  key = jax.random.PRNGKey(np.random.randint(2**32))
+  key = jax.random.PRNGKey(np.random.randint(2**31, dtype=np.int32))
   apply = jax.jit(model.apply)
 
   if not return_states:
@@ -1353,7 +1353,7 @@ def step_network(
 
   if apply is None:
     apply = get_apply(make_network)
-  key = jax.random.PRNGKey(np.random.randint(2**32))
+  key = jax.random.PRNGKey(np.random.randint(2**31, dtype=np.int32))
   y_hat, new_state = apply(params, key, xs, state)
 
   return y_hat, new_state, apply
@@ -1462,7 +1462,7 @@ def eval_feedforward_network(
     return y_hats
 
   model = hk.transform(forward)
-  key = jax.random.PRNGKey(np.random.randint(2**32))
+  key = jax.random.PRNGKey(np.random.randint(2**31, dtype=np.int32))
   apply = jax.jit(model.apply)
   y_hats = apply(params, key, xs)
 
