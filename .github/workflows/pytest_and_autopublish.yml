@@ -11,6 +11,10 @@ on:
 # Deny all permissions by default; each job opts in to what it needs.
 permissions: {}
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   pytest-job:
     runs-on: ubuntu-latest
@@ -18,20 +22,15 @@ jobs:
     permissions:
       contents: read
 
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
-      cancel-in-progress: true
-
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      with:
+        persist-credentials: false
 
     # Install deps
-    - uses: actions/setup-python@v6
+    - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
       with:
         python-version: "3.11"
-        # Uncomment to cache of pip dependencies (if tests too slow)
-        # cache: pip
-        # cache-dependency-path: '**/pyproject.toml'
 
     - run: pip --version
     - run: pip install -e .[dev]
@@ -53,19 +52,80 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
     timeout-minutes: 30
 
     steps:
-    # Publish the package (if local `__version__` > pip version)
-    #
-    # Select a specific version of the pypi-auto-publish tool using a SHA hash, which is more secure
-    # than a version number. This is because the version number is a mutable pointer that could
-    # be redirected by a malicious actor if pypi-auto-publish were compromised. This is important
-    # for pypi-auto-publish because it is used to publish our code to the public PyPI repository.
-    # If we decide to update to a new version of pypi-auto-publish, we should update both the SHA
-    # hash and the version number. We shouldn't need to do this often.
-    - uses: etils-actions/pypi-auto-publish@d0603b1e896ce8b754fd7df30731623c93546e89  # v1.5.6
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       with:
-        pypi-token: ${{ secrets.PYPI_API_TOKEN }}
-        gh-token: ${{ secrets.GITHUB_TOKEN }}
-        parse-changelog: true
+        persist-credentials: false
+
+    - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+      with:
+        python-version: "3.11"
+
+    - name: Check version and build if new
+      id: check_version
+      run: |
+        python -m pip install --upgrade pip build 'twine==6.*' packaging
+        python -m build
+        LOCAL_VER=$(python -c "import glob, os; whl=glob.glob('dist/*.whl')[0]; print(os.path.basename(whl).split('-')[1])")
+        PYPI_VER=$(python -c "import json, urllib.request; print(json.loads(urllib.request.urlopen('https://pypi.org/pypi/disentangled-rnns/json').read())['info']['version'])")
+        echo "Local: $LOCAL_VER, PyPI: $PYPI_VER"
+        if python -c "from packaging.version import Version; exit(0 if Version('$LOCAL_VER') > Version('$PYPI_VER') else 1)"; then
+          echo "should_publish=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "should_publish=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Authenticate to Google Cloud (OSS Exit Gate)
+      if: steps.check_version.outputs.should_publish == 'true'
+      uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+      with:
+        workload_identity_provider: 'projects/305452601764/locations/global/workloadIdentityPools/builders/providers/github'
+
+    - name: Set up Cloud SDK
+      if: steps.check_version.outputs.should_publish == 'true'
+      uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+
+    - name: Clean up stale releases from staging repo
+      if: steps.check_version.outputs.should_publish == 'true'
+      run: |
+        packages=$(gcloud artifacts packages list \
+            --project="oss-exit-gate-prod" \
+            --location="us" \
+            --repository="disentangled-rnns--pypi" \
+            --format="value(name)")
+
+        echo "${packages}" | xargs -r -n1 sh -c '
+            echo "Deleting package: $(basename "$1")..."
+            gcloud artifacts packages delete "$1" \
+                --project="oss-exit-gate-prod" \
+                --location="us" \
+                --repository="disentangled-rnns--pypi" \
+                --quiet
+        ' _
+
+    - name: Stage to OSS Exit Gate and upload manifest
+      if: steps.check_version.outputs.should_publish == 'true'
+      env:
+        TWINE_USERNAME: oauth2accesstoken
+        RUN_ID: ${{ github.run_id }}
+        RUN_ATTEMPT: ${{ github.run_attempt }}
+      run: |
+        export TWINE_PASSWORD="$(gcloud auth print-access-token)"
+        echo "::add-mask::${TWINE_PASSWORD}"
+        python -m twine upload \
+          --repository-url "https://us-python.pkg.dev/oss-exit-gate-prod/disentangled-rnns--pypi/" \
+          dist/*
+        echo '{"publish_all": true}' > manifest.json
+        gcloud storage cp manifest.json \
+          "gs://oss-exit-gate-prod-projects-bucket/disentangled-rnns/pypi/manifests/manifest-${RUN_ID}-${RUN_ATTEMPT}.json"
+
+    - name: Create GitHub release tag if new version
+      if: steps.check_version.outputs.should_publish == 'true'
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        LOCAL_VER=$(python -c "import glob, os; whl=glob.glob('dist/*.whl')[0]; print(os.path.basename(whl).split('-')[1])")
+        gh release create "v${LOCAL_VER}" dist/* --title "v${LOCAL_VER}" --generate-notes || true
