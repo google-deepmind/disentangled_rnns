@@ -29,6 +29,7 @@ def information_bottleneck(
     sigmas: jnp.ndarray,
     multipliers: jnp.ndarray | None = None,
     noiseless_mode: bool = False,
+    weights: jnp.ndarray | None = None,
 ) -> tuple[jnp.ndarray, jnp.ndarray]:
   r"""Gaussian informatin bottleneck with penalty based on KL divergence.
 
@@ -47,6 +48,8 @@ def information_bottleneck(
     multipliers: The multipliers to apply to the inputs. Shape is
       (batch_size, bottleneck_dims)
     noiseless_mode: If True, no noise is added and no penalty is computed.
+    weights: Optional elementwise weights applied to the KL divergence before
+      summing across bottleneck dimensions. Broadcastable to `sigmas.shape`.
 
   Returns:
     bottleneck_output: The noisy output of the bottleneck. Shape is the same as
@@ -76,7 +79,20 @@ def information_bottleneck(
     # KL divergence KL( N(mu, var) || N(0, 1))
     variances = jnp.square(sigmas)
     # Shape is (batch_size, bottleneck_dims)
-    elementwise_kl = jnp.square(mus) + variances - 1.0 - jnp.log(variances)
+    if weights is not None:
+      # Mask inactive (zero-weight) bottlenecks before log(variances) so that
+      # variances underflowing to 0 cannot produce 0.0 * inf = NaN in forward
+      # or backward passes.
+      active = jnp.asarray(weights) > 0
+      safe_variances = jnp.where(active, variances, 1.0)
+      elementwise_kl = jnp.where(
+          active,
+          (jnp.square(mus) + variances - 1.0 - jnp.log(safe_variances))
+          * weights,
+          0.0,
+      )
+    else:
+      elementwise_kl = jnp.square(mus) + variances - 1.0 - jnp.log(variances)
     # Shape is (batch_size,)
     bottleneck_penalty = 0.5 * jnp.sum(
         elementwise_kl, axis=tuple(range(1, elementwise_kl.ndim))
@@ -142,8 +158,12 @@ class DisRnnConfig:
       to the choice network
     update_net_obs_penalty: Multiplier for bottleneck cost on observation
       inputs to the update network
-    update_net_latent_penalty: Multiplier for latent inputs to the update
-      networks
+    update_net_latent_penalty: Multiplier for between-latent inputs (and
+      self-connection inputs when `update_net_latent_self_penalty` is None) to
+      the update networks
+    update_net_latent_self_penalty: Optional multiplier for self-connection
+      latent inputs (diagonal, i == j) to the update networks. If None, defaults
+      to `update_net_latent_penalty`.
     l2_scale: Multiplier for L2 penalty on hidden layer weights in both update
       and choice networks
     activation: String defining an activation function. Must be in jax.nn.
@@ -170,6 +190,7 @@ class DisRnnConfig:
   latent_penalty: float = 1.0
   update_net_obs_penalty: float = 0.0
   update_net_latent_penalty: float = 0.0
+  update_net_latent_self_penalty: float | None = None
   choice_net_latent_penalty: float = 0.0
 
   l2_scale: float = 0.01
@@ -212,22 +233,27 @@ class DisRnnConfig:
       'latent_penalty',
       'update_net_obs_penalty',
       'update_net_latent_penalty',
+      'update_net_latent_self_penalty',
       'choice_net_latent_penalty',
       'l2_scale',
   })
 
-  def __setattr__(self, name, value):
+  def __setattr__(self, name: str, value: Any):
     valid_fields = {f.name for f in dataclasses.fields(self)}
     if name not in valid_fields:
       raise AttributeError(
           f'{type(self).__name__!r} object has no attribute {name!r}'
       )
-    if name in self.NON_NEGATIVE_FIELDS and value < 0:
-      raise ValueError(
-          f'{name} must be non-negative, got {value}. '
-          f'(Did you write e.g. 1-3 instead of 1e-3?)'
-      )
-    if name == 'max_latent_value' and value <= 0:
+    if name in self.NON_NEGATIVE_FIELDS:
+      if value is None:
+        if name != 'update_net_latent_self_penalty':
+          raise ValueError(f'{name} cannot be None.')
+      elif value < 0:
+        raise ValueError(
+            f'{name} must be non-negative, got {value}. '
+            f'(Did you write e.g. 1-3 instead of 1e-3?)'
+        )
+    elif name == 'max_latent_value' and value <= 0:
       raise ValueError(f'max_latent_value must be positive, got {value}')
     super().__setattr__(name, value)
 
@@ -383,6 +409,11 @@ class HkDisentangledRNN(hk.RNNCore):
     self._latent_penalty = config.latent_penalty
     self._update_net_obs_penalty = config.update_net_obs_penalty
     self._update_net_latent_penalty = config.update_net_latent_penalty
+    self._update_net_latent_self_penalty = (
+        config.update_net_latent_penalty
+        if config.update_net_latent_self_penalty is None
+        else config.update_net_latent_self_penalty
+    )
     self._choice_net_latent_penalty = config.choice_net_latent_penalty
     self._activation = getattr(jax.nn, config.activation)
     self._max_latent_value = config.max_latent_value
@@ -530,6 +561,39 @@ class HkDisentangledRNN(hk.RNNCore):
 
     return predicted_targets, penalty_increment
 
+  def _apply_update_net_latent_bottleneck(
+      self, prev_latents: jnp.ndarray
+  ) -> tuple[jnp.ndarray, jnp.ndarray]:
+    """Applies the update-network latent bottlenecks and computes their penalty.
+
+    Self-connections (diagonal, i == j) are weighted by
+    `self._update_net_latent_self_penalty` and between-latent connections
+    (off-diagonal, i != j) are weighted by `self._update_net_latent_penalty`.
+
+    Args:
+      prev_latents: Previous latent values, shape (batch_size, latent_size).
+
+    Returns:
+      prev_latents_for_update_net: Bottlenecked latents for each update net,
+        shape (batch_size, latent_size, latent_size).
+      penalty: Weighted KL penalty per batch element, shape (batch_size,).
+    """
+    prev_latents_for_update_net = jnp.tile(
+        jnp.expand_dims(prev_latents, 2), (1, 1, self._latent_size)
+    )
+    eye = jnp.eye(self._latent_size)
+    penalty_weights = (
+        eye * self._update_net_latent_self_penalty
+        + (1.0 - eye) * self._update_net_latent_penalty
+    )
+    return information_bottleneck(
+        inputs=prev_latents_for_update_net,
+        sigmas=self._update_net_latent_sigmas,
+        multipliers=self._update_net_latent_multipliers,
+        noiseless_mode=self._noiseless_mode,
+        weights=penalty_weights,
+    )
+
   def __call__(self, observations: jnp.ndarray, prev_latents: jnp.ndarray):
     # Initial penalty values. Shape is (batch_size,)
     batch_size = prev_latents.shape[0]
@@ -552,16 +616,10 @@ class HkDisentangledRNN(hk.RNNCore):
     # Prepare previous latents for update nets
     # Expand to have a separate copy per update network:
     # (batch_size, latent_size, latent_size)
-    prev_latents_for_update_net = jnp.tile(
-        jnp.expand_dims(prev_latents, 2), (1, 1, self._latent_size)
+    prev_latents_for_update_net, latent_update_penalty = (
+        self._apply_update_net_latent_bottleneck(prev_latents)
     )
-    prev_latents_for_update_net, latent_update_kl = information_bottleneck(
-        inputs=prev_latents_for_update_net,
-        sigmas=self._update_net_latent_sigmas,
-        multipliers=self._update_net_latent_multipliers,
-        noiseless_mode=self._noiseless_mode,
-    )
-    penalty += self._update_net_latent_penalty * latent_update_kl
+    penalty += latent_update_penalty
 
     # Concatenate processed inputs for the update networks
     # Shape: (batch_size, obs_size + latent_size, latent_size)

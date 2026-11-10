@@ -196,16 +196,10 @@ class MultisubjectDisRnn(disrnn.HkDisentangledRNN):
     penalty += self._update_net_obs_penalty * kl_cost
     # Latents for update net input
     # (batch_size, latent_size, latent_size)
-    prev_latents_for_update_net = jnp.tile(
-        jnp.expand_dims(prev_latents, 2), (1, 1, self._latent_size)
+    prev_latents_for_update_net, latent_update_penalty = (
+        self._apply_update_net_latent_bottleneck(prev_latents)
     )
-    prev_latents_for_update_net, kl_cost = disrnn.information_bottleneck(
-        inputs=prev_latents_for_update_net,
-        sigmas=self._update_net_latent_sigmas,
-        multipliers=self._update_net_latent_multipliers,
-        noiseless_mode=self._noiseless_mode,
-    )
-    penalty += self._update_net_latent_penalty * kl_cost
+    penalty += latent_update_penalty
     # Concatenate all inputs for the update networks
     # Shape: (batch_size, subj_emb_size + obs_size + latent_size, latent_size)
     update_net_inputs = jnp.concatenate(

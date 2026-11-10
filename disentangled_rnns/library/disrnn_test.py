@@ -15,12 +15,16 @@
 """Tests for disRNN bottleneck structure, training, and plotting."""
 
 import copy
+import dataclasses
 
 from absl.testing import absltest
 from disentangled_rnns.library import disrnn
 from disentangled_rnns.library import get_datasets
 from disentangled_rnns.library import plotting
 from disentangled_rnns.library import rnn_utils
+import haiku as hk
+import jax
+import jax.numpy as jnp
 import numpy as np
 
 
@@ -199,9 +203,99 @@ class DisrnnTest(absltest.TestCase):
     with self.assertRaises(ValueError):
       config.latent_penalty = -0.1
     with self.assertRaises(ValueError):
+      setattr(config, 'latent_penalty', None)
+    with self.assertRaises(ValueError):
+      config.update_net_latent_self_penalty = -0.1
+    config.update_net_latent_self_penalty = None
+    self.assertIsNone(config.update_net_latent_self_penalty)
+    with self.assertRaises(ValueError):
       config.max_latent_value = 0.0
     with self.assertRaises(ValueError):
       disrnn.DisRnnConfig(max_latent_value=-1.0)
+
+  def test_separate_self_and_between_latent_penalties(self):
+    """Verify separate self (diagonal) and between-latent (off-diag) penalties."""
+    xs = self.q_dataset.get_all()['xs']
+    base_cfg = dataclasses.replace(
+        self.disrnn_config,
+        latent_penalty=0.0,
+        update_net_obs_penalty=0.0,
+        choice_net_latent_penalty=0.0,
+        l2_scale=0.0,
+        update_net_latent_penalty=1.0,
+        update_net_latent_self_penalty=None,
+    )
+    explicit_equal_cfg = dataclasses.replace(
+        base_cfg,
+        update_net_latent_penalty=1.0,
+        update_net_latent_self_penalty=1.0,
+    )
+    self_only_cfg = dataclasses.replace(
+        base_cfg,
+        update_net_latent_penalty=0.0,
+        update_net_latent_self_penalty=1.0,
+    )
+    between_only_cfg = dataclasses.replace(
+        base_cfg,
+        update_net_latent_penalty=1.0,
+        update_net_latent_self_penalty=0.0,
+    )
+    weighted_cfg = dataclasses.replace(
+        base_cfg,
+        update_net_latent_penalty=3.0,
+        update_net_latent_self_penalty=0.5,
+    )
+
+    key = jax.random.PRNGKey(0)
+    xs_step = xs[0, :2]
+
+    def _get_penalty(cfg):
+      def step(x):
+        core = disrnn.HkDisentangledRNN(cfg)
+        outputs, _ = core(x, core.initial_state(x.shape[0]))
+        return jnp.sum(outputs[:, -1])
+
+      return float(
+          hk.transform(step).apply(self.disrnn_params, key, xs_step)
+      )
+
+    pen_default = _get_penalty(base_cfg)
+    pen_equal = _get_penalty(explicit_equal_cfg)
+    pen_self = _get_penalty(self_only_cfg)
+    pen_between = _get_penalty(between_only_cfg)
+    pen_weighted = _get_penalty(weighted_cfg)
+
+    self.assertGreater(pen_self, 0.0)
+    self.assertGreater(pen_between, 0.0)
+    np.testing.assert_allclose(pen_default, pen_equal, rtol=1e-5)
+    np.testing.assert_allclose(pen_equal, pen_self + pen_between, rtol=1e-5)
+    np.testing.assert_allclose(
+        pen_weighted, 0.5 * pen_self + 3.0 * pen_between, rtol=1e-5
+    )
+
+  def test_zero_weight_underflowing_sigma_is_finite(self):
+    """Zero-weighted bottlenecks must not produce NaN if sigma^2 underflows."""
+
+    def loss_fn(sigmas, weights):
+      _, penalty = disrnn.information_bottleneck(
+          inputs=jnp.ones((2, 3, 3)),
+          sigmas=sigmas,
+          weights=weights,
+      )
+      return jnp.sum(penalty)
+
+    # Diagonal sigmas square to 0.0 in float32; diagonal weight is 0.0.
+    sigmas = jnp.where(jnp.eye(3, dtype=bool), 1e-25, 0.5)
+    weights = 1.0 - jnp.eye(3)
+
+    transformed = hk.transform(loss_fn)
+    rng = jax.random.PRNGKey(0)
+    params = transformed.init(rng, sigmas, weights)
+    val, grad = jax.value_and_grad(
+        lambda s: transformed.apply(params, rng, s, weights)
+    )(sigmas)
+    self.assertTrue(np.isfinite(float(val)))
+    self.assertTrue(np.all(np.isfinite(np.asarray(grad))))
 
   def test_inverse_reparameterize_sigma_round_trip(self):
     """inverse_reparameterize_sigma undoes reparameterize_sigma."""
