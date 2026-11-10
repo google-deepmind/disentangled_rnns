@@ -86,43 +86,38 @@ def information_bottleneck(
 
 
 def reparameterize_sigma(
-    hk_param: jnp.ndarray, min_sigma: float = 1e-5
+    hk_param: jnp.ndarray,
 ) -> jnp.ndarray:
   """Reparamaterizes bottleneck sigma for easy fitting.
 
   Args:
     hk_param: The haiku parameter corresponding to a bottleneck sigma. Range
       from -inf to +inf
-    min_sigma: The minimum value of the standard deviation.
   Returns:
-    sigma: The bottleneck standard deviation. Range from min_sigma to inf.
+    sigma: The bottleneck standard deviation. Range from 0 (exclusive) to inf.
   """
-  return jnp.abs(hk_param) + min_sigma
+  return jnp.exp(hk_param)
 
 
-def inverse_reparameterize_sigma(
-    sigma: jax.typing.ArrayLike, min_sigma: float = 1e-5
-) -> jnp.ndarray:
+def inverse_reparameterize_sigma(sigma: jax.typing.ArrayLike) -> jnp.ndarray:
   """Inverse of `reparameterize_sigma`: the haiku parameter for a given sigma.
 
   Use this to build params with specific bottleneck sigmas (e.g. in tests)
   without depending on how sigmas are parameterized.
 
   Args:
-    sigma: The bottleneck standard deviation. Must be at least min_sigma.
-    min_sigma: The minimum value of the standard deviation. Must match the value
-      passed to `reparameterize_sigma`.
+    sigma: The bottleneck standard deviation. Must be positive.
 
   Returns:
     hk_param: A haiku parameter that `reparameterize_sigma` maps to sigma.
 
   Raises:
-    ValueError: If any sigma is below min_sigma.
+    ValueError: If any sigma is not positive.
   """
   sigma = jnp.asarray(sigma)
-  if jnp.any(sigma < min_sigma):
-    raise ValueError(f'sigma must be at least min_sigma={min_sigma}.')
-  return sigma - min_sigma
+  if jnp.any(sigma <= 0):
+    raise ValueError('sigma must be positive.')
+  return jnp.log(sigma)
 
 
 @dataclasses.dataclass
@@ -337,7 +332,7 @@ class ResMLP(hk.Module):
           + self._hidden_layer_biases[hidden_layer_i]
       )
       layer_output = self.activation_fn(layer_activations)
-      stream += layer_output
+      stream = stream + layer_output / jnp.sqrt(self.n_layers)
     # Linear projection to the appropriate output size
     output = jnp.dot(stream, self._output_weights) + self._output_biases
 
@@ -350,10 +345,11 @@ def get_initial_bottleneck_params(
 ) -> tuple[jnp.ndarray, jnp.ndarray]:
   """Defines a bottleneck with a sigma and a multiplier."""
   # At init the bottlenecks should all be open: sigmas small and multipliers 1
+  # Params are log-sigmas, so U(-5, -3) gives sigmas in ~[0.007, 0.05].
   sigma_params = hk.get_parameter(
-      name + '_sigma_params',
+      name + '_log_sigmas',
       shape,
-      init=hk.initializers.RandomUniform(minval=0.0, maxval=0.05),
+      init=hk.initializers.RandomUniform(minval=-5.0, maxval=-3.0),
   )
   sigmas = reparameterize_sigma(sigma_params)
   multipliers = hk.get_parameter(
@@ -616,21 +612,21 @@ def log_bottlenecks(
   params_disrnn = params['hk_disentangled_rnn']
 
   latent_sigmas = np.array(
-      reparameterize_sigma(params_disrnn['latent_sigma_params'])
+      reparameterize_sigma(params_disrnn['latent_log_sigmas'])
   )
   update_obs_sigmas = np.array(
       reparameterize_sigma(
-          np.transpose(params_disrnn['update_net_obs_sigma_params'])
+          np.transpose(params_disrnn['update_net_obs_log_sigmas'])
       )
   )
   update_latent_sigmas = np.array(
       reparameterize_sigma(
-          np.transpose(params_disrnn['update_net_latent_sigma_params'])
+          np.transpose(params_disrnn['update_net_latent_log_sigmas'])
       )
   )
   choice_sigmas = np.array(
       reparameterize_sigma(
-          np.transpose(params_disrnn['choice_net_sigma_params'])
+          np.transpose(params_disrnn['choice_net_log_sigmas'])
       )
   )
 
@@ -684,16 +680,16 @@ def get_total_sigma(params):
   params_disrnn = params['hk_disentangled_rnn']
 
   latent_bottlenecks = reparameterize_sigma(
-      params_disrnn['latent_sigma_params']
+      params_disrnn['latent_log_sigmas']
   )
   update_obs_bottlenecks = reparameterize_sigma(
-      params_disrnn['update_net_obs_sigma_params']
+      params_disrnn['update_net_obs_log_sigmas']
   )
   update_latent_bottlenecks = reparameterize_sigma(
-      params_disrnn['update_net_latent_sigma_params']
+      params_disrnn['update_net_latent_log_sigmas']
   )
   choice_bottlenecks = reparameterize_sigma(
-      params_disrnn['choice_net_sigma_params']
+      params_disrnn['choice_net_log_sigmas']
   )
 
   return float(

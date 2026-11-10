@@ -71,7 +71,7 @@ class NeuroDisrnnTest(absltest.TestCase):
 
     # Check neural_activity specific params
     self.assertIn('neural_activity_net_multipliers', params)
-    self.assertIn('neural_activity_net_sigma_params', params)
+    self.assertIn('neural_activity_net_log_sigmas', params)
 
     # Check shapes based on config
     latent_size = neuro_disrnn_config.latent_size
@@ -80,7 +80,7 @@ class NeuroDisrnnTest(absltest.TestCase):
     )
 
     self.assertEqual(
-        params['neural_activity_net_sigma_params'].shape, (latent_size + 2,)
+        params['neural_activity_net_log_sigmas'].shape, (latent_size + 2,)
     )  # +2 for choice and reward
     self.assertEqual(
         neural_activity_net_params['input_weights'].shape,

@@ -41,16 +41,16 @@ class BottleneckGraphTest(parameterized.TestCase):
     # obs1 -> latent1; latent1 -> latent2; latent2 -> output
     params1 = {
         'hk_disentangled_rnn': {
-            'latent_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'latent_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([0.01, 0.01, 0.9])
             ),
-            'update_net_obs_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'update_net_obs_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([
                     [0.01, 0.9, 0.9],  # obs1 to latent0
                     [0.9, 0.9, 0.9],  # obs2 to nowhere
                 ])
             ),
-            'update_net_latent_sigma_params': (
+            'update_net_latent_log_sigmas': (
                 disrnn.inverse_reparameterize_sigma(
                     np.array([
                         [0.9, 0.01, 0.9],  # latent0 to latent1
@@ -60,7 +60,7 @@ class BottleneckGraphTest(parameterized.TestCase):
                 )
             ),
             # latent1 to output
-            'choice_net_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'choice_net_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([0.9, 0.01, 0.9])
             ),
         }
@@ -70,16 +70,16 @@ class BottleneckGraphTest(parameterized.TestCase):
     # Isomorphic to the above, with latent1 <-> latent3 and latent2 <-> latent1
     params2 = {
         'hk_disentangled_rnn': {
-            'latent_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'latent_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([0.01, 0.9, 0.01])
             ),
-            'update_net_obs_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'update_net_obs_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([
                     [0.9, 0.9, 0.01],  # obs1 to latent2
                     [0.9, 0.9, 0.9],  # obs2 to nowhere
                 ])
             ),
-            'update_net_latent_sigma_params': (
+            'update_net_latent_log_sigmas': (
                 disrnn.inverse_reparameterize_sigma(
                     np.array([
                         [0.9, 0.9, 0.9],  # latent1 to nowhere
@@ -89,7 +89,7 @@ class BottleneckGraphTest(parameterized.TestCase):
                 )
             ),
             # latent0 to output
-            'choice_net_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'choice_net_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([0.01, 0.9, 0.9])
             ),
         }
@@ -112,16 +112,16 @@ class BottleneckGraphTest(parameterized.TestCase):
     # params1: obs1 -> latent1 -> Output
     params1 = {
         'hk_disentangled_rnn': {
-            'latent_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'latent_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([0.01, 0.9])
             ),
-            'update_net_obs_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'update_net_obs_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([
                     [0.01, 0.9],  # obs1 to latent 0
                     [0.9, 0.9],  # obs2 to nowhere
                 ])
             ),
-            'update_net_latent_sigma_params': (
+            'update_net_latent_log_sigmas': (
                 disrnn.inverse_reparameterize_sigma(
                     np.array([
                         [0.9, 0.9],  # latent 0 to nowhere
@@ -130,7 +130,7 @@ class BottleneckGraphTest(parameterized.TestCase):
                 )
             ),
             # latent 0 to output
-            'choice_net_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'choice_net_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([0.01, 0.9])
             ),
         }
@@ -139,16 +139,16 @@ class BottleneckGraphTest(parameterized.TestCase):
     # params2: obs2 -> latent1 -> Output
     params2 = {
         'hk_disentangled_rnn': {
-            'latent_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'latent_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([0.01, 0.9])
             ),
-            'update_net_obs_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'update_net_obs_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([
                     [0.9, 0.9],  # obs1 to nowhere
                     [0.01, 0.9],  # obs2 to latent 0
                 ])
             ),
-            'update_net_latent_sigma_params': (
+            'update_net_latent_log_sigmas': (
                 disrnn.inverse_reparameterize_sigma(
                     np.array([
                         [0.9, 0.9],  # latent 0 to nowhere
@@ -157,7 +157,7 @@ class BottleneckGraphTest(parameterized.TestCase):
                 )
             ),
             # latent 0 to output
-            'choice_net_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'choice_net_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([0.01, 0.9])
             ),
         }
@@ -180,16 +180,16 @@ class BottleneckGraphTest(parameterized.TestCase):
     # latent 0 connected to the output via choice bottleneck.
     params = {
         'hk_disentangled_rnn': {
-            'latent_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'latent_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([0.01, 0.9])
             ),
-            'update_net_obs_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'update_net_obs_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([
                     [0.01, 0.9],  # obs1 -> latent 0
                     [0.9, 0.9],  # obs2 -> nowhere
                 ])
             ),
-            'update_net_latent_sigma_params': (
+            'update_net_latent_log_sigmas': (
                 disrnn.inverse_reparameterize_sigma(
                     np.array([
                         [0.9, 0.9],
@@ -197,7 +197,7 @@ class BottleneckGraphTest(parameterized.TestCase):
                     ])
                 )
             ),
-            'choice_net_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'choice_net_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([0.01, 0.9])
             ),
         }
@@ -208,7 +208,7 @@ class BottleneckGraphTest(parameterized.TestCase):
     # latent 0 should connect to the single output node.
     self.assertIn(('Latent 1', 'Output'), g.edges())
     # latent 0 is open so it must have a self-connection even though
-    # update_net_latent_sigma_params[0, 0] is closed (0.9).
+    # update_net_latent_log_sigmas[0, 0] is closed (0.9).
     self.assertIn(('Latent 1', 'Latent 1'), g.edges())
     self.assertNotIn(('Latent 2', 'Latent 2'), g.edges())
     # The output node is named 'Output' regardless of y_names.
@@ -230,16 +230,16 @@ class BottleneckGraphTest(parameterized.TestCase):
     # Both params have latent0 -> output via choice bottleneck.
     params1 = {
         'hk_disentangled_rnn': {
-            'latent_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'latent_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([0.01, 0.9])
             ),
-            'update_net_obs_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'update_net_obs_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([
                     [0.01, 0.9],
                     [0.9, 0.9],
                 ])
             ),
-            'update_net_latent_sigma_params': (
+            'update_net_latent_log_sigmas': (
                 disrnn.inverse_reparameterize_sigma(
                     np.array([
                         [0.9, 0.9],
@@ -247,7 +247,7 @@ class BottleneckGraphTest(parameterized.TestCase):
                     ])
                 )
             ),
-            'choice_net_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'choice_net_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([0.01, 0.9])
             ),
         }
@@ -256,16 +256,16 @@ class BottleneckGraphTest(parameterized.TestCase):
     # Isomorphic: latent1 -> output (latent swap).
     params2 = {
         'hk_disentangled_rnn': {
-            'latent_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'latent_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([0.9, 0.01])
             ),
-            'update_net_obs_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'update_net_obs_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([
                     [0.9, 0.01],
                     [0.9, 0.9],
                 ])
             ),
-            'update_net_latent_sigma_params': (
+            'update_net_latent_log_sigmas': (
                 disrnn.inverse_reparameterize_sigma(
                     np.array([
                         [0.9, 0.9],
@@ -273,7 +273,7 @@ class BottleneckGraphTest(parameterized.TestCase):
                     ])
                 )
             ),
-            'choice_net_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'choice_net_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([0.9, 0.01])
             ),
         }
@@ -298,23 +298,23 @@ class BottleneckGraphTest(parameterized.TestCase):
     params = {
         'hk_disentangled_rnn': {
             # These will determine ordering: 1, 0, 2
-            'latent_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'latent_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([0.3, 0.01, 0.9])
             ),
             # These determine connections. 0.01 means open, 1.0 means closed.
             # obs0 -> latent0, obs1 -> latent1
-            'update_net_obs_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'update_net_obs_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([
                     [0.01, 1.0, 1.0],  # obs0 -> latent 0
                     [1.0, 0.01, 1.0],  # obs1 -> latent 1
                 ])
             ),
             # No self-connections or connections between latents.
-            'update_net_latent_sigma_params': (
+            'update_net_latent_log_sigmas': (
                 disrnn.inverse_reparameterize_sigma(np.full((3, 3), 0.9))
             ),
             # latent0 -> output
-            'choice_net_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'choice_net_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([0.01, 0.9, 0.9])
             ),
         }
@@ -345,19 +345,19 @@ class BottleneckGraphTest(parameterized.TestCase):
     )
     params = {
         'hk_disentangled_rnn': {
-            'latent_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'latent_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([0.9, 0.01])
             ),
-            'update_net_obs_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'update_net_obs_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([
                     [0.9, 0.9],
                     [0.9, 0.01],
                 ])
             ),
-            'update_net_latent_sigma_params': (
+            'update_net_latent_log_sigmas': (
                 disrnn.inverse_reparameterize_sigma(np.full((2, 2), 0.9))
             ),
-            'choice_net_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'choice_net_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([0.9, 0.01])
             ),
         }
@@ -385,16 +385,16 @@ class BottleneckGraphTest(parameterized.TestCase):
     # latent 0 is open, latent 1 is closed. Every other bottleneck is open.
     params = {
         'hk_disentangled_rnn': {
-            'latent_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'latent_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([0.01, 0.9])
             ),
-            'update_net_obs_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'update_net_obs_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.full((2, 2), 0.01)
             ),
-            'update_net_latent_sigma_params': (
+            'update_net_latent_log_sigmas': (
                 disrnn.inverse_reparameterize_sigma(np.full((2, 2), 0.01))
             ),
-            'choice_net_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'choice_net_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([0.01, 0.01])
             ),
         }
@@ -472,16 +472,16 @@ class BottleneckGraphTest(parameterized.TestCase):
     config.x_names = x_names
     params = {
         'hk_disentangled_rnn': {
-            'latent_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'latent_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.full(2, 0.01)
             ),
-            'update_net_obs_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'update_net_obs_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.full((2, 2), 0.01)
             ),
-            'update_net_latent_sigma_params': (
+            'update_net_latent_log_sigmas': (
                 disrnn.inverse_reparameterize_sigma(np.full((2, 2), 0.01))
             ),
-            'choice_net_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'choice_net_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.full(2, 0.01)
             ),
         }
@@ -551,16 +551,16 @@ class BottleneckGraphTest(parameterized.TestCase):
     )
     params = {
         'hk_disentangled_rnn': {
-            'latent_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'latent_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([0.01, 0.9])
             ),
-            'update_net_obs_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'update_net_obs_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.full((2, 2), 0.01)
             ),
-            'update_net_latent_sigma_params': (
+            'update_net_latent_log_sigmas': (
                 disrnn.inverse_reparameterize_sigma(np.full((2, 2), 0.9))
             ),
-            'choice_net_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'choice_net_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([0.01, 0.9])
             ),
         }
@@ -595,19 +595,19 @@ class BottleneckGraphTest(parameterized.TestCase):
     # obs1 -> latent 0 -> Output; obs2 is closed.
     params = {
         'hk_disentangled_rnn': {
-            'latent_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'latent_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([0.01, 0.9])
             ),
-            'update_net_obs_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'update_net_obs_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([
                     [0.01, 0.9],  # obs1 -> latent 0
                     [0.9, 0.9],  # obs2 -> nowhere
                 ])
             ),
-            'update_net_latent_sigma_params': (
+            'update_net_latent_log_sigmas': (
                 disrnn.inverse_reparameterize_sigma(np.full((2, 2), 0.9))
             ),
-            'choice_net_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'choice_net_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([0.01, 0.9])
             ),
         }
@@ -659,19 +659,19 @@ class BottleneckGraphTest(parameterized.TestCase):
     # obs1 -> latent 0 -> Output, and the second input -> latent 0.
     params_second_input_open = {
         'hk_disentangled_rnn': {
-            'latent_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'latent_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([0.01, 0.9])
             ),
-            'update_net_obs_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'update_net_obs_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([
                     [0.01, 0.9],  # obs1 -> latent 0
                     [0.01, 0.9],  # second input -> latent 0
                 ])
             ),
-            'update_net_latent_sigma_params': (
+            'update_net_latent_log_sigmas': (
                 disrnn.inverse_reparameterize_sigma(np.full((2, 2), 0.9))
             ),
-            'choice_net_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'choice_net_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([0.01, 0.9])
             ),
         }
@@ -679,19 +679,19 @@ class BottleneckGraphTest(parameterized.TestCase):
     # obs1 -> latent 0 -> Output; the second input is closed.
     params_second_input_closed = {
         'hk_disentangled_rnn': {
-            'latent_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'latent_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([0.01, 0.9])
             ),
-            'update_net_obs_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'update_net_obs_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([
                     [0.01, 0.9],  # obs1 -> latent 0
                     [0.9, 0.9],  # second input -> nowhere
                 ])
             ),
-            'update_net_latent_sigma_params': (
+            'update_net_latent_log_sigmas': (
                 disrnn.inverse_reparameterize_sigma(np.full((2, 2), 0.9))
             ),
-            'choice_net_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'choice_net_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([0.01, 0.9])
             ),
         }

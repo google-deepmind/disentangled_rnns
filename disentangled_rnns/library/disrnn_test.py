@@ -71,13 +71,13 @@ class DisrnnTest(absltest.TestCase):
         'hk_disentangled_rnn/~predict_targets/choice_net'
     ]
 
-    self.assertIn('update_net_obs_sigma_params', params)
+    self.assertIn('update_net_obs_log_sigmas', params)
     self.assertIn('update_net_obs_multipliers', params)
-    self.assertIn('update_net_latent_sigma_params', params)
+    self.assertIn('update_net_latent_log_sigmas', params)
     self.assertIn('update_net_latent_multipliers', params)
 
-    self.assertIn('latent_sigma_params', params)
-    self.assertIn('choice_net_sigma_params', params)
+    self.assertIn('latent_log_sigmas', params)
+    self.assertIn('choice_net_log_sigmas', params)
     self.assertIn('choice_net_multipliers', params)
     self.assertIn('latent_inits', params)
 
@@ -87,13 +87,13 @@ class DisrnnTest(absltest.TestCase):
     net_input_size = latent_size + obs_size
 
     self.assertEqual(
-        params['update_net_obs_sigma_params'].shape, (obs_size, latent_size)
+        params['update_net_obs_log_sigmas'].shape, (obs_size, latent_size)
     )
     self.assertEqual(
         params['update_net_obs_multipliers'].shape, (obs_size, latent_size)
     )
     self.assertEqual(
-        params['update_net_latent_sigma_params'].shape,
+        params['update_net_latent_log_sigmas'].shape,
         (latent_size, latent_size),
     )
     self.assertEqual(
@@ -101,8 +101,8 @@ class DisrnnTest(absltest.TestCase):
         (latent_size, latent_size),
     )
 
-    self.assertEqual(params['latent_sigma_params'].shape, (latent_size,))
-    self.assertEqual(params['choice_net_sigma_params'].shape, (latent_size,))
+    self.assertEqual(params['latent_log_sigmas'].shape, (latent_size,))
+    self.assertEqual(params['choice_net_log_sigmas'].shape, (latent_size,))
     self.assertEqual(params['choice_net_multipliers'].shape, (latent_size,))
     self.assertEqual(params['latent_inits'].shape, (latent_size,))
     self.assertEqual(
@@ -139,11 +139,11 @@ class DisrnnTest(absltest.TestCase):
   def test_compute_update_rules_all_trials_title(self):
     """Verify observation-insensitive latents use the 'All Trials' key."""
     params_closed_obs = copy.deepcopy(self.disrnn_params)
-    obs_sigma_params = params_closed_obs['hk_disentangled_rnn'][
-        'update_net_obs_sigma_params'
+    obs_log_sigmas = params_closed_obs['hk_disentangled_rnn'][
+        'update_net_obs_log_sigmas'
     ]
-    params_closed_obs['hk_disentangled_rnn']['update_net_obs_sigma_params'] = (
-        disrnn.inverse_reparameterize_sigma(np.full_like(obs_sigma_params, 1.0))
+    params_closed_obs['hk_disentangled_rnn']['update_net_obs_log_sigmas'] = (
+        disrnn.inverse_reparameterize_sigma(np.full_like(obs_log_sigmas, 1.0))
     )
     update_dict = plotting.compute_update_rules(
         params_closed_obs, self.disrnn_config
@@ -214,9 +214,9 @@ class DisrnnTest(absltest.TestCase):
         rtol=1e-6,
     )
 
-  def test_inverse_reparameterize_sigma_below_min_raises(self):
+  def test_inverse_reparameterize_sigma_nonpositive_raises(self):
     with self.assertRaises(ValueError):
-      disrnn.inverse_reparameterize_sigma(np.array([0.5, 1e-6]))
+      disrnn.inverse_reparameterize_sigma(np.array([0.5, 0.0]))
 
   def test_choice_net_zero_layers(self):
     """Test DisRnnConfig with choice_net_n_layers=0."""

@@ -52,16 +52,16 @@ def threshold_bottlenecks(
     and 0s indicating closed bottlenecks.
   """
   latent_bottlenecks = disrnn.reparameterize_sigma(
-      params['hk_disentangled_rnn']['latent_sigma_params']
+      params['hk_disentangled_rnn']['latent_log_sigmas']
   )
   update_obs_bottlenecks = disrnn.reparameterize_sigma(
-      params['hk_disentangled_rnn']['update_net_obs_sigma_params']
+      params['hk_disentangled_rnn']['update_net_obs_log_sigmas']
   )
   update_latent_bottlenecks = disrnn.reparameterize_sigma(
-      params['hk_disentangled_rnn']['update_net_latent_sigma_params']
+      params['hk_disentangled_rnn']['update_net_latent_log_sigmas']
   )
   choice_bottlenecks = disrnn.reparameterize_sigma(
-      params['hk_disentangled_rnn']['choice_net_sigma_params']
+      params['hk_disentangled_rnn']['choice_net_log_sigmas']
   )
 
   latent_bottlenecks_open = np.where(latent_bottlenecks < open_threshold, 1, 0)
@@ -155,7 +155,7 @@ def get_bottleneck_graph(
   if sort_latents:
     latent_sigmas = np.array(
         disrnn.reparameterize_sigma(
-            params['hk_disentangled_rnn']['latent_sigma_params']
+            params['hk_disentangled_rnn']['latent_log_sigmas']
         )
     )
     latent_rank = np.empty(n_latents, dtype=int)

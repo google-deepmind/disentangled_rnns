@@ -316,16 +316,16 @@ class BanditReferenceGraphsTest(parameterized.TestCase):
     )
     params = {
         'hk_disentangled_rnn': {
-            'latent_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'latent_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([0.01, 0.01, 0.9])
             ),
-            'update_net_obs_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'update_net_obs_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([
                     [0.01, 0.01, 0.9],
                     [0.01, 0.01, 0.9],
                 ])
             ),
-            'update_net_latent_sigma_params': (
+            'update_net_latent_log_sigmas': (
                 disrnn.inverse_reparameterize_sigma(
                     np.array([
                         [0.9, 0.9, 0.9],
@@ -334,7 +334,7 @@ class BanditReferenceGraphsTest(parameterized.TestCase):
                     ])
                 )
             ),
-            'choice_net_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'choice_net_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([0.01, 0.01, 0.9])
             ),
         }
@@ -351,16 +351,16 @@ class BanditReferenceGraphsTest(parameterized.TestCase):
     )
     params = {
         'hk_disentangled_rnn': {
-            'latent_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'latent_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([0.01, 0.9])
             ),
-            'update_net_obs_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'update_net_obs_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([
                     [0.01, 0.9],  # prev choice -> L0
                     [0.01, 0.9],  # prev reward -> L0
                 ])
             ),
-            'update_net_latent_sigma_params': (
+            'update_net_latent_log_sigmas': (
                 disrnn.inverse_reparameterize_sigma(
                     np.array([
                         [0.01, 0.9],  # L0 -> L0
@@ -368,7 +368,7 @@ class BanditReferenceGraphsTest(parameterized.TestCase):
                     ])
                 )
             ),
-            'choice_net_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'choice_net_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([0.01, 0.9])
             ),
         }
@@ -389,16 +389,16 @@ class BanditReferenceGraphsTest(parameterized.TestCase):
     # L0 = actor, L1 = critic, L2 = unused
     params = {
         'hk_disentangled_rnn': {
-            'latent_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'latent_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([0.01, 0.01, 0.9])
             ),
-            'update_net_obs_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'update_net_obs_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([
                     [0.01, 0.9, 0.9],  # obs 0 -> L0
                     [0.01, 0.01, 0.9],  # obs 1 -> L0, L1
                 ])
             ),
-            'update_net_latent_sigma_params': (
+            'update_net_latent_log_sigmas': (
                 disrnn.inverse_reparameterize_sigma(
                     np.array([
                         [0.9, 0.9, 0.9],  # L0 self-bottleneck closed
@@ -411,7 +411,7 @@ class BanditReferenceGraphsTest(parameterized.TestCase):
                     ])
                 )
             ),
-            'choice_net_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'choice_net_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([0.01, 0.9, 0.9])
             ),
         }
@@ -480,13 +480,13 @@ class BanditReferenceGraphsTest(parameterized.TestCase):
     # L0 = policy, L1 = value
     params = {
         'hk_disentangled_rnn': {
-            'latent_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'latent_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([0.01, 0.01])
             ),
-            'update_net_obs_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'update_net_obs_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array(update_net_obs_sigmas)
             ),
-            'update_net_latent_sigma_params': (
+            'update_net_latent_log_sigmas': (
                 disrnn.inverse_reparameterize_sigma(
                     np.array([
                         [0.9, 0.9],  # L0 -> nowhere else
@@ -494,7 +494,7 @@ class BanditReferenceGraphsTest(parameterized.TestCase):
                     ])
                 )
             ),
-            'choice_net_sigma_params': disrnn.inverse_reparameterize_sigma(
+            'choice_net_log_sigmas': disrnn.inverse_reparameterize_sigma(
                 np.array([0.01, 0.9])
             ),
         }
