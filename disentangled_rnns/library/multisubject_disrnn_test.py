@@ -21,6 +21,10 @@ from disentangled_rnns.library import get_datasets
 from disentangled_rnns.library import multisubject_disrnn
 from disentangled_rnns.library import plotting
 from disentangled_rnns.library import rnn_utils
+import haiku as hk
+import jax
+import jax.numpy as jnp
+import numpy as np
 
 
 class MultisubjectDisrnnTest(absltest.TestCase):
@@ -262,6 +266,64 @@ class MultisubjectDisrnnTest(absltest.TestCase):
     self.assertIn('choice_bottlenecks_open', metrics)
     self.assertIn('update_bottlenecks_open', metrics)
     self.assertGreaterEqual(metrics['total_sigma'], 0)
+
+  def test_separate_self_and_between_latent_penalties(self):
+    """Verify separate self and between-latent penalties in MultisubjectDisRnn."""
+    xs = self.multisubject_dataset.get_all()['xs']
+    base_cfg = dataclasses.replace(
+        self.multisubject_disrnn_config,
+        latent_penalty=0.0,
+        update_net_obs_penalty=0.0,
+        choice_net_latent_penalty=0.0,
+        subj_penalty=0.0,
+        update_net_subj_penalty=0.0,
+        choice_net_subj_penalty=0.0,
+        l2_scale=0.0,
+        update_net_latent_penalty=1.0,
+        update_net_latent_self_penalty=None,
+    )
+    self_only_cfg = dataclasses.replace(
+        base_cfg,
+        update_net_latent_penalty=0.0,
+        update_net_latent_self_penalty=1.0,
+    )
+    between_only_cfg = dataclasses.replace(
+        base_cfg,
+        update_net_latent_penalty=1.0,
+        update_net_latent_self_penalty=0.0,
+    )
+    weighted_cfg = dataclasses.replace(
+        base_cfg,
+        update_net_latent_penalty=2.5,
+        update_net_latent_self_penalty=0.5,
+    )
+
+    key = jax.random.PRNGKey(0)
+    xs_step = xs[0, :2]
+
+    def _get_penalty(cfg):
+      def step(x):
+        core = multisubject_disrnn.MultisubjectDisRnn(cfg)
+        outputs, _ = core(x, core.initial_state(x.shape[0]))
+        return jnp.sum(outputs[:, -1])
+
+      return float(
+          hk.transform(step).apply(
+              self.multisubject_disrnn_params, key, xs_step
+          )
+      )
+
+    pen_default = _get_penalty(base_cfg)
+    pen_self = _get_penalty(self_only_cfg)
+    pen_between = _get_penalty(between_only_cfg)
+    pen_weighted = _get_penalty(weighted_cfg)
+
+    self.assertGreater(pen_self, 0.0)
+    self.assertGreater(pen_between, 0.0)
+    np.testing.assert_allclose(pen_default, pen_self + pen_between, rtol=1e-5)
+    np.testing.assert_allclose(
+        pen_weighted, 0.5 * pen_self + 2.5 * pen_between, rtol=1e-5
+    )
 
 
 if __name__ == '__main__':
