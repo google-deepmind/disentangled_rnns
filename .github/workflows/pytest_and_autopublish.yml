@@ -88,23 +88,38 @@ jobs:
       if: steps.check_version.outputs.should_publish == 'true'
       uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
 
-    - name: Clean up stale releases from staging repo
+    - name: Clean up failed staging attempt for this exact version (if any)
       if: steps.check_version.outputs.should_publish == 'true'
       run: |
-        packages=$(gcloud artifacts packages list \
-            --project="oss-exit-gate-prod" \
-            --location="us" \
-            --repository="disentangled-rnns--pypi" \
-            --format="value(name)")
-
-        echo "${packages}" | xargs -r -n1 sh -c '
-            echo "Deleting package: $(basename "$1")..."
-            gcloud artifacts packages delete "$1" \
-                --project="oss-exit-gate-prod" \
-                --location="us" \
-                --repository="disentangled-rnns--pypi" \
-                --quiet
-        ' _
+        python3 - <<'PY'
+        import email, glob, re, subprocess, tarfile, zipfile
+        seen = set()
+        for f in sorted(glob.glob("dist/**/*.whl", recursive=True) + glob.glob("dist/**/*.tar.gz", recursive=True)):
+          try:
+            if f.endswith(".whl"):
+              with zipfile.ZipFile(f) as zf:
+                meta = [n for n in zf.namelist() if n.endswith(".dist-info/METADATA")][0]
+                msg = email.message_from_bytes(zf.read(meta))
+            else:
+              with tarfile.open(f) as tf:
+                info = [m for m in tf.getmembers() if m.name.endswith("/PKG-INFO") or m.name == "PKG-INFO"][0]
+                msg = email.message_from_bytes(tf.extractfile(info).read())
+            pkg = re.sub(r"[-_.]+", "-", msg["Name"].strip()).lower()
+            ver = msg["Version"].strip()
+          except Exception:
+            continue
+          if (pkg, ver) in seen:
+            continue
+          seen.add((pkg, ver))
+          if subprocess.run([
+              "gcloud", "artifacts", "versions", "describe", ver,
+              f"--package={pkg}", "--project=oss-exit-gate-prod", "--location=us", "--repository=disentangled-rnns--pypi"
+          ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0:
+            subprocess.run([
+                "gcloud", "artifacts", "versions", "delete", ver,
+                f"--package={pkg}", "--project=oss-exit-gate-prod", "--location=us", "--repository=disentangled-rnns--pypi", "--quiet"
+            ], check=False)
+        PY
 
     - name: Stage to OSS Exit Gate and upload manifest
       if: steps.check_version.outputs.should_publish == 'true'
